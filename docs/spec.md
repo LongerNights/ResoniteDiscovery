@@ -194,7 +194,7 @@ Each requirement has one acceptance test a developer can run in game.
 | F10 | Friends lens lists sessions where contacts are present | A session with one contact present appears; one with none does not | MVP |
 | F11 | Filters: minimum users, capacity (not full), mobile-friendly, headless or user host, device mix (has VR, has screen) | Each filter changes the result count in the expected direction on a known session set | MVP |
 | F12 | Local cache: last result of each lens is shown instantly on open, then refreshed | Reopening the screen shows cards in under 200 ms with an "updating" indicator | MVP |
-| F13 | Settings: default lens (Live Now), join behaviour, show incompatible sessions, snapshot interval, history retention, formula constants, notification toggles | Changes apply without restart | MVP |
+| F13 | Settings: default lens (Live Now), which sections and lenses the rail shows (F28), join behaviour, show incompatible sessions, snapshot interval, history retention, formula constants, notification toggles | Changes apply without restart | MVP |
 | F14 | Sort menu: live users, visits, newest, recently updated, friends present, name, random. Sorts a lens's source cannot honour are disabled | Each sort reorders a known set correctly; server-only sorts are disabled where they cannot apply | MVP |
 | F15 | Local history snapshots and the Trending, Rising and Hidden Gems lenses | After a 2-hour session the lenses populate and a restart keeps them | v1.1 |
 | F16 | Recent lens | Worlds opened through the screen appear newest first, capped at 50 | MVP |
@@ -209,6 +209,7 @@ Each requirement has one acceptance test a developer can run in game.
 | F25 | Failsafe: if the screen fails to attach, the mod logs once and leaves the dash untouched; if live updates pause after repeated errors, the screen shows a "Discover paused" banner. The stock Worlds tab is never modified | Force an exception during attach; the dash and the Worlds tab work normally and the Galaxy Sieve slot is removed | MVP |
 | F26 | Notifications: toast when a favorited world gets a visible live session (on by default) and when contacts join a favorited world (off by default); each toggled in settings and rate-limited | Starting a public session in a favorited world from a second account shows exactly one toast | v1.1 |
 | F27 | New lens minimum-visits chip, off by default | With the chip at 10, worlds under 10 visits are hidden | MVP |
+| F28 | Customizable rail: Settings can switch off a whole section (Live, Browse, Mine) or any single lens in it (Live Now, Friends, New, Most Visited, Featured, Random, Favorites, Your lists, Recent, My Worlds, Group Worlds). Hidden lenses leave the rail and cannot be opened; a hidden section takes all its lenses with it but remembers their own switches. At least one lens outside Your lists always stays on. If the current lens or the default lens is hidden, the screen moves to the first visible lens. "Live lenses only" (item 9 under Safety) stays and acts as an override that also hides every search lens. Choices are saved per account in `settings.json` (`hiddenSections`, `hiddenLenses`) and apply without restart | Hide Browse: New, Most Visited, Featured and Random disappear and no search request is sent. Show it again: the lenses return with their own switches as they were | MVP |
 
 **Search term syntax.** The engine's own feed parses optional, required and excluded terms. The mod uses its own parser with the same meaning, because the engine parser's location in the assemblies is unconfirmed. Plain terms are matched case-insensitively against name, description, tags and author, as the engine does for its merged entries. For record search, terms that match a known tag syntax are sent as tag lists and the rest are filtered client-side on the returned page. Search applies to the current lens only: search-backed lenses send it with the query, local and live lenses filter in memory. `+tag:` and `-tag:` also match personal tags, which never go to the server.
 
@@ -222,7 +223,7 @@ The screen must look like part of the dash. It reuses the stock screen layout gr
 
 | Region | Cells (X, Y, W, H) | Contents |
 | --- | --- | --- |
-| Lens rail | 0, 0, 12, 36 | Lens buttons grouped as Live (Live Now, Friends), Browse (New, Most Visited, Featured, Random), Insights (Trending, Rising, Hidden Gems), Mine (Favorites, each named list, "+ New list", Recent, My Worlds, Group Worlds). Filters are not in the rail: they open from the top bar (M3 design) |
+| Lens rail | 0, 0, 12, 36 | Lens buttons grouped as Live (Live Now, Friends), Browse (New, Most Visited, Featured, Random), Insights (Trending, Rising, Hidden Gems), Mine (Favorites, each named list, "+ New list", Recent, My Worlds, Group Worlds). Each section and lens can be switched off in Settings (F28). Filters are not in the rail: they open from the top bar (M3 design) |
 | Top bar | 12, 0, 52, 3 | Search box, Sort button (opens the sort menu), Filters button with a count (opens the filters popover), refresh button; the grid or list toggle arrives later |
 | Chip bar | 12, 3, 52, 2 | Tag chips (click to cycle required, excluded, cleared; the user's own tags in orange) and Clear all. Filter settings are counted on the Filters button instead of shown as chips |
 | Results | 12, 5, 52, 28 | Scrolling card grid, 4 columns |
@@ -452,7 +453,7 @@ Aggregation is incremental: a session event marks only its world entry dirty, an
 6. The mod does not bypass moderation, asset protection or access levels, as the [mod and plugin policy](https://policies.resonite.com/ModAndPlugin) requires.
 7. The record search endpoint is documented as work in progress with no guarantees, so all parsing is tolerant and an unavailable search never blocks the live lenses.
 8. A user-defined hidden word list (v1.1) filters on tags and names, since the platform itself has no content-warning tags. Defaults to empty.
-9. Settings include a "Live lenses only" switch that disables all record search calls.
+9. Settings include a "Live lenses only" switch that disables all record search calls. It overrides the per-lens choices (F28): every search lens is hidden while it is on.
 
 ## Testing, verification and open questions
 

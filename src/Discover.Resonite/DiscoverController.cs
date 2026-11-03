@@ -35,7 +35,7 @@ internal sealed class DiscoverController : IBrowseActions
 
     private readonly Engine _engine;
     private readonly World _world;
-    private readonly DiscoverSettings _settings;
+    private DiscoverSettings _settings;
     private readonly DiscoveryIndex _index = new();
     private readonly SessionChangeQueue _queue = new();
     private readonly EngineSessionAdapter _adapter;
@@ -59,6 +59,8 @@ internal sealed class DiscoverController : IBrowseActions
     private int _seed;
     private List<string> _pageKeys = [];
     private string? _listId;
+    private string? _groupId;
+    private string? _groupName;
 
     // The user's own data, per account (spec Integration §5). Loaded once the signed-in account is known.
     private string? _accountId;
@@ -405,6 +407,8 @@ internal sealed class DiscoverController : IBrowseActions
             LensKind.New => RecordLenses.New(),
             LensKind.Featured => RecordLenses.Featured(),
             LensKind.Random => RecordLenses.Random(),
+            LensKind.MyWorlds when _accountId is not null => RecordLenses.MyWorlds(_accountId),
+            LensKind.GroupWorlds when _groupId is not null => RecordLenses.GroupWorlds(_groupId),
             _ => RecordLenses.MostVisited(),
         };
 
@@ -640,7 +644,9 @@ internal sealed class DiscoverController : IBrowseActions
             }
             else if (_pager.Error is null)
             {
-                emptyMessage = UiStrings.Get("empty.loading");
+                emptyMessage = UiStrings.Get(_pager.UpdatedUtc is not null
+                    ? _lens switch { LensKind.MyWorlds => "empty.myWorlds", LensKind.GroupWorlds => "empty.groupWorlds", _ => "empty.noMatch" }
+                    : "empty.loading");
             }
         }
 
@@ -652,7 +658,9 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         var listInfos = _library is null ? [] : LibraryViews.ListInfos(_library);
-        var title = _lens == LensKind.NamedList && _library?.GetList(_listId ?? "") is { } list ? list.Name : RailBuilder.Title(_lens);
+        var title = _lens == LensKind.NamedList && _library?.GetList(_listId ?? "") is { } list ? list.Name
+            : _lens == LensKind.GroupWorlds && _groupName is not null ? RailBuilder.Title(_lens) + " · " + CardText.Ellipsize(_groupName, 24)
+            : RailBuilder.Title(_lens);
 
         var view = new BrowseView(
             _lens,
@@ -663,7 +671,8 @@ internal sealed class DiscoverController : IBrowseActions
                 _library?.Favorites.Count ?? 0,
                 listInfos,
                 _library?.Recent.Count ?? 0,
-                _listId),
+                _listId,
+                _settings),
             title,
             RailBuilder.Subtitle(_lens),
             RailBuilder.Count(_lens, all.Count, people),
@@ -683,7 +692,8 @@ internal sealed class DiscoverController : IBrowseActions
             _filters,
             _showOtherVersions,
             source == LensSource.Sessions,
-            ListTools: _lens == LensKind.NamedList && _library is not null);
+            ListTools: _lens == LensKind.NamedList && _library is not null,
+            ShowNewList: _settings.IsVisible(LensKind.NamedList));
 
         _ui.Render(view);
     }
@@ -777,8 +787,17 @@ internal sealed class DiscoverController : IBrowseActions
         _library = _store.LoadLibrary();
         _saver = new LibrarySaver(_store, _library, _settings.MinWriteInterval);
         _library.Changed += _ => _dirty = true;
+        var firstAccount = _accountId is null;
         _accountId = id;
         _organizeKey = null;
+        _settings = LensCatalog.Normalize(_store.LoadSettings());
+        if (firstAccount && _settings.DefaultLens != _lens && _settings.DefaultLens != LensKind.NamedList)
+        {
+            _lens = _settings.DefaultLens;
+            ResetSortForLens();
+            QueryChanged();
+        }
+
         _hydrationRequested.Clear();
         _dirty = true;
         UniLog.Log("[Discover] Account data loaded");
@@ -806,13 +825,71 @@ internal sealed class DiscoverController : IBrowseActions
 
     // ------------------------------------------------------------------ actions (IBrowseActions)
 
-    public void SelectLens(LensKind lens) => GoToLens(lens, null);
+    public void SelectLens(LensKind lens)
+    {
+        if (lens == LensKind.GroupWorlds)
+        {
+            PickGroup();
+            return;
+        }
+
+        GoToLens(lens, null);
+    }
+
+    /// <summary>
+    /// Group Worlds: the engine's cached memberships (no request). One group opens directly; several ask through the
+    /// confirmation panel, which holds four choices.
+    /// </summary>
+    private void PickGroup()
+    {
+        List<(string Id, string Name)> groups;
+        try
+        {
+            groups = _engine.Cloud.Groups.CurrentUserMemberships
+                .Where(m => !string.IsNullOrEmpty(m.GroupId))
+                .Select(m => (m.GroupId, m.GroupName ?? m.GroupId))
+                .OrderBy(g => g.Item2, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            groups = [];
+        }
+
+        if (groups.Count == 0)
+        {
+            Notice(UiStrings.Get("notice.noGroups"));
+            return;
+        }
+
+        void Choose((string Id, string Name) group)
+        {
+            _groupId = group.Id;
+            _groupName = group.Name;
+            GoToLens(LensKind.GroupWorlds, null, force: true);
+        }
+
+        if (groups.Count == 1)
+        {
+            Choose(groups[0]);
+            return;
+        }
+
+        const int Max = 4;
+        if (groups.Count > Max)
+        {
+            Notice(UiStrings.Format("notice.moreGroups", Max));
+        }
+
+        var choices = groups.Take(Max).Select(g => (CardText.Ellipsize(_ui!.PlainText(g.Name), 28), (Action)(() => Choose(g)))).ToList();
+        _ui?.ShowConfirm(UiStrings.Get("confirm.groupTitle"), UiStrings.Get("confirm.groupBody"), choices);
+    }
 
     public void SelectList(string listId) => GoToLens(LensKind.NamedList, listId);
 
-    private void GoToLens(LensKind lens, string? listId)
+    private void GoToLens(LensKind lens, string? listId, bool force = false)
     {
-        if (lens == _lens && listId == _listId && !_transitioning)
+        if (!force && lens == _lens && listId == _listId && !_transitioning)
         {
             return;
         }
@@ -1059,6 +1136,119 @@ internal sealed class DiscoverController : IBrowseActions
         IReadOnlyList<string> mine = forSearch || _library is null || _organizeKey is null ? [] : _library.TagsFor(_organizeKey);
         var known = forSearch ? Known().Where(t => !t.Any(char.IsWhiteSpace)) : Known();
         return TagSuggester.Suggest(typed, known, mine, forSearch ? 4 : 5);
+    }
+
+    public void OpenDetails(string key)
+    {
+        if (_ui is null || (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry)))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var card = CardBuilder.Build(entry, _join.OpenSession(entry), now, _library?.IsStarred(key) ?? false);
+        _ui.ShowDetails(DetailBuilder.Build(entry, card, now));
+    }
+
+    // ---- settings, export and import
+
+    private SettingsModel SettingsView() =>
+        new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings);
+
+    public void OpenSettings() => _ui?.ShowSettings(SettingsView());
+
+    public void ToggleSetting(SettingKey key)
+    {
+        switch (key)
+        {
+            case SettingKey.Animations:
+                _settings = _settings with { AnimateTransitions = !_settings.AnimateTransitions };
+                break;
+            case SettingKey.LiveOnly:
+                _settings = LensCatalog.Normalize(_settings with { LiveLensesOnly = !_settings.LiveLensesOnly });
+                if (!_settings.LiveLensesOnly)
+                {
+                    QueryChanged();
+                }
+
+                EnsureLensVisible();
+                break;
+            case SettingKey.StartLens:
+                var openable = LensCatalog.Openable(_settings);
+                var at = openable.ToList().IndexOf(_settings.DefaultLens);
+                _settings = _settings with { DefaultLens = openable[(at + 1) % openable.Count] };
+                break;
+        }
+
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
+    public void ToggleLens(LensKind lens) => ApplyVisibility(LensCatalog.ToggleLens(_settings, lens));
+
+    public void ToggleSection(RailSectionId section) => ApplyVisibility(LensCatalog.ToggleSection(_settings, section));
+
+    /// <summary>Spec F28. The same instance back means the change would have left nothing to open.</summary>
+    private void ApplyVisibility(DiscoverSettings next)
+    {
+        if (ReferenceEquals(next, _settings))
+        {
+            Notice(UiStrings.Get("notice.keepOne"));
+            return;
+        }
+
+        _settings = next;
+        EnsureLensVisible();
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+        _dirty = true;
+    }
+
+    /// <summary>If the lens being shown was switched off, move to the first one that is on.</summary>
+    private void EnsureLensVisible()
+    {
+        if (!_settings.IsVisible(_lens))
+        {
+            GoToLens(LensCatalog.FirstVisible(_settings), null);
+        }
+    }
+
+    public void ExportLibrary()
+    {
+        if (_store is null || _library is null)
+        {
+            Notice(UiStrings.Get("notice.signIn"));
+            return;
+        }
+
+        try
+        {
+            _store.WriteExport(_library);
+            Notice(UiStrings.Get("notice.exported"));
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Export failed: {ex.GetType().Name}");
+        }
+    }
+
+    public void ImportLibrary()
+    {
+        if (_store is null || _library is null)
+        {
+            Notice(UiStrings.Get("notice.signIn"));
+            return;
+        }
+
+        var data = _store.ReadExport();
+        if (data is null)
+        {
+            Notice(UiStrings.Get("notice.noExport"));
+            return;
+        }
+
+        var result = _library.Import(data);
+        Notice(UiStrings.Format("notice.imported", result.FavoritesAdded, result.ListsAdded, result.TagsAdded));
     }
 
     public void OrganizeAddTag(string tag)

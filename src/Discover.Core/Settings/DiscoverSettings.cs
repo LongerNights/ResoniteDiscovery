@@ -39,6 +39,12 @@ public sealed record DiscoverSettings
 
     public Lenses.LensKind DefaultLens { get; init; } = Lenses.LensKind.LiveNow;
     public bool LiveLensesOnly { get; init; }
+
+    /// <summary>Rail sections switched off (spec F28). Their lenses keep their own switches.</summary>
+    public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [];
+
+    /// <summary>Lenses switched off one by one (spec F28).</summary>
+    public IReadOnlyList<Lenses.LensKind> HiddenLenses { get; init; } = [];
     public bool ShowIncompatibleSessions { get; init; }
     public bool JoinShowsSessionList { get; init; }
 

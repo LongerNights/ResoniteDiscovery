@@ -1,3 +1,4 @@
+using Discover.Core.Settings;
 using Discover.Core.Lenses;
 using Discover.Core.Model;
 
@@ -161,7 +162,7 @@ public sealed record RailItem(LensKind Lens, string Label, string? Count, bool S
 /// <summary>A named list as the rail sees it.</summary>
 public sealed record ListInfo(string Id, string Name, int Count);
 
-public sealed record RailSection(string Label, IReadOnlyList<RailItem> Items);
+public sealed record RailSection(string Label, IReadOnlyList<RailItem> Items, RailSectionId Id = RailSectionId.Live);
 
 /// <summary>One row of the sort menu: enabled only when the lens can honour it (spec F14).</summary>
 public sealed record SortItem(SortKey Key, string Label, string Hint, bool Enabled, bool Selected);
@@ -179,27 +180,39 @@ public static class RailBuilder
         int favoritesCount = 0,
         IReadOnlyList<ListInfo>? lists = null,
         int recentCount = 0,
-        string? selectedListId = null) =>
+        string? selectedListId = null,
+        DiscoverSettings? visibility = null) => Filter(
     [
-        new RailSection(UiStrings.Get("rail.live"),
+        new RailSection(UiStrings.Get("rail.live"), Id: RailSectionId.Live, Items:
         [
             new RailItem(LensKind.LiveNow, UiStrings.Get("lens.liveNow"), liveNowCount > 0 ? liveNowCount.ToString() : null, selected == LensKind.LiveNow),
             new RailItem(LensKind.Friends, UiStrings.Get("lens.friends"), friendsCount > 0 ? friendsCount.ToString() : null, selected == LensKind.Friends),
         ]),
-        new RailSection(UiStrings.Get("rail.browse"),
+        new RailSection(UiStrings.Get("rail.browse"), Id: RailSectionId.Browse, Items:
         [
             new RailItem(LensKind.New, UiStrings.Get("lens.new"), null, selected == LensKind.New),
             new RailItem(LensKind.MostVisited, UiStrings.Get("lens.mostVisited"), null, selected == LensKind.MostVisited),
             new RailItem(LensKind.Featured, UiStrings.Get("lens.featured"), null, selected == LensKind.Featured),
             new RailItem(LensKind.Random, UiStrings.Get("lens.random"), null, selected == LensKind.Random),
         ]),
-        new RailSection(UiStrings.Get("rail.mine"),
+        new RailSection(UiStrings.Get("rail.mine"), Id: RailSectionId.Mine, Items:
         [
             new RailItem(LensKind.Favorites, UiStrings.Get("lens.favorites"), favoritesCount > 0 ? favoritesCount.ToString() : null, selected == LensKind.Favorites),
             .. (lists ?? []).Select(l => new RailItem(LensKind.NamedList, l.Name, l.Count > 0 ? l.Count.ToString() : null, selected == LensKind.NamedList && l.Id == selectedListId, l.Id)),
             new RailItem(LensKind.Recent, UiStrings.Get("lens.recent"), recentCount > 0 ? recentCount.ToString() : null, selected == LensKind.Recent),
+            new RailItem(LensKind.MyWorlds, UiStrings.Get("lens.myWorlds"), null, selected == LensKind.MyWorlds),
+            new RailItem(LensKind.GroupWorlds, UiStrings.Get("lens.groupWorlds"), null, selected == LensKind.GroupWorlds),
         ]),
-    ];
+    ], visibility);
+
+    /// <summary>Settings (F28): sections and lenses that are switched off are left off the rail.</summary>
+    private static IReadOnlyList<RailSection> Filter(RailSection[] sections, DiscoverSettings? visibility) => visibility is null
+        ? sections
+        : sections
+            .Where(s => visibility.IsSectionOn(s.Id))
+            .Select(s => s with { Items = s.Items.Where(i => visibility.IsVisible(i.Lens)).ToList() })
+            .Where(s => LensCatalog.LensesOf(s.Id).Any(visibility.IsVisible))
+            .ToList();
 
     public static string Title(LensKind lens) => lens switch
     {
@@ -212,6 +225,8 @@ public static class RailBuilder
         LensKind.Favorites => UiStrings.Get("lens.favorites"),
         LensKind.Recent => UiStrings.Get("lens.recent"),
         LensKind.NamedList => UiStrings.Get("lens.list"),
+        LensKind.MyWorlds => UiStrings.Get("lens.myWorlds"),
+        LensKind.GroupWorlds => UiStrings.Get("lens.groupWorlds"),
         _ => lens.ToString(),
     };
 
@@ -226,6 +241,8 @@ public static class RailBuilder
         LensKind.Favorites => UiStrings.Get("lens.favorites.sub"),
         LensKind.Recent => UiStrings.Get("lens.recent.sub"),
         LensKind.NamedList => UiStrings.Get("lens.list.sub"),
+        LensKind.MyWorlds => UiStrings.Get("lens.myWorlds.sub"),
+        LensKind.GroupWorlds => UiStrings.Get("lens.groupWorlds.sub"),
         _ => "",
     };
 
