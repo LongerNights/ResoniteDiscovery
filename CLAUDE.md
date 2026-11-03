@@ -34,6 +34,8 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 ## Current status
 
+**Milestone M4b — My Worlds, Group Worlds, detail panel, settings with a customizable rail (F28), export/import: installed 2026-11-02; grid/list toggle and copy-URL deferred** (`docs/m4b-test-plan.md`). 348 tests.
+
 **Milestone M4a — Your stuff: working in game 2026-11-02** (favorites, lists, tags with typed entry and prediction, Recent; custom-id sessions are saveable, random-id ones are not). Favorites (star on cards), named lists (rail, rename/move/delete, organize panel), personal tags (orange chips and card tags), Recent, per-account files loaded once the account is known. 315 tests. In-game steps: `docs/m4a-test-plan.md`. Next: M4b (My Worlds, Group Worlds, detail drawer, settings screen, export/import buttons, grid/list toggle).
 
 **Milestone M3 — Record lenses: working in game 2026-11-03 (F27 and the 30-minute network trace not yet confirmed).** Search lenses (New,

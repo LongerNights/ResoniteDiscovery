@@ -1,3 +1,4 @@
+using Discover.Core.Settings;
 using Discover.Core.Lenses;
 using Discover.Core.Model;
 using Discover.Core.Presentation;
@@ -128,10 +129,22 @@ public class CardModelTests
 
         var mine = RailBuilder.Build(LensKind.NamedList, 0, 0, favoritesCount: 5, lists: lists, recentCount: 2, selectedListId: "b")[2];
 
-        Assert.Equal(["Favorites", "Games", "Art", "Recent"], mine.Items.Select(i => i.Label));
-        Assert.Equal(["5", "3", null, "2"], mine.Items.Select(i => i.Count));
+        Assert.Equal(["Favorites", "Games", "Art", "Recent", "My Worlds", "Group Worlds"], mine.Items.Select(i => i.Label));
+        Assert.Equal(["5", "3", null, "2", null, null], mine.Items.Select(i => i.Count));
         Assert.Equal("Art", Assert.Single(mine.Items, i => i.Selected).Label); // only the chosen list is lit
         Assert.Equal(["a", "b"], mine.Items.Where(i => i.Lens == LensKind.NamedList).Select(i => i.ListId));
+    }
+
+    [Fact]
+    public void LiveOnlyLeavesSearchLensesOffTheRail()
+    {
+        var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: new DiscoverSettings { LiveLensesOnly = true });
+
+        var lenses = rail.SelectMany(s => s.Items).Select(i => i.Lens).ToList();
+        Assert.DoesNotContain(LensKind.New, lenses);
+        Assert.DoesNotContain(LensKind.MyWorlds, lenses);
+        Assert.Contains(LensKind.Favorites, lenses);
+        Assert.DoesNotContain(rail, s => s.Items.Count == 0 && s.Id == RailSectionId.Browse); // Browse goes with its lenses
     }
 
     [Fact]

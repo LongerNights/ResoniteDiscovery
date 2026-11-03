@@ -1,6 +1,7 @@
 using Discover.Core.Lenses;
 using Discover.Core.Presentation;
 using Discover.Core.Search;
+using Discover.Core.Settings;
 using Elements.Assets;
 using Elements.Core;
 using FrooxEngine;
@@ -109,10 +110,11 @@ internal sealed class DiscoverUi
         {
             ui.Style.MinHeight = 34f;
             var section = ui.Text((LocaleString)label, bestFit: true, alignment: Alignment.BottomLeft);
+            _railHeaders[label] = section.Slot;
             Clamp(section, 14f, 20f);
             section.Color.Value = Theme.TextSecondary;
 
-            ui.Style.MinHeight = 46f;
+            ui.Style.MinHeight = 40f;
             foreach (var lens in lenses)
             {
                 AddRailButton(ui, lens);
@@ -122,10 +124,11 @@ internal sealed class DiscoverUi
         // MINE: Favorites, the named lists (a small pool), "+ New list", Recent.
         ui.Style.MinHeight = 34f;
         var mine = ui.Text((LocaleString)UiStrings.Get("rail.mine"), bestFit: true, alignment: Alignment.BottomLeft);
+        _railHeaders[UiStrings.Get("rail.mine")] = mine.Slot;
         Clamp(mine, 14f, 20f);
         mine.Color.Value = Theme.TextSecondary;
 
-        ui.Style.MinHeight = 46f;
+        ui.Style.MinHeight = 40f;
         AddRailButton(ui, LensKind.Favorites);
         for (var i = 0; i < MaxListButtons; i++)
         {
@@ -143,14 +146,19 @@ internal sealed class DiscoverUi
             _listButtons.Add((button, label));
         }
 
-        var newList = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
-        newList.LocalPressed += (_, _) => _actions.NewListPrompt();
+        _newListButton = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
+        _newListButton.LocalPressed += (_, _) => _actions.NewListPrompt();
         AddRailButton(ui, LensKind.Recent);
+        AddRailButton(ui, LensKind.MyWorlds);
+        AddRailButton(ui, LensKind.GroupWorlds);
 
         ui.NestOut();
         ui.NestOut();
         ui.NestOut();
     }
+
+    private readonly Dictionary<string, Slot> _railHeaders = [];
+    private Button _newListButton = null!;
 
     private void AddRailButton(UIBuilder ui, LensKind lens)
     {
@@ -195,7 +203,7 @@ internal sealed class DiscoverUi
     private void BuildTopBar(UIBuilder ui, RectTransform topBar)
     {
         ui.NestInto(topBar);
-        var parts = ui.SplitHorizontally(0.46f, 0.20f, 0.19f, 0.15f);
+        var parts = ui.SplitHorizontally(0.38f, 0.18f, 0.16f, 0.14f, 0.14f);
         foreach (var part in parts)
         {
             part.AddFixedPadding(8f);
@@ -226,6 +234,12 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[3]);
         var refresh = ui.Button((LocaleString)UiStrings.Get("bar.refresh"));
         refresh.LocalPressed += (_, _) => _actions.Refresh();
+        ui.NestOut();
+
+        ui.NestInto(parts[4]);
+        var settings = ui.Button((LocaleString)UiStrings.Get("bar.settings"), Theme.ButtonQuiet);
+        Clamp(settings.Slot.GetComponentInChildren<Text>(), 14f, 22f);
+        settings.LocalPressed += (_, _) => _actions.OpenSettings();
         ui.NestOut();
 
         ui.NestOut();
@@ -391,6 +405,8 @@ internal sealed class DiscoverUi
         BuildConfirm(ui);
         BuildOrganize(ui);
         BuildPrompt(ui);
+        BuildSettings(ui);
+        BuildDetails(ui);
     }
 
     /// <summary>A full-pane press target. Hidden until needed; its colour is fixed so the button cannot recolour it.</summary>
@@ -606,6 +622,10 @@ internal sealed class DiscoverUi
         _confirmScrim.ActiveSelf = false;
         _organizePanel.ActiveSelf = false;
         _organizeScrim.ActiveSelf = false;
+        _settingsPanel.ActiveSelf = false;
+        _settingsScrim.ActiveSelf = false;
+        _detailPanel.ActiveSelf = false;
+        _detailScrim.ActiveSelf = false;
         ClosePrompt();
     }
 
@@ -905,6 +925,279 @@ internal sealed class DiscoverUi
         _organizePanel.ActiveSelf = true;
     }
 
+    // ---- detail panel (spec F18): everything known about one world, with Join and Lists
+
+    private Slot _detailScrim = null!;
+    private Slot _detailPanel = null!;
+    private Text _detailTitle = null!;
+    private Text _detailBy = null!;
+    private Text _detailDescription = null!;
+    private Text _detailTags = null!;
+    private Text _detailSessions = null!;
+    private Text _detailDevices = null!;
+    private Button _detailAction = null!;
+    private Text _detailActionLabel = null!;
+    private Button _detailLists = null!;
+    private string? _detailKey;
+
+    private void BuildDetails(UIBuilder ui)
+    {
+        _detailScrim = Catcher(ui, "DetailScrim", Theme.ConfirmScrim, CloseMenus);
+
+        var slot = ui.Empty("Detail");
+        var rect = slot.GetComponent<RectTransform>();
+        rect.AnchorMin.Value = new float2(0.18f, 0.06f);
+        rect.AnchorMax.Value = new float2(0.82f, 0.94f);
+        ui.NestInto(rect);
+        ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize);
+        var layout = ui.VerticalLayout(8f, 22f, Alignment.TopCenter);
+        layout.ForceExpandHeight.Value = false;
+
+        ui.Style.MinHeight = 56f;
+        _detailTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Clamp(_detailTitle, 22f, 34f);
+        _detailTitle.Color.Value = Theme.Heading;
+
+        ui.Style.MinHeight = 28f;
+        _detailBy = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Clamp(_detailBy, 13f, 18f);
+        _detailBy.Color.Value = Theme.TextSecondary;
+
+        ui.Style.MinHeight = 110f;
+        _detailDescription = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
+        Clamp(_detailDescription, 13f, 20f);
+
+        ui.Style.MinHeight = 26f;
+        var tagsHeader = ui.Text((LocaleString)UiStrings.Get("detail.tags"), bestFit: true, alignment: Alignment.BottomLeft);
+        Clamp(tagsHeader, 12f, 17f);
+        tagsHeader.Color.Value = Theme.TextSecondary;
+        ui.Style.MinHeight = 52f;
+        _detailTags = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
+        Clamp(_detailTags, 12f, 18f);
+
+        ui.Style.MinHeight = 26f;
+        var sessionsHeader = ui.Text((LocaleString)UiStrings.Get("detail.sessions"), bestFit: true, alignment: Alignment.BottomLeft);
+        Clamp(sessionsHeader, 12f, 17f);
+        sessionsHeader.Color.Value = Theme.TextSecondary;
+        ui.Style.MinHeight = 96f;
+        _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
+        Clamp(_detailSessions, 12f, 18f);
+        ui.Style.MinHeight = 26f;
+        _detailDevices = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Clamp(_detailDevices, 12f, 17f);
+        _detailDevices.Color.Value = Theme.TextSecondary;
+
+        ui.Style.MinHeight = 50f;
+        var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        _detailAction = ui.Button((LocaleString)"", Theme.ButtonSelected);
+        _detailActionLabel = _detailAction.Slot.GetComponentInChildren<Text>();
+        _detailAction.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key)
+            {
+                CloseMenus();
+                _actions.CardPressed(key);
+            }
+        };
+        _detailLists = ui.Button((LocaleString)UiStrings.Get("card.organize"));
+        _detailLists.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key)
+            {
+                CloseMenus();
+                _actions.OpenOrganize(key);
+            }
+        };
+        var close = ui.Button((LocaleString)UiStrings.Get("detail.close"), Theme.ButtonQuiet);
+        close.LocalPressed += (_, _) => CloseMenus();
+        ui.NestOut();
+
+        ui.NestOut();
+        ui.NestOut();
+        ui.NestOut();
+        slot.ActiveSelf = false;
+        _detailPanel = slot;
+    }
+
+    public void ShowDetails(DetailModel model)
+    {
+        CloseMenus();
+        _detailKey = model.Key;
+        _detailTitle.Content.Value = "<nobr>" + Plain(model.Title) + "</nobr>";
+        _detailBy.Content.Value = "<nobr>" + Plain(model.ByLine) + "</nobr>";
+        _detailDescription.Content.Value = Plain(model.Description);
+        _detailTags.Content.Value = Plain(model.Tags);
+        _detailSessions.Content.Value = Plain(model.Sessions);
+        _detailDevices.Content.Value = Plain(model.Devices);
+        _detailLists.Slot.ActiveSelf = model.CanSave;
+        _detailActionLabel.Content.Value = UiStrings.Get(model.Action switch
+        {
+            CardAction.GoThere => "card.goThere",
+            CardAction.NewSession => "card.newSession",
+            CardAction.Full => "card.full",
+            CardAction.Offline => "card.offline",
+            CardAction.OtherVersion => "card.otherVersion",
+            _ => "card.join",
+        });
+        var enabled = model.Action is CardAction.Join or CardAction.GoThere or CardAction.NewSession;
+        _detailAction.Enabled = enabled;
+        _detailAction.ColorDrivers[0].SetColors(enabled ? Theme.ButtonSelected : Theme.ButtonQuiet);
+        _detailScrim.ActiveSelf = true;
+        _detailPanel.ActiveSelf = true;
+    }
+
+    // ---- settings panel: the sidebar's sections and lenses on the left, general options and your data on the right
+
+    private Slot _settingsScrim = null!;
+    private Slot _settingsPanel = null!;
+    private Text _animationsLabel = null!;
+    private Text _liveOnlyLabel = null!;
+    private Text _startLensLabel = null!;
+    private readonly Dictionary<RailSectionId, (Button Button, Text Label)> _sectionRows = [];
+    private readonly Dictionary<LensKind, (Button Button, Text Label)> _lensRows = [];
+
+    private void BuildSettings(UIBuilder ui)
+    {
+        _settingsScrim = Catcher(ui, "SettingsScrim", Theme.ConfirmScrim, CloseMenus);
+
+        var slot = ui.Empty("Settings");
+        var rect = slot.GetComponent<RectTransform>();
+        rect.AnchorMin.Value = new float2(0.10f, 0.03f);
+        rect.AnchorMax.Value = new float2(0.90f, 0.97f);
+        ui.NestInto(rect);
+        ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize);
+        var layout = ui.VerticalLayout(8f, 20f, Alignment.TopCenter);
+        layout.ForceExpandHeight.Value = false;
+
+        ui.Style.MinHeight = 48f;
+        var title = ui.Text((LocaleString)UiStrings.Get("settings.title"), bestFit: true, alignment: Alignment.MiddleCenter);
+        Clamp(title, 24f, 36f);
+        title.Color.Value = Theme.Heading;
+
+        ui.Style.MinHeight = 0f;
+        ui.Style.FlexibleHeight = 1f;
+        var columns = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
+        columns.ForceExpandHeight.Value = false;
+        ui.Style.FlexibleHeight = -1f;
+
+        // Left: one switch per section, and one per lens under it.
+        ui.Style.FlexibleWidth = 1f;
+        var left = ui.VerticalLayout(5f, 0f, Alignment.TopCenter);
+        left.ForceExpandHeight.Value = false;
+        ui.Style.FlexibleWidth = -1f;
+        SettingsHeading(ui, UiStrings.Get("settings.sidebar"));
+        foreach (var section in LensCatalog.Sections)
+        {
+            ui.Style.MinHeight = 36f;
+            var id = section;
+            _sectionRows[section] = SettingsRow(ui, () => _actions.ToggleSection(id));
+            foreach (var lens in LensCatalog.LensesOf(section))
+            {
+                ui.Style.MinHeight = 32f;
+                var kind = lens;
+                _lensRows[lens] = SettingsRow(ui, () => _actions.ToggleLens(kind));
+            }
+        }
+
+        ui.NestOut();
+
+        // Right: general options and the export and import buttons.
+        ui.Style.FlexibleWidth = 1f;
+        var right = ui.VerticalLayout(8f, 0f, Alignment.TopCenter);
+        right.ForceExpandHeight.Value = false;
+        ui.Style.FlexibleWidth = -1f;
+        SettingsHeading(ui, UiStrings.Get("settings.general"));
+        ui.Style.MinHeight = 44f;
+        _animationsLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.Animations)).Label;
+        _liveOnlyLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.LiveOnly)).Label;
+        _startLensLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.StartLens)).Label;
+
+        SettingsHeading(ui, UiStrings.Get("settings.data"));
+        ui.Style.MinHeight = 44f;
+        var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        var export = ui.Button((LocaleString)UiStrings.Get("settings.export"));
+        export.LocalPressed += (_, _) => _actions.ExportLibrary();
+        var import = ui.Button((LocaleString)UiStrings.Get("settings.import"));
+        import.LocalPressed += (_, _) => _actions.ImportLibrary();
+        ui.NestOut();
+
+        ui.Style.MinHeight = 90f;
+        var note = ui.Text((LocaleString)UiStrings.Get("settings.note"), bestFit: true, alignment: Alignment.TopLeft);
+        Clamp(note, 12f, 16f);
+        note.Color.Value = Theme.TextSecondary;
+        ui.NestOut();
+
+        ui.NestOut(); // columns
+
+        ui.Style.MinHeight = 50f;
+        var done = ui.Button((LocaleString)UiStrings.Get("organize.done"), Theme.ButtonSelected);
+        done.LocalPressed += (_, _) => CloseMenus();
+
+        ui.NestOut();
+        ui.NestOut();
+        ui.NestOut();
+        slot.ActiveSelf = false;
+        _settingsPanel = slot;
+    }
+
+    private static void SettingsHeading(UIBuilder ui, string text)
+    {
+        ui.Style.MinHeight = 30f;
+        var heading = ui.Text((LocaleString)text, bestFit: true, alignment: Alignment.BottomLeft);
+        Clamp(heading, 13f, 18f);
+        heading.Color.Value = Theme.TextSecondary;
+    }
+
+    private (Button Button, Text Label) SettingsRow(UIBuilder ui, Action pressed)
+    {
+        var button = ui.Button((LocaleString)"");
+        var label = button.Slot.GetComponentInChildren<Text>();
+        Clamp(label, 13f, 20f);
+        button.LocalPressed += (_, _) => pressed();
+        return (button, label);
+    }
+
+    public void ShowSettings(SettingsModel model)
+    {
+        string OnOff(bool on) => UiStrings.Get(on ? "settings.on" : "settings.off");
+        var settings = model.Settings;
+
+        _animationsLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.animations")}:  {OnOff(model.Animations)}</nobr>";
+        _liveOnlyLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.liveOnly")}:  {OnOff(model.LiveOnly)}</nobr>";
+        _startLensLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.startOn")}:  {Plain(model.StartLens)}</nobr>";
+
+        foreach (var (section, (button, label)) in _sectionRows)
+        {
+            var on = settings.IsSectionOn(section);
+            label.Content.Value = $"<nobr>{SectionName(section)}:  {OnOff(on)}</nobr>";
+            SetColor(button, on ? Theme.ButtonSelected : Theme.ButtonQuiet);
+        }
+
+        foreach (var (lens, (button, label)) in _lensRows)
+        {
+            var switchOn = !settings.HiddenLenses.Contains(lens);
+            var shown = settings.IsVisible(lens);
+            label.Content.Value = $"<nobr>      {Plain(LensName(lens))}:  {OnOff(switchOn)}</nobr>";
+            SetColor(button, shown ? Theme.ButtonSelected : switchOn ? Theme.Button : Theme.ButtonQuiet);
+        }
+
+        if (!_settingsPanel.ActiveSelf)
+        {
+            CloseMenus();
+            _settingsScrim.ActiveSelf = true;
+            _settingsPanel.ActiveSelf = true;
+        }
+    }
+
+    private static string SectionName(RailSectionId section) => UiStrings.Get(section switch
+    {
+        RailSectionId.Live => "rail.live",
+        RailSectionId.Browse => "rail.browse",
+        _ => "rail.mine",
+    });
+
+    private static string LensName(LensKind lens) => lens == LensKind.NamedList ? UiStrings.Get("settings.yourLists") : RailBuilder.Title(lens);
+
     // ---- name prompt: a title, one text field, OK and Cancel (new list, rename list)
 
     private Slot _promptScrim = null!;
@@ -982,6 +1275,8 @@ internal sealed class DiscoverUi
     /// <summary>Plain text shown literally (verification V11).</summary>
     internal static string Plain(string value) => StringParsingHelper.SanitizeFormatTags(value) ?? "";
 
+    internal string PlainText(string value) => Plain(value);
+
     // ------------------------------------------------------------------ binding
 
     /// <summary>Binds a view: rail, header, bars, chips, menus, cards, empty state, banner, footer.</summary>
@@ -992,11 +1287,20 @@ internal sealed class DiscoverUi
             var item = view.Rail.SelectMany(s => s.Items).FirstOrDefault(i => i.Lens == lens);
             if (item is null)
             {
-                continue; // the paused view has no rail
+                button.Slot.ActiveSelf = view.Rail.Count == 0; // left off by "live lenses only"; the paused view has no rail
+                continue;
             }
+
+            button.Slot.ActiveSelf = true;
 
             label.Content.Value = item.Count is null ? item.Label : $"{item.Label}   {item.Count}";
             SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
+        }
+
+        _newListButton.Slot.ActiveSelf = view.ShowNewList || view.Rail.Count == 0;
+        foreach (var (label, header) in _railHeaders)
+        {
+            header.ActiveSelf = view.Rail.Count == 0 || view.Rail.Any(s => s.Label == label);
         }
 
         var listItems = view.Rail.SelectMany(s => s.Items).Where(i => i.Lens == LensKind.NamedList).ToList();
@@ -1298,6 +1602,15 @@ internal sealed class CardView
             if (card.Key is not null)
             {
                 actions.ToggleFavorite(card.Key);
+            }
+        };
+        var info = OverlayButton(ui, UiStrings.Get("card.info"), new float2(0.50f, 0.74f), new float2(0.78f, 0.96f), out var infoLabel);
+        DiscoverUi.Clamp(infoLabel, 12f, 18f);
+        info.LocalPressed += (_, _) =>
+        {
+            if (card.Key is not null)
+            {
+                actions.OpenDetails(card.Key);
             }
         };
         card._organize = OverlayButton(ui, UiStrings.Get("card.organize"), new float2(0.66f, 0.04f), new float2(0.97f, 0.28f), out var organizeLabel);

@@ -128,12 +128,17 @@ public class PersistenceTests
         {
             DefaultLens = Discover.Core.Lenses.LensKind.Friends,
             LiveLensesOnly = true,
+            HiddenSections = [Discover.Core.Lenses.RailSectionId.Browse],
+            HiddenLenses = [Discover.Core.Lenses.LensKind.Recent, Discover.Core.Lenses.LensKind.Friends],
             Formulas = new FormulaSettings { TrendingWindow = TimeSpan.FromHours(3), GemSmoothing = 40 },
         };
 
         store.SaveSettings(settings);
 
-        Assert.Equal(settings, store.LoadSettings());
+        var loaded = store.LoadSettings();
+        Assert.Equal(settings.HiddenSections, loaded.HiddenSections);
+        Assert.Equal(settings.HiddenLenses, loaded.HiddenLenses);
+        Assert.Equal(settings with { HiddenSections = loaded.HiddenSections, HiddenLenses = loaded.HiddenLenses }, loaded);
         Assert.Contains("\"friends\"", File.ReadAllText(Path.Combine(dir.Path, "settings.json")).ToLowerInvariant());
     }
 

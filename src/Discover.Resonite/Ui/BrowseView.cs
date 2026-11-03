@@ -51,13 +51,19 @@ internal sealed record BrowseView(
     BrowseFilters Filters,
     bool ShowOtherVersions,
     bool SessionLens,
-    bool ListTools = false);
+    bool ListTools = false,
+    bool ShowNewList = true);
 
 /// <summary>One list in the organize panel, and whether the world is in it.</summary>
 internal sealed record OrganizeList(string Id, string Name, bool Member);
 
 /// <summary>The organize panel's content: one world's lists and personal tags.</summary>
 internal sealed record OrganizeModel(string Key, string Title, IReadOnlyList<OrganizeList> Lists, IReadOnlyList<string> Tags);
+
+/// <summary>The settings the panel shows.</summary>
+internal sealed record SettingsModel(bool Animations, bool LiveOnly, string StartLens, Discover.Core.Settings.DiscoverSettings Settings);
+
+internal enum SettingKey { Animations, LiveOnly, StartLens }
 
 /// <summary>What the screen's controls do. Called on the update thread, from button and text-field events.</summary>
 internal interface IBrowseActions
@@ -85,6 +91,13 @@ internal interface IBrowseActions
     void OrganizeAddTag(string tag);
     void OrganizeRemoveTag(string tag);
     void OrganizeNewList();
+    void OpenSettings();
+    void OpenDetails(string key);
+    void ToggleSetting(SettingKey key);
+    void ToggleLens(LensKind lens);
+    void ToggleSection(RailSectionId section);
+    void ExportLibrary();
+    void ImportLibrary();
 
     /// <summary>Known tags matching what is typed (the search bar, or the organize panel's tag field).</summary>
     IReadOnlyList<string> SuggestTags(string typed, bool forSearch);
