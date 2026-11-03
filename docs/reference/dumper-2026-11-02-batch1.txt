@@ -1,0 +1,527 @@
+// ResoniteDumper output
+// Install dir: C:\Program Files (x86)\Steam\steamapps\common\Resonite
+// Generated:   2026-11-02 15:43:39
+
+// ===== INDEX =====
+[TYPE] FrooxEngine :: WorldsScreenInitializer -> 1 match(es)
+[TYPE] FrooxEngine :: GridContainerScreen -> 1 match(es)
+[TYPE] FrooxEngine :: GridContainerPreset -> 1 match(es)
+[TYPE] SkyFrost.Base.Models :: SearchSortParameter -> 1 match(es)
+[TYPE] SkyFrost.Base.Models :: SearchSortDirection -> 1 match(es)
+[TYPE] SkyFrost.Base.Models :: OutputDevice -> 1 match(es)
+[TYPE] SkyFrost.Base :: BatchQuery -> 1 match(es)
+[TYPE] FrooxEngine.Store :: SearchQueryParser -> 0 match(es)
+[TYPE] Elements.Assets :: OutputDevice -> 0 match(es)
+
+====================================================================================================
+// REQUEST: type FrooxEngine :: WorldsScreenInitializer
+// FrooxEngine, Version=2026.10.29.1239, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+using Elements.Data;
+
+namespace FrooxEngine;
+
+[DataModelType]
+public class WorldsScreenInitializer
+{
+	public const int VERSION = 3;
+
+	public static int GetVersion()
+	{
+		return 3;
+	}
+
+	public static void InitializeGridContainer(GridContainer grid, int version)
+	{
+		grid.DestroyAllFacets();
+		grid.GetFacetOrAdd<WorldListFacetPreset>("[X=12; Y=0; W=52; H=33]");
+		grid.GetFacetOrAdd<SearchBarFacetPreset>("[X=12; Y=33; W=38; H=3]");
+		grid.GetFacetOrAdd<PagingControlFacetPreset>("[X=50; Y=33; W=14; H=3]");
+		grid.GetFacetOrAdd<WorldFilterFacetPreset>("[X=0; Y=0; W=12; H=36]");
+	}
+}
+
+
+====================================================================================================
+// REQUEST: type FrooxEngine :: GridContainerScreen
+// FrooxEngine, Version=2026.10.29.1239, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+using System;
+using Elements.Core;
+using FrooxEngine.UIX;
+
+namespace FrooxEngine;
+
+[Category(new string[] { "Radiant UI/Screens" })]
+public class GridContainerScreen : RadiantDashScreen
+{
+	protected readonly SyncRef<GridContainer> _gridContainer;
+
+	public override int Version => 8;
+
+	public GridContainer GridContainer => _gridContainer.Target;
+
+	protected override void OnAttach()
+	{
+		base.OnAttach();
+		Icon.Value = OfficialAssets.Common.Icons.Circle;
+		Label.Value = "(empty)";
+		ActiveColor.Value = RandomX.Hue;
+		_gridContainer.Target = SetupAsGridContainer(new int2(64, 36));
+		Slot slot = GridContainer.BackgroundRoot.Slot;
+		BuildBackground(slot);
+		GridContainerAnimatedEditVisual.Setup(GridContainer, slot.AddSlot("EditGrid"));
+		base.Slot.AttachComponent<DynamicVariableSpace>();
+	}
+
+	private GridContainer SetupAsGridContainer(int2 cellCount, float padding = 8f)
+	{
+		base.ScreenCanvas.Slot.DestroyChildren();
+		for (int num = base.ScreenRoot.ChildrenCount - 1; num >= 0; num--)
+		{
+			Slot slot = base.ScreenRoot[num];
+			if (slot != base.ScreenCanvas.Slot)
+			{
+				slot.Destroy();
+			}
+		}
+		Slot slot2 = base.ScreenCanvas.Slot.AddSlot("Container");
+		Slot target = base.ScreenRoot.AddSlot("Facets");
+		slot2.AttachComponent<RectTransform>();
+		GridContainer gridContainer = slot2.AttachComponent<GridContainer>();
+		gridContainer.CellSize.Value = null;
+		gridContainer.CellCount.Value = cellCount;
+		gridContainer.Padding.Value = float2.One * padding;
+		gridContainer.FacetsRoot.Target = target;
+		ValueCopyExtensions.DriveFrom(source: slot2.AttachComponent<UserInterfaceEditModeSync>().EditModeActive, field: gridContainer.EditMode);
+		gridContainer.ComputeGridSizeForRect(BaseResolution.Value);
+		return gridContainer;
+	}
+
+	protected override void OnLoading(DataTreeNode node, LoadControl control)
+	{
+		base.OnLoading(node, control);
+		int typeVersion = control.GetTypeVersion(GetType());
+		if (typeVersion == 0)
+		{
+			control.OnLoaded(this, delegate
+			{
+				base.Slot.AttachComponent<DynamicVariableSpace>();
+			});
+		}
+		if (typeVersion < 2)
+		{
+			control.OnLoaded(this, delegate
+			{
+				int2 value = _gridContainer.Target.ComputeGridSizeForRect(BaseResolution.Value);
+				_gridContainer.Target.CellCount.Value = value;
+				_gridContainer.Target.CellSize.Value = null;
+				_gridContainer.Target.ComputeLastDataForRect(BaseResolution.Value);
+			});
+		}
+		if (typeVersion >= 3)
+		{
+			return;
+		}
+		control.OnLoaded(this, delegate
+		{
+			Image component = _gridContainer.Target.BackgroundRoot.Slot.GetComponent<Image>();
+			if (component != null)
+			{
+				component.Tint.Value = UserspaceRadiantDash.DEFAULT_BACKGROUND;
+			}
+		});
+	}
+
+	public GridContainerPreset GetGridContainerPreset()
+	{
+		return GridContainer.Slot.GetComponent<GridContainerPreset>();
+	}
+
+	public Type GetPresetType()
+	{
+		return GetGridContainerPreset()?.InitializerType;
+	}
+
+	public bool HasPreset(Type initializer)
+	{
+		return initializer == GetPresetType();
+	}
+
+	protected override void InitializeSyncMembers()
+	{
+		base.InitializeSyncMembers();
+		_gridContainer = new SyncRef<GridContainer>();
+	}
+
+	public override ISyncMember GetSyncMember(int index)
+	{
+		return index switch
+		{
+			0 => persistent, 
+			1 => updateOrder, 
+			2 => EnabledField, 
+			3 => Icon, 
+			4 => ActiveColor, 
+			5 => Label, 
+			6 => ScreenEnabled, 
+			7 => BaseResolution, 
+			8 => _screenRoot, 
+			9 => _screenCanvas, 
+			10 => _modalOverlayManager, 
+			11 => _button, 
+			12 => _iconTexture, 
+			13 => _gridContainer, 
+			_ => throw new ArgumentOutOfRangeException(), 
+		};
+	}
+
+	public new static GridContainerScreen __New()
+	{
+		return new GridContainerScreen();
+	}
+}
+
+
+====================================================================================================
+// REQUEST: type FrooxEngine :: GridContainerPreset
+// FrooxEngine, Version=2026.10.29.1239, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+using System;
+using System.Reflection;
+using System.Threading.Tasks;
+using Elements.Core;
+
+namespace FrooxEngine;
+
+[Category(new string[] { "Hidden" })]
+public class GridContainerPreset : Component, IModifiedEventReceiver, IComponent, IComponentBase, IDestroyable, IWorker, IWorldElement, IUpdatable, IChangeable, IAudioUpdatable, IInitializable, ILinkable
+{
+	public const string VERSION_METHOD_NAME = "GetVersion";
+
+	public const string INIT_METHOD_NAME = "InitializeGridContainer";
+
+	protected readonly SyncType _initializer;
+
+	protected readonly Sync<int> _initializedVersion;
+
+	protected readonly Sync<bool> _isModified;
+
+	public Type InitializerType => _initializer.Value;
+
+	public void Initialize(Type type)
+	{
+		_initializer.Value = type;
+		_initializedVersion.Value = -1;
+		StartTask(InitializeWhenReady);
+	}
+
+	protected override void OnAwake()
+	{
+		base.OnAwake();
+		_initializedVersion.Value = -1;
+	}
+
+	private void RunInitializer()
+	{
+		Type value = _initializer.Value;
+		if (value == null)
+		{
+			return;
+		}
+		GridContainer component = base.Slot.GetComponent<GridContainer>();
+		if (component == null)
+		{
+			return;
+		}
+		MethodInfo method = value.GetMethod("InitializeGridContainer", BindingFlags.Static | BindingFlags.Public);
+		if (method == null)
+		{
+			UniLog.Warning($"Could not find {"InitializeGridContainer"} method on {value}");
+			return;
+		}
+		MethodInfo method2 = value.GetMethod("GetVersion", BindingFlags.Static | BindingFlags.Public);
+		if (method2 == null)
+		{
+			UniLog.Warning($"Could not find {"GetVersion"} method on {value}");
+			return;
+		}
+		try
+		{
+			GridContainerInitializer gridContainerInitializer = method.CreateDelegate(typeof(GridContainerInitializer), null) as GridContainerInitializer;
+			GridContainerVersionFetcher gridContainerVersionFetcher = method2.CreateDelegate(typeof(GridContainerVersionFetcher), null) as GridContainerVersionFetcher;
+			if (gridContainerInitializer == null)
+			{
+				UniLog.Warning($"{"InitializeGridContainer"} method on {value} has a wrong signature");
+				return;
+			}
+			if (gridContainerVersionFetcher == null)
+			{
+				UniLog.Warning($"{"GetVersion"} method on {value} has a wrong signature");
+				return;
+			}
+			int num = gridContainerVersionFetcher();
+			int num2 = _initializedVersion.Value;
+			UniLog.Log($"Running Initializer: {method.DeclaringType.Name}, OldVersion: {num2}, NewVersion: {num}, Modified: {_isModified.Value}");
+			if (num != num2)
+			{
+				if (!_isModified.Value)
+				{
+					num2 = -1;
+					component.DestroyAllFacets();
+				}
+				gridContainerInitializer(component, num2);
+				_initializedVersion.Value = num;
+			}
+		}
+		catch (Exception value2)
+		{
+			UniLog.Error($"Exception trying to call InitializeGridContainer on {value}:\n{value2}");
+		}
+	}
+
+	protected override void OnLoading(DataTreeNode node, LoadControl control)
+	{
+		base.OnLoading(node, control);
+		StartTask(InitializeWhenReady);
+	}
+
+	private async Task<bool> InitializeWhenReady()
+	{
+		GridContainer gridContainer = base.Slot.GetComponent<GridContainer>();
+		if (gridContainer == null)
+		{
+			return false;
+		}
+		while (!gridContainer.IsReady)
+		{
+			await default(NextUpdate);
+		}
+		RunInitializer();
+		return true;
+	}
+
+	public void Modified(IComponent modifiedComponent)
+	{
+		if (modifiedComponent is GridContainer)
+		{
+			_isModified.Value = true;
+		}
+	}
+
+	protected override void InitializeSyncMembers()
+	{
+		base.InitializeSyncMembers();
+		_initializer = new SyncType();
+		_initializedVersion = new Sync<int>();
+		_isModified = new Sync<bool>();
+	}
+
+	public override ISyncMember GetSyncMember(int index)
+	{
+		return index switch
+		{
+			0 => persistent, 
+			1 => updateOrder, 
+			2 => EnabledField, 
+			3 => _initializer, 
+			4 => _initializedVersion, 
+			5 => _isModified, 
+			_ => throw new ArgumentOutOfRangeException(), 
+		};
+	}
+
+	public static GridContainerPreset __New()
+	{
+		return new GridContainerPreset();
+	}
+}
+
+
+====================================================================================================
+// REQUEST: type SkyFrost.Base.Models :: SearchSortParameter
+// SkyFrost.Base.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+namespace SkyFrost.Base;
+
+public enum SearchSortParameter
+{
+	CreationDate,
+	LastUpdateDate,
+	FirstPublishTime,
+	TotalVisits,
+	Name,
+	Random
+}
+
+
+====================================================================================================
+// REQUEST: type SkyFrost.Base.Models :: SearchSortDirection
+// SkyFrost.Base.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+namespace SkyFrost.Base;
+
+public enum SearchSortDirection
+{
+	Ascending,
+	Descending
+}
+
+
+====================================================================================================
+// REQUEST: type SkyFrost.Base.Models :: OutputDevice
+// SkyFrost.Base.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+namespace SkyFrost.Base;
+
+public enum OutputDevice
+{
+	Unknown,
+	Screen,
+	VR,
+	Camera
+}
+
+
+====================================================================================================
+// REQUEST: type SkyFrost.Base :: BatchQuery
+// SkyFrost.Base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+====================================================================================================
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Elements.Core;
+
+namespace SkyFrost.Base;
+
+public abstract class BatchQuery<Query, Result> where Query : class, IEquatable<Query> where Result : class
+{
+	protected class QueryResult
+	{
+		public readonly Query query;
+
+		public Result result;
+
+		public QueryResult(Query query)
+		{
+			this.query = query;
+		}
+	}
+
+	private object _lock = new object();
+
+	private Dictionary<Query, TaskCompletionSource<Result>> queue = new Dictionary<Query, TaskCompletionSource<Result>>();
+
+	private TaskCompletionSource<bool> immediateDispatch;
+
+	private volatile bool dispatchScheduled;
+
+	public int MaxBatchSize { get; set; } = 32;
+
+	public float DelaySeconds { get; set; } = 0.25f;
+
+	public BatchQuery(int maxBatchSize = 32, float delaySeconds = 0.25f)
+	{
+		MaxBatchSize = maxBatchSize;
+		DelaySeconds = delaySeconds;
+	}
+
+	public async Task<Result> Request(Query query)
+	{
+		TaskCompletionSource<Result> value = null;
+		lock (_lock)
+		{
+			if (!queue.TryGetValue(query, out value))
+			{
+				value = new TaskCompletionSource<Result>();
+				queue.Add(query, value);
+				if (!dispatchScheduled)
+				{
+					dispatchScheduled = true;
+					immediateDispatch = new TaskCompletionSource<bool>();
+					Task.Run(async delegate
+					{
+						try
+						{
+							await SendBatch().ConfigureAwait(continueOnCapturedContext: false);
+						}
+						catch (Exception value2)
+						{
+							UniLog.Error($"Exception when sending metadata batch query of type {typeof(Query)} with result {typeof(Result)}\n{value2}");
+						}
+					});
+				}
+				else if (queue.Count >= MaxBatchSize)
+				{
+					immediateDispatch.TrySetResult(result: true);
+				}
+			}
+		}
+		return await value.Task.ConfigureAwait(continueOnCapturedContext: false);
+	}
+
+	private async Task SendBatch()
+	{
+		await Task.WhenAny(immediateDispatch.Task, Task.Delay(TimeSpan.FromSeconds(DelaySeconds))).ConfigureAwait(continueOnCapturedContext: false);
+		List<QueryResult> toSend = Pool.BorrowList<QueryResult>();
+		lock (_lock)
+		{
+			foreach (KeyValuePair<Query, TaskCompletionSource<Result>> item in queue)
+			{
+				toSend.Add(new QueryResult(item.Key));
+				if (toSend.Count == MaxBatchSize)
+				{
+					break;
+				}
+			}
+		}
+		Exception exception = null;
+		try
+		{
+			if (toSend.Count > 0)
+			{
+				await RunBatch(toSend).ConfigureAwait(continueOnCapturedContext: false);
+			}
+		}
+		catch (Exception ex)
+		{
+			UniLog.Error($"Exception running batch for metadata {typeof(Result)}\n{ex}");
+			exception = ex;
+		}
+		lock (_lock)
+		{
+			foreach (QueryResult item2 in toSend)
+			{
+				if (exception != null)
+				{
+					queue[item2.query].SetException(exception);
+				}
+				else
+				{
+					queue[item2.query].SetResult(item2.result);
+				}
+				queue.Remove(item2.query);
+			}
+			if (queue.Count > 0)
+			{
+				if (queue.Count >= MaxBatchSize)
+				{
+					immediateDispatch.TrySetResult(result: true);
+				}
+				else
+				{
+					immediateDispatch = new TaskCompletionSource<bool>();
+				}
+				Task.Run((Func<Task?>)SendBatch);
+			}
+			else
+			{
+				dispatchScheduled = false;
+			}
+		}
+	}
+
+	protected abstract Task RunBatch(List<QueryResult> batch);
+}
+
+

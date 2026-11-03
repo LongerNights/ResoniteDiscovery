@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Discover.Core/Discover.Core.csproj" />
+    <Project Path="src/Discover.Resonite/Discover.Resonite.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Discover.Tests/Discover.Tests.csproj" />
+  </Folder>
+</Solution>

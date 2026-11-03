@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <!-- Pinned target; bump together with docs/spec.md "Target" on each Resonite update. -->
+    <ResoniteBuildVersion>2026.10.29.1239</ResoniteBuildVersion>
+  </PropertyGroup>
+  <!-- Winter's install is on E:, which the SDK's auto-detect (C: Steam only) misses. Without it the SDK
+       falls back to its bundled reference assemblies (2026.8.27.1094 for SDK 2.3.4). Conditional so
+       machines without this install (CI) still build against the bundled refs. See verification B1. -->
+  <PropertyGroup Condition="'$(ResonitePath)' == '' AND Exists('E:/Program Files (x86)/Steam/steamapps/common/Resonite/')">
+    <ResonitePath>E:/Program Files (x86)/Steam/steamapps/common/Resonite/</ResonitePath>
+  </PropertyGroup>
+</Project>

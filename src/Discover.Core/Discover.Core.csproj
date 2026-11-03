@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Engine-free core. Must never reference FrooxEngine, SkyFrost or Elements.* (enforced by a test). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Discover.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Discover.Tests" />
+  </ItemGroup>
+</Project>
