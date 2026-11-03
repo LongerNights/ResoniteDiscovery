@@ -2,13 +2,15 @@
 
 *Auto-loaded project guide for Claude sessions in this folder. Keep it short and current.*
 
-**Galaxy Sieve** is a client-side Resonite mod that adds a world-discovery screen to the dash
-beside the stock Worlds tab, which it never modifies (decision Q1, Option A). Live
-sessions and published worlds are merged into ranked, searchable "lenses" (Live Now, Most
-Visited, New, Friends, Featured, Random, Favorites, Recent, My Worlds, Group Worlds; v1.1
-adds Trending/Rising/Hidden Gems), plus personal organization: Favorites, named lists and
-personal tags with export/import. Code namespaces stay `Discover.*`; the user-facing name
-is Galaxy Sieve. A ResoniteModLoader (RML) mod; personal use for now; MIT.
+**Galaxy Sieve** is a client-side Resonite mod that **replaces the dash's Worlds tab** with a
+cleaner one (decision 2026-11-03, supersedes "sit beside"): the stock tab's button is hidden
+at runtime only, and a "Classic browser" button still opens it. The rail is Now (Current
+Worlds, Live Now, Friends), Discover (Browse with recommended tags replacing the six stock
+category buttons, Featured, New, Random), Yours (Favorites, lists, Recent, My Worlds, Group
+Worlds); v1.1 adds Trending/Rising/Hidden Gems. The stock "Custom" search options move into
+the top bar's sort and Filters controls; the spec's parity table is the checklist. Code
+namespaces stay `Discover.*`; the tab is labelled "Worlds". A ResoniteModLoader (RML) mod;
+personal use for now; MIT.
 
 - **Target:** Resonite client **2026.10.29.1239** (FrooxEngine 2026.10.29.1239,
   SkyFrost.Base 1.0.0.0), net10.0. Not the headless client.
@@ -33,6 +35,10 @@ the shipping one is RML (`ResoniteModLoaderEntry.cs`, `#if RESONITE_RML`). `Disc
 sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 ## Current status
+
+**Overhaul spec written 2026-11-03** (`docs/spec.md`): next milestones are M5 stock-tab audit
+(V24, V29, V32), M6 takeover, M7 rail and Browse, M8 Current Worlds, M9 parity, M10 v1.1.
+The M0–M4b entries below describe the Galaxy Sieve build the overhaul starts from.
 
 **Milestone M4b — My Worlds, Group Worlds, detail panel, settings with a customizable rail (F28), export/import: installed 2026-11-02; grid/list toggle and copy-URL deferred** (`docs/m4b-test-plan.md`). 348 tests.
 
@@ -92,8 +98,11 @@ dotnet build src/Discover.Resonite -p:ResoniteInstallOnBuild=true   # copies the
 4. **Session visibility rule** is applied to every session before any lens (spec, Data model).
 5. **Privacy:** never display/log/store `BroadcastKey`, `HostMachineId`, `HostUserSessionId`
    or raw session URLs. History stores world keys, counts, timestamps only.
-6. **No new data-model types, no world writes, no patching or modifying the stock Worlds tab** (no `ScreenEnabled` writes, no hiding). The Galaxy Sieve screen slot is `PersistentSelf = false`. Plain
-   C# controller under a plain `RadiantDashScreen`.
+6. **No new data-model types, no world writes, no Harmony patches, no edits to the stock Worlds
+   screen or its facets, no `ScreenEnabled` writes.** The only stock writes allowed are the
+   runtime `ActiveSelf` of the stock Worlds *button* slot and the dash's current screen
+   (`TabTakeover`, spec Integration §2), reverted on shutdown and failure. The Galaxy Sieve
+   screen slot is `PersistentSelf = false`. Plain C# controller under a plain `RadiantDashScreen`.
 7. **Networking:** no own HTTP clients; everything through `Engine.Cloud`, within the
    spec's budget table. Live lenses cost zero extra requests.
 

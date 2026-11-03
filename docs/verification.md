@@ -54,6 +54,22 @@ Status: Open · Partial · Closed
 | V22 | (a) Does a non-persistent Galaxy Sieve slot stay out of the save? (b) Does `ScreenEnabled=false` on the stock tab get saved? | D, P | Closed | (a) **Yes.** ilspy `Slot.Save`: children with `!IsPersistent` are skipped unless `SaveNonPersistent`; `Workspace.SaveChanges` calls `SaveObject(DependencyHandling.CollectAssets)` with `saveNonPersistent=false`. (b) **Yes, it would be saved**: the Worlds screen is persistent (probe `ID5F9FE00`, `persistent=true`), and a save happens whenever `_unsavedChanges` is set by `NotifyModified` from anything in the hierarchy, on the 60 s autosave or on exit. A programmatic field write alone does not mark the workspace modified, but the next unrelated modification saves the current value. This plus V3 led to Q1 = Option A (sit beside): no stock-tab writes. |
 | V23 | Compatibility with installed dash mods: SessionTabOverhaul, ResoTabbed, ConsistentDashboard, NoHeadMenuDash | P, in-game test | Partial | Probe (`HarmonyLib.Harmony.GetAllPatchedMethods`, read-only): patched methods include `RadiantDash.UpdateScreens`, `RadiantDash.get_AutoAdaptWidth`, `get_BASE_RESOLUTION`, `UserspaceScreensManager.SetupDefaults`, `AddHelpScreen`, `UserspaceRadiantDash.set_Open`/`OpenContact`/`ToggleSessionControl`, `LegacyWorldDetail.OnOpen`/`CustomWorldStart`, `NotificationPanel.AddNotification`. Owners not identified (the listing has no owner, and MonkeyLoader logs only multi-owner overlaps; SessionTabOverhaul's is `SessionControlDialog.GenerateUi`). Live dash has 14 screens incl. user custom `CustomScreen [Mirracle]`, `[RedX]` and the mod "Mods" screen. Remaining: identify the owners (dumper batch 2, `Harmony.GetPatchInfo`) and run the in-game test with Galaxy Sieve attached. |
 
+## Added for the Worlds tab overhaul (2026-11-03)
+
+See spec "Verification tasks for the overhaul" for what each gates.
+
+| ID | Question | Method | Status | Answer / evidence |
+| --- | --- | --- | --- | --- |
+| V24 | Stock Worlds tab inventory: rail buttons (label, tag, sort, direction, flags), Custom panel controls and their `SearchParameters` fields, stock default lens | D (`WorldFilterFacetPreset`), P (read-only) | Open | |
+| V25 | Enumerating open worlds; `World` name, session id, access level, users, max, host, authority, record, focus; `WorldRemoved`; event threads | D, P | Open | `WorldManager.WorldAdded` exists (V1) |
+| V26 | `Userspace.GetThumbnailData(world).LocalThumbnail` | D | Open | Used by the stock card (V10) |
+| V27 | The engine's own leave-world path and its rules | D | Open | |
+| V28 | `WorldStartSettings.DefaultAccessLevel` / `UnsafeMode` / `ForcePorts`; `NewWorldDialog` choices | D | Open | Set by `CustomWorldStart` (V4) |
+| V29 | Stock button slot (`RadiantDashScreen._button`) parent chain and persistence; is `RadiantDash.CurrentScreen` saved | D, P | Open | |
+| V30 | Engine's cached user-by-name lookup for `author:` | D | Open | |
+| V31 | Drive our `Label` from `Dash.Screens.Worlds` with a component on our non-persistent slot | D, P | Open | Stock label uses `DriveLocalized` (probe) |
+| V32 | Does an inactive button slot drop out of the dash button strip layout | D (Part B), in-game | Open | |
+
 ## Confirmed from batch 1 (no action needed)
 
 - `SearchSortParameter` = CreationDate, LastUpdateDate, FirstPublishTime, TotalVisits, Name, Random.
