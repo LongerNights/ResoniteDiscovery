@@ -20,6 +20,26 @@ internal static class Theme
     public static colorX Heading => RadiantUI_Constants.Hero.PURPLE;
     public static colorX Text => RadiantUI_Constants.TEXT_COLOR;
     public static colorX TextSecondary => RadiantUI_Constants.Neutrals.MIDLIGHT;
+    /// <summary>Chips: excluded tags read red, the user's own tags orange, per the design.</summary>
+    public static colorX ChipRequired => RadiantUI_Constants.MidLight.PURPLE;
+    public static colorX ChipExcluded => RadiantUI_Constants.MidLight.RED;
+    public static colorX ChipPersonal => RadiantUI_Constants.MidLight.ORANGE;
+
+    /// <summary>A starred world's star.</summary>
+    public static colorX Favorite => RadiantUI_Constants.Hero.YELLOW;
+
+    /// <summary>A disabled or secondary button.</summary>
+    public static colorX ButtonQuiet => RadiantUI_Constants.Neutrals.MID;
+
+    /// <summary>Behind a popover: a click-catcher that does not dim anything.</summary>
+    public static colorX Scrim => colorX.Black.SetA(0.02f);
+
+    /// <summary>Behind the join confirmation: a gentle dim, as a modal expects.</summary>
+    public static colorX ConfirmScrim => colorX.Black.SetA(0.55f);
+
+    /// <summary>Error banner.</summary>
+    public static colorX Banner => RadiantUI_Constants.Sub.RED;
+
     /// <summary>The transition curtain over the main pane: opaque black, and the same black fully transparent.</summary>
     public static colorX CurtainShown => colorX.Black;
     public static colorX CurtainHidden => colorX.Black.SetA(0f);

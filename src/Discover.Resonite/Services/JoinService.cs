@@ -36,11 +36,20 @@ internal sealed class JoinService
     public bool IsOpen(string sessionId) =>
         Userspace.GetExistingWorld(new WorldStartSettings { SessionID = sessionId }) is not null;
 
-    public async Task<JoinOutcome> JoinAsync(DiscoveryEntry entry)
+    /// <summary>The first open session of the entry, if any (the "You're here" state).</summary>
+    public SessionSnapshot? OpenSession(DiscoveryEntry entry) => entry.Sessions.FirstOrDefault(s => IsOpen(s.SessionId));
+
+    /// <summary>
+    /// Joins <paramref name="sessionId"/> when given (the join menu's pick), else the planner's best session. An already
+    /// open world is focused, not joined twice.
+    /// </summary>
+    public async Task<JoinOutcome> JoinAsync(DiscoveryEntry entry, string? sessionId = null)
     {
         try
         {
-            var target = JoinPlanner.PickJoinTarget(entry);
+            var target = sessionId is null
+                ? JoinPlanner.PickJoinTarget(entry) ?? OpenSession(entry)
+                : entry.Sessions.FirstOrDefault(s => string.Equals(s.SessionId, sessionId, StringComparison.OrdinalIgnoreCase));
             if (target is null)
             {
                 return entry.Sessions.Count > 0 ? JoinOutcome.Full : JoinOutcome.Ended;
@@ -76,6 +85,33 @@ internal sealed class JoinService
         {
             // Type name only: exception text from the engine can include the session URLs.
             UniLog.Warning($"[Discover] Join failed: {ex.GetType().Name}");
+            return JoinOutcome.Failed;
+        }
+    }
+
+    /// <summary>
+    /// Starts a new session of a published world (spec Integration §4, "Open New Instance"), by its record URI;
+    /// equivalent to the stock open path (verification V4, V5).
+    /// </summary>
+    public async Task<JoinOutcome> StartNewSessionAsync(RecordSnapshot record)
+    {
+        try
+        {
+            var uri = _engine.Cloud.Records.GenerateRecordUri(record.OwnerId, record.RecordId);
+            var settings = new WorldStartSettings(uri)
+            {
+                FetchedWorldName = record.Name,
+                GetExisting = false,
+                AutoFocus = true,
+                CreateLoadIndicator = true,
+            };
+
+            var world = await Userspace.OpenWorld(settings);
+            return world is null ? JoinOutcome.Refused : JoinOutcome.Opened;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] New session failed: {ex.GetType().Name}");
             return JoinOutcome.Failed;
         }
     }

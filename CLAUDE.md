@@ -34,7 +34,17 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 ## Current status
 
-**Milestone M2 — Live screen: running in game since 2026-11-02.** `Discover.Resonite` has the
+**Milestone M4a — Your stuff: working in game 2026-11-02** (favorites, lists, tags with typed entry and prediction, Recent; custom-id sessions are saveable, random-id ones are not). Favorites (star on cards), named lists (rail, rename/move/delete, organize panel), personal tags (orange chips and card tags), Recent, per-account files loaded once the account is known. 315 tests. In-game steps: `docs/m4a-test-plan.md`. Next: M4b (My Worlds, Group Worlds, detail drawer, settings screen, export/import buttons, grid/list toggle).
+
+**Milestone M3 — Record lenses: working in game 2026-11-03 (F27 and the 30-minute network trace not yet confirmed).** Search lenses (New,
+Most Visited, Featured, Random) over `Engine.Cloud.Records.FindRecords` with a cache, paging, backoff and a
+failure banner; search box with term syntax; sort menu; filters popover; tag chips; the join confirmation
+menu (the engine's choice dialog) and "New session" for published worlds; the full purple/black screen per
+`docs/m3-design.md`. 304 tests pass. The gate (F3, F4, F5, F11, F12, F14, F27 and the network budget) needs
+Winter to install and restart: see `docs/m3-test-plan.md`. Next after the gate: M4 (favorites, lists, tags,
+export/import, Recent, My Worlds, Group Worlds, detail drawer, settings).
+
+**Milestone M2 — Live screen: passed in game 2026-11-02 (F8's Open press not exercised).** `Discover.Resonite` has the
 session adapter, join service, controller (tick via `World.RunInUpdates`), dash attach (non-persistent
 slot, after the workspace loads), the purple/black card-grid UI for Live Now and Friends with lens
 transitions, the galaxy tab icon (embedded, imported into the local asset DB), and the RML shim

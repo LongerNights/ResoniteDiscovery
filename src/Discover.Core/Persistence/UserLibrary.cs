@@ -123,7 +123,7 @@ public sealed class UserLibrary
     /// <summary>Stars a world. Idempotent (the original date is kept). False for standalone sessions or empty keys.</summary>
     public bool Star(string key, string name)
     {
-        if (!DiscoveryKeys.IsWorldKey(key))
+        if (!DiscoveryKeys.IsSavable(key))
         {
             return false;
         }
@@ -224,7 +224,7 @@ public sealed class UserLibrary
     public bool AddToList(string listId, string key, string name)
     {
         var list = GetList(listId);
-        if (list is null || !DiscoveryKeys.IsWorldKey(key))
+        if (list is null || !DiscoveryKeys.IsSavable(key))
         {
             return false;
         }
@@ -259,6 +259,9 @@ public sealed class UserLibrary
     public IReadOnlyList<string> TagsFor(string key) =>
         _tags.Tags.TryGetValue(key, out var tags) ? tags : [];
 
+    /// <summary>Every personal tag on every saved item, repeats included (for tag suggestions).</summary>
+    public IEnumerable<string> AllTags => _tags.Tags.Values.SelectMany(t => t);
+
     public bool HasTagNamed(string tag) =>
         _tags.Tags.Values.Any(list => list.Contains(NormalizeTag(tag), StringComparer.Ordinal));
 
@@ -266,7 +269,7 @@ public sealed class UserLibrary
     public bool AddTag(string key, string tag)
     {
         tag = NormalizeTag(tag);
-        if (!DiscoveryKeys.IsWorldKey(key) || tag.Length == 0)
+        if (!DiscoveryKeys.IsSavable(key) || tag.Length == 0)
         {
             return false;
         }
@@ -315,7 +318,7 @@ public sealed class UserLibrary
     /// <summary>Notes a world opened through the screen: newest first, no duplicates, capped at <see cref="MaxRecent"/>.</summary>
     public void RecordOpened(string key, string name)
     {
-        if (!DiscoveryKeys.IsWorldKey(key))
+        if (!DiscoveryKeys.IsSavable(key))
         {
             return;
         }
@@ -360,7 +363,7 @@ public sealed class UserLibrary
 
         int favorites = 0, lists = 0, members = 0, tags = 0;
 
-        foreach (var f in data.Favorites.Where(f => DiscoveryKeys.IsWorldKey(f.Key) && !IsStarred(f.Key)))
+        foreach (var f in data.Favorites.Where(f => DiscoveryKeys.IsSavable(f.Key) && !IsStarred(f.Key)))
         {
             _favorites.Items.Add(new FavoriteEntry { Key = f.Key, Name = Clean(f.Name), StarredAt = f.StarredAt });
             favorites++;
@@ -386,14 +389,14 @@ public sealed class UserLibrary
                 lists++;
             }
 
-            foreach (var m in incoming.Members.Where(m => DiscoveryKeys.IsWorldKey(m.Key) && !list.Members.Any(x => KeyEquals(x.Key, m.Key))))
+            foreach (var m in incoming.Members.Where(m => DiscoveryKeys.IsSavable(m.Key) && !list.Members.Any(x => KeyEquals(x.Key, m.Key))))
             {
                 list.Members.Add(new ListMember { Key = m.Key, Name = Clean(m.Name), AddedAt = m.AddedAt });
                 members++;
             }
         }
 
-        foreach (var (key, incomingTags) in data.Tags.Where(p => DiscoveryKeys.IsWorldKey(p.Key)))
+        foreach (var (key, incomingTags) in data.Tags.Where(p => DiscoveryKeys.IsSavable(p.Key)))
         {
             foreach (var tag in incomingTags.Select(NormalizeTag).Where(t => t.Length > 0))
             {
