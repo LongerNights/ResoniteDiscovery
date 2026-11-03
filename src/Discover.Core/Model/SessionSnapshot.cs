@@ -37,6 +37,12 @@ public sealed record SessionSnapshot
     /// <summary>Result of Contacts.CountPresentContacts, computed by the adapter.</summary>
     public int PresentContacts { get; init; }
 
+    /// <summary>
+    /// False for a session on another build this client cannot join (engine <c>IsCompatible()</c>). Such sessions only
+    /// reach the index when "Show other versions" is on, and are never join targets.
+    /// </summary>
+    public bool IsCompatible { get; init; } = true;
+
     public IReadOnlyList<SessionUserSnapshot> Users { get; init; } = [];
 }
 

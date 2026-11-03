@@ -12,9 +12,22 @@ public static class DiscoveryKeys
 
     public static string ForStandaloneSession(string sessionId) => StandalonePrefix + sessionId.ToLowerInvariant();
 
-    /// <summary>Only entries with a record key (a published world) can be starred, listed or tagged.</summary>
+    /// <summary>The key of a published world (<c>OwnerId:RecordId</c>), not of a standalone session.</summary>
     public static bool IsWorldKey(string? key) =>
         !string.IsNullOrWhiteSpace(key) && !key.StartsWith(StandalonePrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Custom session ids (<c>S-U-owner:name</c>, chosen by whoever hosts, e.g. a headless Elysium) outlive the session,
+    /// so a standalone session with one has a stable key. Mirrors the engine's <c>SessionInfo.IsCustomSessionId</c>.
+    /// </summary>
+    public static bool IsStableSessionKey(string? key) =>
+        key is not null && key.StartsWith(StandalonePrefix + "s-u-", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// What can be starred, listed, tagged or kept in Recent: published worlds, and standalone sessions with a custom
+    /// (stable) id. A random session id (<c>S-guid</c>) vanishes when the session ends, so it cannot be saved.
+    /// </summary>
+    public static bool IsSavable(string? key) => IsWorldKey(key) || IsStableSessionKey(key);
 }
 
 /// <summary>One world, or one standalone session (spec "DiscoveryEntry"). Built by <see cref="DiscoveryIndex"/>.</summary>
@@ -37,6 +50,9 @@ public sealed record DiscoveryEntry
     public IReadOnlyList<string> PersonalTags { get; init; } = [];
 
     public bool IsWorld => DiscoveryKeys.IsWorldKey(Key);
+
+    /// <summary>Can be starred, listed, tagged and recorded in Recent (a world, or a session with a stable custom id).</summary>
+    public bool CanSave => DiscoveryKeys.IsSavable(Key);
 
     public string DisplayName
     {
@@ -88,7 +104,10 @@ public sealed record DiscoveryEntry
 
     public string? ThumbnailUrl => Sessions.Select(s => s.ThumbnailUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u)) ?? Record?.ThumbnailUri;
 
-    public bool IsFull => Sessions.Count > 0 && Sessions.All(SessionRules.IsFull);
+    public bool IsFull => Sessions.Count > 0 && Sessions.Where(s => s.IsCompatible).All(SessionRules.IsFull) && Sessions.Any(s => s.IsCompatible);
+
+    /// <summary>Every listed session is on another build: shown greyed out, never joinable.</summary>
+    public bool IsOtherVersionOnly => Sessions.Count > 0 && Sessions.All(s => !s.IsCompatible);
     public bool IsMobileFriendly => Sessions.Any(s => s.MobileFriendly);
     public bool HasHeadlessHost => Sessions.Any(s => s.HeadlessHost);
     public bool IsFeatured => Record?.IsFeatured ?? false;

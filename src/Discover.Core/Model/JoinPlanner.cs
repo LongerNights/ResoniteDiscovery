@@ -8,11 +8,17 @@ public static class JoinPlanner
     /// ties go to the newest, then session id. Null when every listed session is full or there are none.
     /// Differs from <see cref="DiscoveryEntry.BestSession"/>, which ignores contacts and drives card numbers.
     /// </summary>
-    public static SessionSnapshot? PickJoinTarget(DiscoveryEntry entry) => entry.Sessions
-        .Where(s => !SessionRules.IsFull(s))
+    public static SessionSnapshot? PickJoinTarget(DiscoveryEntry entry) => JoinableSessions(entry).FirstOrDefault();
+
+    /// <summary>
+    /// Every session the user could join, best first (the order <see cref="PickJoinTarget"/> uses). The join menu lists
+    /// these. Sessions on another build are left out.
+    /// </summary>
+    public static IReadOnlyList<SessionSnapshot> JoinableSessions(DiscoveryEntry entry) => entry.Sessions
+        .Where(s => s.IsCompatible && !SessionRules.IsFull(s))
         .OrderByDescending(s => s.PresentContacts)
         .ThenByDescending(s => s.ActiveUsers)
         .ThenByDescending(s => s.SessionBeginTime)
         .ThenBy(s => s.SessionId, StringComparer.Ordinal)
-        .FirstOrDefault();
+        .ToList();
 }

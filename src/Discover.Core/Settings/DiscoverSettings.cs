@@ -42,7 +42,8 @@ public sealed record DiscoverSettings
     public bool ShowIncompatibleSessions { get; init; }
     public bool JoinShowsSessionList { get; init; }
 
-    public int SearchPageSize { get; init; } = 50;
+    /// <summary>Records per search page. 40 rather than the spec's 50: a page is shown in at most 40 pooled card slots.</summary>
+    public int SearchPageSize { get; init; } = 40;
     public TimeSpan SearchDebounce { get; init; } = TimeSpan.FromMilliseconds(400);
     public TimeSpan SearchCacheFirstPageTtl { get; init; } = TimeSpan.FromMinutes(5);
     public TimeSpan SearchCacheLaterPageTtl { get; init; } = TimeSpan.FromMinutes(15);

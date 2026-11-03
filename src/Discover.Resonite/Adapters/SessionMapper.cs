@@ -34,6 +34,7 @@ internal static class SessionMapper
         HasEnded = info.HasEnded,
         IsExpired = info.IsExpired,
         PresentContacts = engine.Cloud.Contacts.CountPresentContacts(info),
+        IsCompatible = info.IsCompatible(),
         Users = info.SessionUsers?
             .Select(u => new SessionUserSnapshot(u.UserID ?? "", Plain(u.Username), u.IsPresent, AccessLevelNames.DeviceFromName(u.OutputDevice?.ToString())))
             .ToArray() ?? [],

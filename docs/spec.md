@@ -188,7 +188,7 @@ Each requirement has one acceptance test a developer can run in game.
 | F4 | Search box filters the current lens only, with term syntax: plain terms optional, `+term` required, `-term` excluded, `+tag:name` required tag | `+horror -avatar` returns only worlds tagged or named horror and none matching avatar; searching in Favorites returns only favorites | MVP |
 | F5 | Tag chips: click once to require, twice to exclude, third time to clear | Chip states map to `RequiredTags` and `ExcludedTags` on the next query | MVP |
 | F6 | Cards show thumbnail, sanitized name, author or host, users and max, friends present, mobile badge, tags (max 3), visits, age. Device mix is in the drawer | A card for a session with 5 of 10 users and 1 friend shows `5/10` and the friend badge | MVP |
-| F7 | Join enters the session with the most contacts present, else the busiest with free capacity. A setting, or the `+N sessions` link, shows the session list to pick from. Open New Instance starts a fresh one | With two sessions where only the smaller has a contact, Join enters the smaller; Join on a full session is disabled with a "Full" label | MVP |
+| F7 | Join asks for confirmation first, in the engine's own choice dialog (as the stock Worlds tab does): Cancel, then one button per joinable session, best first (most contacts present, else busiest with free capacity), at most three. A published world with no live session offers "New session", which also asks first. A world you already have open shows "Go there", which focuses it with no menu | With two sessions where only the smaller has a contact, Join enters the smaller; Join on a full session is disabled with a "Full" label | MVP |
 | F8 | Already-open worlds show an Open badge and Join focuses the existing world | Clicking Join on an open session focuses it without a new connection | MVP |
 | F9 | Favorites: star toggles, stored per account | Stars survive a restart and do not appear for a different account | MVP |
 | F10 | Friends lens lists sessions where contacts are present | A session with one contact present appears; one with none does not | MVP |
@@ -222,11 +222,11 @@ The screen must look like part of the dash. It reuses the stock screen layout gr
 
 | Region | Cells (X, Y, W, H) | Contents |
 | --- | --- | --- |
-| Lens rail | 0, 0, 12, 36 | Lens buttons grouped as Live (Live Now, Friends), Browse (New, Most Visited, Featured, Random), Insights (Trending, Rising, Hidden Gems), Mine (Favorites, each named list, "+ New list", Recent, My Worlds, Group Worlds), then a Filters section |
-| Top bar | 12, 0, 52, 3 | Search box, sort menu, view toggle (grid or list), refresh button |
-| Chip bar | 12, 3, 52, 2 | Active tag chips and filter chips, each removable |
+| Lens rail | 0, 0, 12, 36 | Lens buttons grouped as Live (Live Now, Friends), Browse (New, Most Visited, Featured, Random), Insights (Trending, Rising, Hidden Gems), Mine (Favorites, each named list, "+ New list", Recent, My Worlds, Group Worlds). Filters are not in the rail: they open from the top bar (M3 design) |
+| Top bar | 12, 0, 52, 3 | Search box, Sort button (opens the sort menu), Filters button with a count (opens the filters popover), refresh button; the grid or list toggle arrives later |
+| Chip bar | 12, 3, 52, 2 | Tag chips (click to cycle required, excluded, cleared; the user's own tags in orange) and Clear all. Filter settings are counted on the Filters button instead of shown as chips |
 | Results | 12, 5, 52, 28 | Scrolling card grid, 4 columns |
-| Status bar | 12, 33, 52, 3 | Result count, "updated N s ago", Load More |
+| Status bar | 12, 33, 52, 3 | Page number and "updated" age, Previous and Next page buttons (replacing Load More: a page is shown in at most 40 pooled cards, so paging replaces the page instead of appending) |
 
 **Palette.** A purple-and-black theme (author's request, Nov 2, 2026; it replaced the stock dark-blue and yellow-label palette). Reference `RadiantUI_Constants` by name rather than hex values; the theme lives in one class, `Ui/Theme.cs`. Values below are for the design review only. The status colours below are unchanged.
 
@@ -270,6 +270,8 @@ Cards for worlds with several sessions show the busiest session's numbers and a 
 - Keyboard in desktop mode: Ctrl+F focuses search, Escape clears the search then closes the drawer, arrow keys move card focus.
 - Color is never the only signal. Every colored badge also has an icon or text.
 - Lens switches animate (setting `AnimateTransitions`, on by default): a black curtain over the main pane fades in (`TransitionOut`, 120 ms), the lens swaps underneath, then the curtain fades out while the results rise `TransitionRise` (28) units into place (`TransitionIn`, 280 ms); the selected rail button eases to its colour over the same time. Opening the screen plays the fade-in. Only the curtain and the results viewport move: UIX ignores slot scale, and the grid drives each card's rect. Animations use the engine's `Tween<T>` (non-persistent, removes itself) on the mod's own slots only.
+
+**Mine lenses and organizing (M4a).** The rail's MINE section holds Favorites, each named list (up to five shown), "+ New list" and Recent. Local lenses sort by Date added (default: live worlds first, then newest saved) or Name, and are searched and chip-filtered like any lens. A world card has a star (top right of the thumbnail; yellow when starred) and a Lists button (bottom right) that opens the **organize panel**: toggles for each list the world is in, "+ New list" (creates the list and adds the world), the user's personal tags as orange buttons (press to remove) and a field to add one. Personal tags also appear on cards, orange and first, and pressing one adds an orange chip that filters locally (personal tags never go to the server). Above a named list the header shows Rename, Move up, Move down and Delete (Delete asks first). Names are typed in a small prompt panel (a field, OK, Cancel). Only world cards have a star and Lists button; standalone sessions do not. The detail drawer (F18) and the settings screen come with M4b.
 
 **States**
 
@@ -392,7 +394,7 @@ Before enabling the Join button, check `Userspace.GetExistingWorld(settings)` to
 | `hidden.json` | Hidden world keys and host ids (v1.1) | On change |
 | `cache/` | Last result per lens and thumbnails | Best effort |
 
-Writes are atomic: write to a temp file, then replace. Debounce to at most one write per file every 5 s. A corrupt file is renamed to `.bad`, logged, and replaced with defaults. Store only ids, names and numbers, never session user lists.
+Account files load once the signed-in account is known (`Engine.Cloud.Session.CurrentUserID`, checked about once a second, never before login) and reload if the account changes; they flush on shutdown. Writes are atomic: write to a temp file, then replace. Debounce to at most one write per file every 5 s. A corrupt file is renamed to `.bad`, logged, and replaced with defaults. Store only ids, names and numbers, never session user lists.
 
 **Export and import.** Settings has Export, which writes favorites, lists and tags to one JSON file with a format version, and Import, which merges by world key and never deletes. FrooxEngine has no OS file-picker API: there are no `*FileDialog` or picker types, and `FileBrowser` is an in-world browser that imports, not a callback picker (V20). So use a fixed `exports\` folder inside the data folder and show its path in Settings.
 
@@ -406,7 +408,7 @@ Writes are atomic: write to a temp file, then replace. Debounce to at most one w
 | --- | --- |
 | Screen closed | Zero requests. Only local snapshots run. |
 | Live lenses | Zero extra requests. They read the engine's session cache and its pushed updates. |
-| Record search | Page size 50. One search at a time; starting a new one cancels the previous. Typing is debounced 400 ms. |
+| Record search | Page size 40 (was 50: a page is shown in at most 40 pooled card slots). One search at a time; starting a new one cancels the previous. Typing is debounced 400 ms. |
 | Search cache | Keyed by `SearchParameters` (the class implements equality and hashing). Time to live 5 min for page 1, 15 min for later pages. |
 | Auto-refresh | The visible search lens refreshes at most every 60 s while the screen is open. |
 | Manual refresh | 15 s cooldown. Calls `Sessions.ForceFetch()` and re-runs the search. |
