@@ -38,3 +38,7 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
    size, previously default-sized and low). Report which way and how far any text is still off.
 10. **Organize panel** (Lists on a card or in the detail panel): centred, as tall as its content; each list is a
     switch row (membership), the world's own tags are removable chips, then the tag box with suggestions and Done.
+
+11. **Organize and name prompts** (Lists on a card; New list, Rename, Hide a word): text is larger (headings,
+    empty-state lines, tag chips, suggestions, Add); the tag box text is left-aligned and readable; tag and suggestion
+    chips fit their text; the name prompt is sized to its content and slides in. The search box text is a size up.
