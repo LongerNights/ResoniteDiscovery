@@ -260,7 +260,7 @@ Rules:
 Each step is shippable and testable in game on its own.
 
 1. **Design system:** fixed type scale, button variants, size-to-content panels, opaque pane. Most of the "messy" look goes away here alone.
-1b. *(next)* **Type scale correction:** raise the scale as above and re-run the snap; no layout change. Do this before step 2 so every later screen is built on the final sizes.
+1b. *(built, to check in game)* **Type scale correction:** raise the scale as above and re-run the snap; no layout change. Do this before step 2 so every later screen is built on the final sizes.
 2. **Top bar, header, chip bar, rail and footer.**
 3. **Sort menu and Filters popover:** hide what doesn't apply, add sections, switches and segmented controls.
 4. **Detail panel:** hero image, author link, session rows, icon action bar.
