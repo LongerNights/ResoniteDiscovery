@@ -69,7 +69,7 @@ public class PersistenceTests
         Assert.NotEqual(a.AccountDirectory, b.AccountDirectory);
         Assert.True(a.LoadLibrary().IsStarred("W1"));
         Assert.False(b.LoadLibrary().IsStarred("W1"));
-        Assert.EndsWith(Path.Combine("GalaxySieve", "U-alice"), a.AccountDirectory);
+        Assert.EndsWith(Path.Combine("ResoniteDiscovery", "U-alice"), a.AccountDirectory);
     }
 
     [Theory]
@@ -83,7 +83,27 @@ public class PersistenceTests
 
         var account = AccountPaths.AccountDirectory(dir.Path, userId);
 
-        Assert.Equal(Path.Combine(dir.Path, "GalaxySieve"), Path.GetDirectoryName(account));
+        Assert.Equal(Path.Combine(dir.Path, "ResoniteDiscovery"), Path.GetDirectoryName(account));
+    }
+
+    [Fact]
+    public void DataFromTheOldNameIsCopiedOnceAndTheOldFolderIsKept()
+    {
+        using var dir = new TempDir();
+        var legacy = Path.Combine(dir.Path, "GalaxySieve", "U-alice");
+        Directory.CreateDirectory(Path.Combine(legacy, "exports"));
+        File.WriteAllText(Path.Combine(legacy, "favorites.json"), "{\"Version\":1,\"Items\":[{\"Key\":\"W1\",\"Name\":\"One\",\"StarredAt\":\"2026-11-02T00:00:00Z\"}]}");
+        File.WriteAllText(Path.Combine(legacy, "exports", "galaxy-sieve-export.json"), "{}");
+
+        var store = new UserLibraryStore(AccountPaths.AccountDirectory(dir.Path, "U-alice"));
+
+        Assert.True(store.LoadLibrary().IsStarred("W1"));
+        Assert.True(File.Exists(Path.Combine(store.AccountDirectory, "exports", "galaxy-sieve-export.json")));
+        Assert.True(File.Exists(Path.Combine(legacy, "favorites.json")));
+
+        File.WriteAllText(Path.Combine(legacy, "favorites.json"), "changed");
+        AccountPaths.AccountDirectory(dir.Path, "U-alice"); // the new folder exists now: nothing is copied again
+        Assert.True(store.LoadLibrary().IsStarred("W1"));
     }
 
     [Fact]
@@ -194,7 +214,7 @@ public class PersistenceTests
 
         var path = store.WriteExport(lib);
 
-        Assert.Equal(Path.Combine(dir.Path, "exports", "galaxy-sieve-export.json"), path);
+        Assert.Equal(Path.Combine(dir.Path, "exports", "resonite-discovery-export.json"), path);
         Assert.Equal("W1", Assert.Single(store.ReadExport()!.Favorites).Key);
         Assert.Null(new UserLibraryStore(Path.Combine(dir.Path, "elsewhere")).ReadExport());
     }

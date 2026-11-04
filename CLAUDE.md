@@ -1,8 +1,8 @@
-# Galaxy Sieve — Resonite Discovery Mod
+# ResoniteDiscovery — Resonite Worlds-tab replacement
 
 *Auto-loaded project guide for Claude sessions in this folder. Keep it short and current.*
 
-**Galaxy Sieve** is a client-side Resonite mod that **replaces the dash's Worlds tab** with a
+**ResoniteDiscovery** (formerly Galaxy Sieve; renamed 2026-11-04, user data moves from `%APPDATA%\GalaxySieve` to `%APPDATA%\ResoniteDiscovery` on first run) is a client-side Resonite mod that **replaces the dash's Worlds tab** with a
 cleaner one (decision 2026-11-03, supersedes "sit beside"): the stock tab's button is hidden
 at runtime only, and a "Classic browser" button still opens it. The rail is Now (Current
 Worlds, Live Now, Friends), Discover (Browse with recommended tags replacing the six stock
@@ -105,7 +105,7 @@ dotnet build src/Discover.Resonite -p:ResoniteInstallOnBuild=true   # copies the
 6. **No new data-model types, no world writes, no Harmony patches, no edits to the stock Worlds
    screen or its facets, no `ScreenEnabled` writes.** The only stock writes allowed are the
    runtime `ActiveSelf` of the stock Worlds *button* slot and the dash's current screen
-   (`TabTakeover`, spec Integration §2), reverted on shutdown and failure. The Galaxy Sieve
+   (`TabTakeover`, spec Integration §2), reverted on shutdown and failure. The ResoniteDiscovery
    screen slot is `PersistentSelf = false`. Plain C# controller under a plain `RadiantDashScreen`.
 7. **Networking:** no own HTTP clients; everything through `Engine.Cloud`, within the
    spec's budget table. Live lenses cost zero extra requests.

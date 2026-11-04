@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the Galaxy Sieve dash-tab icon: a two-armed spiral galaxy in the mod's purples.
+"""Generates the ResoniteDiscovery dash-tab icon: a two-armed spiral galaxy in the mod's purples.
 
 Output: src/Discover.Resonite/Assets/galaxy-icon.png (256x256 RGBA, transparent background), embedded in the
 mod DLL and imported into the local asset DB at runtime (see Ui/IconLoader.cs).

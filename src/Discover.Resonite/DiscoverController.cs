@@ -28,7 +28,7 @@ internal sealed class DiscoverController : IBrowseActions
 {
     private const int MaxConsecutiveFailures = 5;
     private const double RefreshIntervalSeconds = 0.25;
-    private const string ScreenLabel = "Galaxy Sieve";
+    private const string ScreenLabel = "Worlds";
     private const string TabLabel = "Worlds"; // V31: not yet driven from the locale key
     private static readonly int[] UserSteps = [0, 1, 2, 3, 5, 10, 20];
     private static readonly int[] VisitSteps = [0, 10, 100, 1000, 10000];
@@ -349,11 +349,6 @@ internal sealed class DiscoverController : IBrowseActions
             _dirty = false;
             _lastRefreshUtc = now;
             Render(now);
-            if (_settings.AnimateTransitions)
-            {
-                RevealWhenFilled();
-            }
-
             return;
         }
 
@@ -471,6 +466,7 @@ internal sealed class DiscoverController : IBrowseActions
             CardBindsPerTick = Math.Max(1, _settings.CardBindsPerTick),
             CardCreatesPerTick = Math.Max(1, _settings.CardCreatesPerTick),
             CardsPerRow = _settings.CardsPerRow,
+            Animate = _settings.AnimateTransitions,
         };
         try
         {
@@ -1581,7 +1577,8 @@ internal sealed class DiscoverController : IBrowseActions
     // ---- settings, export and import
 
     private SettingsModel SettingsView() =>
-        new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings);
+        new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings,
+            LensCatalog.Openable(_settings).Select(l => (l, RailBuilder.Title(l), l == _settings.DefaultLens)).ToList());
 
     /// <summary>Restores the stock Worlds button; never throws (it runs on the failure paths).</summary>
     private void RestoreStockTab()
@@ -1612,6 +1609,11 @@ internal sealed class DiscoverController : IBrowseActions
         {
             case SettingKey.Animations:
                 _settings = _settings with { AnimateTransitions = !_settings.AnimateTransitions };
+                if (_ui is not null)
+                {
+                    _ui.Animate = _settings.AnimateTransitions;
+                }
+
                 break;
             case SettingKey.LiveOnly:
                 _settings = LensCatalog.Normalize(_settings with { LiveLensesOnly = !_settings.LiveLensesOnly });
@@ -1661,6 +1663,18 @@ internal sealed class DiscoverController : IBrowseActions
                 break;
         }
 
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
+    public void SetStartLens(LensKind lens)
+    {
+        if (!LensCatalog.Openable(_settings).Contains(lens) || _settings.DefaultLens == lens)
+        {
+            return;
+        }
+
+        _settings = _settings with { DefaultLens = lens };
         _store?.SaveSettings(_settings);
         _ui?.ShowSettings(SettingsView());
     }
@@ -1974,45 +1988,11 @@ internal sealed class DiscoverController : IBrowseActions
 
     // ------------------------------------------------------------------ transitions
 
+    /// <summary>A lens switch re-renders on the next tick (the old fade to black is gone; panels animate, the results do not).</summary>
     private void StartTransition()
     {
         _dirty = true;
         _lastRefreshUtc = DateTime.MinValue;
-        if (_ui is null || !_settings.AnimateTransitions)
-        {
-            return;
-        }
-
-        var ui = _ui;
-        ui.CloseMenus();
-        _transitioning = true;
-        _transitionStartUtc = DateTime.UtcNow;
-
-        // A second click mid-transition restarts the cover; the newest lens is what the callback shows.
-        ui.Cover((float)_settings.TransitionOut.TotalSeconds, () =>
-        {
-            if (!_transitioning || ui != _ui)
-            {
-                return;
-            }
-
-            _transitioning = false;
-            try
-            {
-                // This runs inside the engine's tween update, outside the tick's try/catch.
-                var now = DateTime.UtcNow;
-                _lastRefreshUtc = now;
-                _dirty = false;
-                Render(now);
-                RevealWhenFilled();
-            }
-            catch (Exception ex)
-            {
-                UniLog.Warning($"[Discover] Lens switch failed: {ex.GetType().Name}: {ex.Message} at {FirstFrame(ex)}");
-                ui.Settle();
-                _dirty = true;
-            }
-        });
     }
 
     /// <summary>

@@ -11,7 +11,7 @@ using Renderite.Shared;
 namespace Discover.Resonite.Ui;
 
 /// <summary>
-/// The Galaxy Sieve screen (spec "UI", design in docs/m3-design.md): a lens rail; a top bar with search, sort, filters
+/// The ResoniteDiscovery screen (spec "UI", design in docs/m3-design.md): a lens rail; a top bar with search, sort, filters
 /// and refresh; a chip bar; a header; the card grid; a status bar with page buttons; two popovers (sort, filters); and a
 /// transition curtain. Built once, the first time the screen is shown, then only re-bound by <see cref="Render"/>.
 ///
@@ -551,6 +551,7 @@ internal sealed class DiscoverUi
         BuildOrganize(ui);
         BuildPrompt(ui);
         BuildSettings(ui);
+        BuildStartLensMenu(ui); // after the settings panel, so it draws over it
         BuildDetails(ui);
     }
 
@@ -658,6 +659,7 @@ internal sealed class DiscoverUi
 
         _confirmScrim.ActiveSelf = true;
         _confirmPanel.ActiveSelf = true;
+        AnimateOpen(_confirmPanel, ModalRise);
     }
 
     // ---- new session panel (modelled on the stock Session Settings dialog: who can join, then Start Session)
@@ -805,6 +807,7 @@ internal sealed class DiscoverUi
         RefreshNewSession();
         _confirmScrim.ActiveSelf = true;
         _newSessionPanel.ActiveSelf = true;
+        AnimateOpen(_newSessionPanel, ModalRise);
     }
 
     /// <summary>
@@ -1139,6 +1142,37 @@ internal sealed class DiscoverUi
         }
     }
 
+    /// <summary>Panel open animations (the Animations setting). Off: panels just appear.</summary>
+    public bool Animate { get; set; } = true;
+
+    /// <summary>
+    /// Slides a panel into place by tweening its anchors from a small offset (<paramref name="from"/>, in fractions of the
+    /// pane) to where they are. Only the anchors move: the panel's size comes from its layout, and its tint is driven by
+    /// its press-absorbing button, so neither can be tweened.
+    /// </summary>
+    private void AnimateOpen(Slot panel, float2 from)
+    {
+        if (!Animate || panel.GetComponent<RectTransform>() is not { } rect)
+        {
+            return;
+        }
+
+        try
+        {
+            var min = rect.AnchorMin.Value;
+            var max = rect.AnchorMax.Value;
+            rect.AnchorMin.TweenFromTo(min + from, min, 0.18f, CurvePreset.CubicOut);
+            rect.AnchorMax.TweenFromTo(max + from, max, 0.18f, CurvePreset.CubicOut);
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Panel animation failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    private static readonly float2 ModalRise = new(0f, -0.04f);
+    private static readonly float2 MenuDrop = new(0f, 0.03f);
+
     private void ToggleMenu(Slot menu)
     {
         var open = !menu.ActiveSelf;
@@ -1150,6 +1184,10 @@ internal sealed class DiscoverUi
 
         menu.ActiveSelf = open;
         _scrim.ActiveSelf = open;
+        if (open)
+        {
+            AnimateOpen(menu, MenuDrop);
+        }
     }
 
     public void CloseMenus()
@@ -1165,6 +1203,7 @@ internal sealed class DiscoverUi
         _organizePanel.ActiveSelf = false;
         _organizeScrim.ActiveSelf = false;
         _settingsPanel.ActiveSelf = false;
+        _startLensMenu.ActiveSelf = false;
         _settingsScrim.ActiveSelf = false;
         _detailPanel.ActiveSelf = false;
         _detailScrim.ActiveSelf = false;
@@ -1762,6 +1801,7 @@ internal sealed class DiscoverUi
         _detailAction.ColorDrivers[0].SetColors(enabled ? Theme.ButtonSelected : Theme.ButtonQuiet);
         _detailScrim.ActiveSelf = true;
         _detailPanel.ActiveSelf = true;
+        AnimateOpen(_detailPanel, ModalRise);
     }
 
     // ---- settings panel: the sidebar's sections and lenses on the left, general options and your data on the right
@@ -1779,6 +1819,11 @@ internal sealed class DiscoverUi
     private (Image Track, RectTransform Knob) _notifyLiveSwitch;
     private (Image Track, RectTransform Knob) _notifyContactsSwitch;
     private Text _startLensValue = null!;
+    private Button _startLensRow = null!;
+    private Slot _startLensMenu = null!;
+    private const int MaxStartLensRows = 16;
+    private readonly List<(Button Button, Text Label)> _startLensItems = [];
+    private IReadOnlyList<(LensKind Lens, string Label, bool Selected)> _startLensChoices = [];
     private Button _viewGrid = null!;
     private Button _viewList = null!;
     private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
@@ -1833,7 +1878,7 @@ internal sealed class DiscoverUi
         _settingsPages.Add(SettingsPage(ui, () =>
         {
             SettingsGroup(ui, "settings.tab.general");
-            var startRow = ValueRow(ui, UiStrings.Get("settings.startOn"), () => _actions.ToggleSetting(SettingKey.StartLens), out _startLensValue);
+            _startLensRow = ValueRow(ui, UiStrings.Get("settings.startOn"), ToggleStartLensMenu, out _startLensValue);
             _liveOnlySwitch = SettingsSwitch(ui, UiStrings.Get("settings.liveOnly"), () => _actions.ToggleSetting(SettingKey.LiveOnly));
             _animationsSwitch = SettingsSwitch(ui, UiStrings.Get("settings.animations"), () => _actions.ToggleSetting(SettingKey.Animations));
         }));
@@ -1882,9 +1927,17 @@ internal sealed class DiscoverUi
                 var column = ui.VerticalLayout(4f, 0f, Alignment.TopCenter);
                 column.ForceExpandHeight.Value = false;
                 ui.Style.FlexibleWidth = -1f;
+                var firstSection = true;
                 foreach (var section in group)
                 {
-                    ui.Style.MinHeight = 40f;
+                    if (!firstSection)
+                    {
+                        ui.Style.MinHeight = 14f; // a gap between sections
+                        ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
+                    }
+
+                    firstSection = false;
+                    ui.Style.MinHeight = 42f;
                     var id = section;
                     var sectionRow = SettingsSwitchRow(ui, "", () => _actions.ToggleSection(id));
                     _sectionRows[section] = (sectionRow.Button, sectionRow.Track, sectionRow.Knob);
@@ -1974,6 +2027,67 @@ internal sealed class DiscoverUi
         ShowSettingsTab(0);
     }
 
+    /// <summary>The "Start on" dropdown: every lens the sidebar offers, two columns, opened under its row.</summary>
+    private void BuildStartLensMenu(UIBuilder ui)
+    {
+        var slot = BeginFloating(ui, "StartLensMenu", 0.34f, 0.74f, 0.5f, 1f, 6f, 10f);
+        ui.Style.MinHeight = 7f * 46f;
+        var area = ui.Empty("Choices");
+        var grid = area.AttachComponent<GridLayout>();
+        grid.ChildAlignment = Alignment.TopLeft;
+        grid.CellSize.Value = new float2(200f, 40f);
+        grid.Spacing.Value = new float2(8f, 6f);
+        ui.NestInto(area.GetComponent<RectTransform>());
+        for (var i = 0; i < MaxStartLensRows; i++)
+        {
+            var button = ui.Button((LocaleString)"");
+            var label = button.Slot.GetComponentInChildren<Text>();
+            Fix(label, TypeScale.Body);
+            var index = i;
+            button.LocalPressed += (_, _) =>
+            {
+                if (index < _startLensChoices.Count)
+                {
+                    _startLensMenu.ActiveSelf = false;
+                    _actions.SetStartLens(_startLensChoices[index].Lens);
+                }
+            };
+            button.Slot.ActiveSelf = false;
+            _startLensItems.Add((button, label));
+        }
+
+        ui.NestOut();
+        ui.NestOut();
+        slot.ActiveSelf = false;
+        _startLensMenu = slot;
+        _menuAnchors[slot] = _startLensRow;
+    }
+
+    private void ToggleStartLensMenu()
+    {
+        if (_startLensMenu.ActiveSelf)
+        {
+            _startLensMenu.ActiveSelf = false;
+            return;
+        }
+
+        for (var i = 0; i < _startLensItems.Count; i++)
+        {
+            var show = i < _startLensChoices.Count;
+            _startLensItems[i].Button.Slot.ActiveSelf = show;
+            if (show)
+            {
+                var (_, label, selected) = _startLensChoices[i];
+                _startLensItems[i].Label.Content.Value = "<nobr>" + (selected ? "✓  " : "") + Plain(label) + "</nobr>";
+                SetColor(_startLensItems[i].Button, selected ? Theme.ButtonSelected : Theme.Button);
+            }
+        }
+
+        PositionMenu(_startLensMenu);
+        _startLensMenu.ActiveSelf = true;
+        AnimateOpen(_startLensMenu, MenuDrop);
+    }
+
     /// <summary>One settings page: a vertical list that fills the page area.</summary>
     private Slot SettingsPage(UIBuilder ui, Action fill)
     {
@@ -2057,7 +2171,8 @@ internal sealed class DiscoverUi
         ApplySwitch(_liveOnlySwitch.Track, _liveOnlySwitch.Knob, model.LiveOnly);
         ApplySwitch(_notifyLiveSwitch.Track, _notifyLiveSwitch.Knob, settings.NotifyFavoriteLive);
         ApplySwitch(_notifyContactsSwitch.Track, _notifyContactsSwitch.Knob, settings.NotifyContactsInFavorite);
-        _startLensValue.Content.Value = "<nobr>" + Plain(model.StartLens) + "  ›</nobr>";
+        _startLensValue.Content.Value = "<nobr>" + Plain(model.StartLens) + "  ▾</nobr>";
+        _startLensChoices = model.StartLensChoices ?? [];
 
         SetColor(_viewGrid, settings.ListView ? Theme.Button : Theme.ButtonSelected);
         SetColor(_viewList, settings.ListView ? Theme.ButtonSelected : Theme.Button);
@@ -2072,9 +2187,9 @@ internal sealed class DiscoverUi
         foreach (var (section, row) in _sectionRows)
         {
             var on = settings.IsSectionOn(section);
-            row.Button.Slot.GetComponentInChildren<Text>().Content.Value = "<nobr>" + SectionName(section) + "</nobr>";
+            row.Button.Slot.GetComponentInChildren<Text>().Content.Value = "<nobr><b>" + SectionName(section) + "</b></nobr>";
             ApplySwitch(row.Track, row.Knob, on);
-            SetColor(row.Button, Theme.Button);
+            SetColor(row.Button, on ? Theme.SectionRow : Theme.ButtonQuiet);
         }
 
         foreach (var (lens, row) in _lensRows)
@@ -2091,6 +2206,7 @@ internal sealed class DiscoverUi
             CloseMenus();
             _settingsScrim.ActiveSelf = true;
             _settingsPanel.ActiveSelf = true;
+            AnimateOpen(_settingsPanel, ModalRise);
         }
     }
 
@@ -2822,6 +2938,25 @@ internal sealed class CardView
         (new float2(0.62f, 0.00f), new float2(1.00f, 0.48f)),
     ];
 
+    /// <summary>Row text is larger than grid text (a row has the room), and the buttons and tags read at the same size.</summary>
+    private void SetTextSizes(bool list)
+    {
+        void Range(Text text, float gridMin, float gridMax, float listMin, float listMax) =>
+            DiscoverUi.Clamp(text, list ? listMin : gridMin, list ? listMax : gridMax);
+
+        Range(_title, 18f, 26f, 22f, 28f);
+        Range(_meta, 14f, 18f, 15f, 18f);
+        Range(_footer, 13f, 17f, 15f, 18f);
+        Range(_starLabel, 16f, 28f, 20f, 28f);
+        Range(_buttonLabel, 13f, 17f, 15f, 18f);
+        Range(_info.Slot.GetComponentInChildren<Text>(), 12f, 18f, 15f, 18f);
+        Range(_organize.Slot.GetComponentInChildren<Text>(), 12f, 18f, 15f, 18f);
+        foreach (var (_, label) in _tags)
+        {
+            Range(label, 12f, 16f, 15f, 18f);
+        }
+    }
+
     private static readonly (float2 Min, float2 Max)[] ListOverlayAnchors =
     [
         (new float2(0.91f, 0.54f), new float2(1.00f, 1.00f)), // star
@@ -2834,7 +2969,14 @@ internal sealed class CardView
     {
         _list = list;
         _scrim.ActiveSelf = !list;
-        _catcher.ActiveSelf = !list;
+
+        // The press and hover target: the whole card in the grid; only the picture in a row, so the row's own buttons
+        // stay reachable and hovering the picture still pans it.
+        _catcher.ActiveSelf = true;
+        var catcherRect = _catcher.GetComponent<RectTransform>();
+        catcherRect.AnchorMin.Value = float2.Zero;
+        catcherRect.AnchorMax.Value = list ? new float2(0.18f, 1f) : float2.One;
+        SetTextSizes(list);
         _parts[1].Slot.ActiveSelf = list;
         _parts[4].Slot.ActiveSelf = list;
         _parts[5].Slot.ActiveSelf = list;
@@ -2863,7 +3005,7 @@ internal sealed class CardView
 
     private static Button OverlayButton(UIBuilder ui, string text, float2 anchorMin, float2 anchorMax, out Text label)
     {
-        var button = ui.Button((LocaleString)text, Theme.Button);
+        var button = ui.Button((LocaleString)text, Theme.CardButton);
         var rect = button.Slot.GetComponent<RectTransform>();
         rect.AnchorMin.Value = anchorMin;
         rect.AnchorMax.Value = anchorMax;
@@ -2911,7 +3053,7 @@ internal sealed class CardView
             _tagPersonal[i] = show && card.Tags[i].Personal;
             if (show)
             {
-                _tags[i].Button.ColorDrivers[0].SetColors(_tagPersonal[i] ? Theme.ChipPersonal : Theme.Button);
+                _tags[i].Button.ColorDrivers[0].SetColors(_tagPersonal[i] ? Theme.ChipPersonal : Theme.CardButton);
             }
         }
 

@@ -10,13 +10,13 @@ namespace Discover.Resonite.Loader;
 /// Built as a plain DLL into <c>rml_mods/</c>; this install loads it through MonkeyLoader's RML compatibility pack.
 /// Other loaders would get their own shim in this folder from the same project (<c>ResoniteTargetModLoader</c>).
 /// </summary>
-public sealed class GalaxySieveMod : ResoniteMod
+public sealed class ResoniteDiscoveryMod : ResoniteMod
 {
-    public override string Name => "Galaxy Sieve";
+    public override string Name => "ResoniteDiscovery";
 
     public override string Author => "Winter";
 
-    public override string Version => typeof(GalaxySieveMod).Assembly
+    public override string Version => typeof(ResoniteDiscoveryMod).Assembly
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
 
     public override void OnEngineInit()

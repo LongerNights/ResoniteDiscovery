@@ -1,6 +1,6 @@
-# Galaxy Sieve
+# ResoniteDiscovery
 
-A client-side Resonite mod that adds a world-discovery tab to the dash, beside the stock Worlds tab:
+A client-side Resonite mod that replaces the dash's Worlds tab with a cleaner one (the stock tab stays one button away as "Classic browser"):
 live sessions and published worlds merged into ranked, searchable lenses, plus favorites,
 named lists and personal tags.
 
