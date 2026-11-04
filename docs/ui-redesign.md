@@ -27,7 +27,7 @@ A small set of shared pieces in `DiscoverUi`'s `Theme`, used by every screen.
 
 | Token | Values |
 | --- | --- |
-| Type scale (fixed, no `bestFit`) | Caption 13, Body 16, Label 18, Title 24, Hero 32. Long text ellipsizes instead of shrinking. |
+| Type scale (fixed, no `bestFit`) | Caption **14**, Body **18**, Label **22**, Title **28**, Hero **36**. Long text ellipsizes instead of shrinking. *(Step 1 shipped 13 / 16 / 20 / 26 / 34 and settings rows, rail headings and the title came out too small, so the scale is revised up by one to two points, and the 50 converted labels re-snap to it.)* |
 | Spacing | 4, 8, 12, 16, 24 |
 | Corner radius | Panels 16, buttons and chips 10, pills fully rounded |
 | Surfaces | Pane (opaque, darkest), Panel (one step lighter), Raised (rows, fields), Scrim (black at 55 %) |
@@ -175,16 +175,62 @@ A modal card about 70 % of the pane wide and sized to its content.
 
 ## Settings panel
 
-Split it into tabs along the top of one panel, so no column overflows as rows are added:
+**What the first in-game look showed (after step 1).**
 
-| Tab | Contents |
+1. **Everything is a full-width purple bar,** so a switch ("Animations: Off"), a choice ("Start on: Browse"), a counter
+   ("Hidden: 0 worlds...") and a command ("Hide worlds with a word...") are indistinguishable. The state is buried in
+   the label text.
+2. **The Sidebar column is 22 identical "X: On" bars** in a narrow column, with section and lens rows differing only by
+   capitals. It dominates the panel and is rarely used.
+3. **Text is too small.** Rows, the section headings and the Export note landed on the 13 and 16 steps and read tiny
+   next to "Done", "Export" and "Import". The same happened to the rail headings and the "Galaxy Sieve" title.
+4. **The panel is full-height with a gap** between the content and Done, and no room left to add rows.
+5. **There is no grouping** between display, behaviour, notifications and hiding.
+
+**Layout.** A modal about 60 % of the pane wide and sized to its content (capped at the pane height, scrolling inside):
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Settings                                                  ✕  │
+│ ┌──────────┐                                                 │
+│ │ General  │  START ON                                       │
+│ │ Display  │  Browse                          [ Change ▾ ]   │
+│ │ Sidebar  │                                                 │
+│ │ Alerts   │  BEHAVIOUR                                      │
+│ │ Hidden   │  Live lenses only (no search)            [ ○ ]  │
+│ │ Data     │  Reduce motion                           [ ○ ]  │
+│ └──────────┘                                                 │
+│                                                    [ Done ]  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Left:** a vertical tab list of six entries. The selected tab gets the accent bar. Pressing a tab swaps the right-hand
+  page; the panel height does not change between tabs (it is as tall as the tallest page).
+- **Right:** the page for the selected tab, built from the shared controls only. A row has the label (Body 18) and an
+  optional one-line explanation (Caption 14) on the left, and the control on the right, so state is never in the label text.
+- **Footer:** Done (primary) on the right. Pressing outside the panel or ✕ closes it too.
+
+**Pages.**
+
+| Tab | Rows |
 | --- | --- |
-| General | Start lens, live lenses only, animations (reduce motion), Classic browser button |
-| Display | View (grid/list, segmented), cards per row (segmented 2–7) |
-| Sidebar | Section and lens switches (today's left column) |
-| Notifications | The two notification switches |
-| Hidden | Counts, list of hidden worlds and authors with ✕ each, add word, restore all |
-| Data | Export, import, the note |
+| General | **Start on:** a dropdown of the visible lenses (replaces the click-to-cycle button). **Live lenses only:** switch, explanation "Skip world search; uses no network requests." **Reduce motion:** switch (replaces "Animations"). **Classic browser button:** switch. |
+| Display | **Layout:** segmented `Grid | List`. **Cards per row:** segmented `2 3 4 5 6 7` (grid only; greyed with the reason when List is on). |
+| Sidebar | Grouped as in the rail: each section is a header row with one switch, and its lenses are indented rows with a switch each, dimmed when the section is off. Two columns of eleven rows each if the page is tall; otherwise one scrolling column. A "Reset sidebar" quiet button at the bottom. |
+| Alerts | **Favorite goes live:** switch. **Contacts join a favorite:** switch. A line of Caption explaining the rate limit ("At most 3 alerts in 10 minutes, once per world per 30 minutes."). |
+| Hidden | Counts as three stat pills (worlds, authors, words). Below, a scrolling list of every hidden world, author and word, each with a ✕ to restore just that one, and **Add a word** (opens the name prompt) and **Restore all** (quiet, asks to confirm) buttons. This is where the hidden items are shown by name instead of by count. |
+| Data | **Export** and **Import** as two equal secondary buttons, each with a one-line explanation under it, and the exports-folder path as selectable Caption text, with the note rewritten shorter: "Exports go to your Galaxy Sieve folder. Import only adds; it never removes." |
+
+**Shared control additions for Settings.** A *dropdown* (button showing the current value and ▾, opening a popover with
+the options, the same popover as Sort) and a *switch* (a 52 × 28 rounded track with a knob that slides 120 ms; on is accent
+and off is Raised). The switch replaces every "X: On" text button in the mod.
+
+**Hidden-items list needs data:** `HiddenWorlds` stores only keys and `HiddenAuthors` only ids today, so the list would
+show raw ids. Store the display name next to each when it is hidden (`HiddenItem { Id, Name }`, with the old string lists
+read as entries whose name is the id), so the Hidden page can show "Cloud" and "by Resonite" instead.
+
+**Settings migration.** Switching "Animations" to "Reduce motion" inverts the saved value: an old `animateTransitions`
+of false becomes `reduceMotion` of true. This is a one-time read in the settings loader.
 
 ## Animations
 
@@ -214,11 +260,12 @@ Rules:
 Each step is shippable and testable in game on its own.
 
 1. **Design system:** fixed type scale, button variants, size-to-content panels, opaque pane. Most of the "messy" look goes away here alone.
+1b. *(next)* **Type scale correction:** raise the scale as above and re-run the snap; no layout change. Do this before step 2 so every later screen is built on the final sizes.
 2. **Top bar, header, chip bar, rail and footer.**
 3. **Sort menu and Filters popover:** hide what doesn't apply, add sections, switches and segmented controls.
 4. **Detail panel:** hero image, author link, session rows, icon action bar.
 5. **Session Settings:** radio list and Options switch, opened inside the detail panel.
-6. **Settings tabs.**
+6. **Settings panel:** tabs, switches, dropdown, Hidden list with names, settings migration.
 7. **Animations,** after the two `VERIFY` probes.
 
 Every step adds its strings to the string table and keeps colours by `RadiantUI_Constants` name. Each step gets a short
