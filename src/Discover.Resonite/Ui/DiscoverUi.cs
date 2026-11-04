@@ -1291,6 +1291,21 @@ internal sealed class DiscoverUi
     /// pane) to where they are. Only the anchors move: the panel's size comes from its layout, and its tint is driven by
     /// its press-absorbing button, so neither can be tweened.
     /// </summary>
+    /// <summary>Fades the dimming behind a modal in. The scrim's tint is driven by its button, so the driver's colours are tweened.</summary>
+    private static void FadeScrim(Slot scrim)
+    {
+        if (!UiMotion.Enabled || scrim.GetComponent<Button>() is not { } button)
+        {
+            return;
+        }
+
+        var driver = button.ColorDrivers[0];
+        var target = Theme.ConfirmScrim;
+        var fade = UiMotion.Seconds(0.24f);
+        driver.NormalColor.TweenFromTo(target.SetA(0f), target, fade, CurvePreset.SineOut);
+        driver.HighlightColor.TweenFromTo(target.SetA(0f), target, fade, CurvePreset.SineOut);
+    }
+
     private void AnimateOpen(Slot panel, float2 from, Slot? scrim = null, CurvePreset curve = CurvePreset.QuinticOut)
     {
         if (!Animate || panel.GetComponent<RectTransform>() is not { } rect)
@@ -1970,6 +1985,8 @@ internal sealed class DiscoverUi
         ui.NestOut(); // the panel
         slot.ActiveSelf = false;
         _detailPanel = slot;
+        _detailHomeMin = slot.GetComponent<RectTransform>().AnchorMin.Value;
+        _detailHomeMax = slot.GetComponent<RectTransform>().AnchorMax.Value;
     }
 
     /// <summary>The detail panel's 360 preview: drawn like the card's, and panned by hovering it.</summary>
@@ -2066,8 +2083,117 @@ internal sealed class DiscoverUi
         }
     }
 
+    /// <summary>The card (or row) the next detail panel opens from; set by the card just before it asks for details.</summary>
+    internal static Slot? PendingOrigin;
+
+    private float2 _detailHomeMin;
+    private float2 _detailHomeMax;
+    private float _detailHeight = 0.84f;
+    private int _expandGeneration;
+
+    /// <summary>Puts the detail panel back as BuildFloating made it (after an expansion that was cut short, or finished).</summary>
+    private void RestoreDetailGeometry()
+    {
+        var rect = _detailPanel.GetComponent<RectTransform>();
+        rect.Pivot.Value = new float2(0.5f, 0.5f);
+        rect.AnchorMin.Value = _detailHomeMin;
+        rect.AnchorMax.Value = _detailHomeMax;
+        rect.OffsetMin.Value = float2.Zero;
+        rect.OffsetMax.Value = float2.Zero;
+        if (_detailPanel.GetComponent<ContentSizeFitter>() is { } fitter)
+        {
+            fitter.Enabled = true;
+        }
+
+        foreach (var child in _detailPanel.Children)
+        {
+            child.ActiveSelf = true;
+        }
+    }
+
+    /// <summary>
+    /// The panel grows out of the card (or list row) that was pressed: its own background is stretched over the card's
+    /// rectangle, then tweened to the panel's place, with the contents held back until it arrives. Returns false when the
+    /// positions cannot be read (the caller then uses the plain rise).
+    /// </summary>
+    private bool ExpandFromOrigin(Slot origin)
+    {
+        try
+        {
+            var rect = _detailPanel.GetComponent<RectTransform>();
+            if (_detailPanel.Parent?.GetComponent<RectTransform>() is not { } host
+                || origin.GetComponent<RectTransform>() is not { } from
+                || _detailPanel.GetComponent<ContentSizeFitter>() is not { } fitter)
+            {
+                return false;
+            }
+
+            var hostRect = host.ComputeGlobalComputeRect();
+            var fromRect = from.ComputeGlobalComputeRect();
+            if (hostRect.size.x < 1f || hostRect.size.y < 1f || fromRect.size.x < 1f)
+            {
+                return false;
+            }
+
+            var start0 = (fromRect.position - hostRect.position) / hostRect.size;
+            var start1 = start0 + fromRect.size / hostRect.size;
+            if (start1.x < 0f || start0.x > 1f || start1.y < 0f || start0.y > 1f)
+            {
+                return false;
+            }
+
+            var half = _detailHeight * 0.5f;
+            var end0 = new float2(_detailHomeMin.x, _detailHomeMin.y - half);
+            var end1 = new float2(_detailHomeMax.x, _detailHomeMax.y + half);
+
+            var generation = ++_expandGeneration;
+            fitter.Enabled = false;
+            rect.Pivot.Value = new float2(0.5f, 0.5f);
+            rect.OffsetMin.Value = float2.Zero;
+            rect.OffsetMax.Value = float2.Zero;
+            rect.AnchorMin.Value = start0;
+            rect.AnchorMax.Value = start1;
+            foreach (var child in _detailPanel.Children)
+            {
+                child.ActiveSelf = false;
+            }
+
+            var seconds = UiMotion.Seconds(0.38f);
+            rect.AnchorMin.TweenFromTo(start0, end0, seconds, CurvePreset.QuinticOut);
+            rect.AnchorMax.TweenFromTo(start1, end1, seconds, CurvePreset.QuinticOut, onDoneLocal: () =>
+            {
+                if (generation != _expandGeneration)
+                {
+                    return;
+                }
+
+                RestoreDetailGeometry();
+                _screen.World.RunInUpdates(3, () =>
+                {
+                    // Remember how tall the laid-out panel really is, so the next expansion ends where it will settle.
+                    var measured = rect.ComputeGlobalComputeRect().size.y / MathF.Max(1f, host.ComputeGlobalComputeRect().size.y);
+                    if (measured is > 0.3f and < 1f)
+                    {
+                        _detailHeight = measured;
+                    }
+                });
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Card expansion failed: {ex.GetType().Name}: {ex.Message}");
+            RestoreDetailGeometry();
+            return false;
+        }
+    }
+
     public void ShowDetails(DetailModel model)
     {
+        var origin = PendingOrigin;
+        PendingOrigin = null;
+        _expandGeneration++;
+        RestoreDetailGeometry(); // an expansion that was cut short must not leave the panel as it was mid-way
         CloseMenus();
         _detailKey = model.Key;
         _detailTitle.Content.Value = "<nobr>" + Plain(model.Title) + "</nobr>";
@@ -2130,7 +2256,14 @@ internal sealed class DiscoverUi
         RenderDetailSession();
         _detailScrim.ActiveSelf = true;
         _detailPanel.ActiveSelf = true;
-        AnimateOpen(_detailPanel, ModalRise, _detailScrim);
+        if (origin is not null && Animate && ExpandFromOrigin(origin))
+        {
+            FadeScrim(_detailScrim);
+        }
+        else
+        {
+            AnimateOpen(_detailPanel, ModalRise, _detailScrim);
+        }
     }
 
     // ---- settings panel: the sidebar's sections and lenses on the left, general options and your data on the right
@@ -3142,6 +3275,38 @@ internal sealed class DiscoverUi
 internal sealed class CardView
 {
     private readonly Slot _root;
+    private Slot _sheet = null!;
+    private RectTransform _sheetRect = null!;
+    private int _revealGeneration;
+
+    /// <summary>Retracts the card's dark sheet from the top down (see Create). A card refilled mid-reveal starts over.</summary>
+    private void PlayReveal()
+    {
+        if (!UiMotion.Enabled)
+        {
+            _sheet.ActiveSelf = false;
+            return;
+        }
+
+        try
+        {
+            var generation = ++_revealGeneration;
+            _sheet.ActiveSelf = true;
+            _sheetRect.AnchorMin.Value = float2.Zero;
+            _sheetRect.AnchorMax.TweenFromTo(float2.One, new float2(1f, 0f), UiMotion.Seconds(0.45f), CurvePreset.QuarticOut, onDoneLocal: () =>
+            {
+                if (generation == _revealGeneration)
+                {
+                    _sheet.ActiveSelf = false;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _sheet.ActiveSelf = false;
+            UniLog.Warning($"[Discover] Card reveal failed: {ex.GetType().Name}");
+        }
+    }
     private readonly IBrowseActions _actions;
     private Text _title = null!;
     private Text _meta = null!;
@@ -3235,6 +3400,7 @@ internal sealed class CardView
         {
             if (card.Key is not null)
             {
+                DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
             }
         };
@@ -3316,6 +3482,7 @@ internal sealed class CardView
         {
             if (card.Key is not null)
             {
+                DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
             }
         };
@@ -3325,6 +3492,25 @@ internal sealed class CardView
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
+
+        // The reveal: a dark sheet over the card with a cyan leading edge; it retracts from the top down when the card is
+        // filled with a new world (PlayReveal), so a tab appears as a cascade of cards being scanned in.
+        var sheet = ui.Image(Theme.Rail);
+        sheet.Slot.Name = "Reveal";
+        sheet.InteractionTarget.Value = false;
+        var edge = new UIBuilder(sheet.RectTransform);
+        RadiantUI_Constants.SetupDefaultStyle(edge);
+        var line = edge.Image(Theme.Tab);
+        line.Slot.Name = "Edge";
+        line.InteractionTarget.Value = false;
+        line.RectTransform.AnchorMin.Value = new float2(0f, 1f);
+        line.RectTransform.AnchorMax.Value = new float2(1f, 1f);
+        line.RectTransform.OffsetMin.Value = new float2(0f, -4f);
+        line.RectTransform.OffsetMax.Value = float2.Zero;
+        sheet.Slot.ActiveSelf = false;
+        card._sheet = sheet.Slot;
+        card._sheetRect = sheet.RectTransform;
+
         card.SetListLayout(false);
         DiscoverUi.ApplyTextLift(slot);
         return card;
@@ -3460,17 +3646,14 @@ internal sealed class CardView
         var changed = Key != card.Key;
         Key = card.Key;
         _root.ActiveSelf = true;
+        if (changed)
+        {
+            PlayReveal();
+        }
 
         _title.Content.Value = Safe(card.Title);
         _title.Color.Value = card.Dimmed ? Theme.TextSecondary : Theme.Text;
         _meta.Content.Value = "<nobr>" + Safe(card.Meta) + "</nobr>";
-        if (changed)
-        {
-            // A card showing a different world fades its text in, so a tab fills in with a soft cascade (the cards are
-            // bound a few per frame).
-            UiMotion.FadeIn(_title.Color, card.Dimmed ? Theme.TextSecondary : Theme.Text);
-            UiMotion.FadeIn(_meta.Color, Theme.TextSecondary);
-        }
 
         _usersPill.ActiveSelf = card.Users is not null;
         _users.Content.Value = card.Users ?? "";
