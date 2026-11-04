@@ -13,11 +13,11 @@ namespace Discover.Resonite.Ui;
 /// </summary>
 internal static class TypeScale
 {
-    public const float Caption = 13f;
-    public const float Body = 16f;
-    public const float Label = 20f;
-    public const float Title = 26f;
-    public const float Hero = 34f;
+    public const float Caption = 14f;
+    public const float Body = 18f;
+    public const float Label = 22f;
+    public const float Title = 28f;
+    public const float Hero = 36f;
 
     private static readonly float[] Steps = [Caption, Body, Label, Title, Hero];
 
