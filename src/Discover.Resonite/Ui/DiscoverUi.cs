@@ -664,62 +664,89 @@ internal sealed class DiscoverUi
 
     private Slot _newSessionPanel = null!;
     private Text _newSessionWorld = null!;
-    private Text _newSessionMobile = null!;
-    private Button _newSessionMobileButton = null!;
-    private readonly List<(SkyFrost.Base.SessionAccessLevel? Level, Button Button, Text Label)> _newSessionLevels = [];
+    private Image _newSessionMobileTrack = null!;
+    private RectTransform _newSessionMobileKnob = null!;
+    private readonly List<(SkyFrost.Base.SessionAccessLevel? Level, Button Button, Image Dot)> _newSessionLevels = [];
     private SkyFrost.Base.SessionAccessLevel? _newSessionLevel;
     private bool _newSessionMobileFriendly;
     private Action<SkyFrost.Base.SessionAccessLevel?, bool>? _newSessionStart;
 
     private void BuildNewSession(UIBuilder ui)
     {
-        var slot = BeginFloating(ui, "NewSession", 0.32f, 0.68f, 0.5f, 0.5f, 6f, 20f);
+        var slot = BeginFloating(ui, "NewSession", 0.30f, 0.70f, 0.5f, 0.5f, 6f, 22f);
 
-        ui.Style.MinHeight = 48f;
+        ui.Style.MinHeight = 44f;
         var title = ui.Text((LocaleString)UiStrings.Get("newSession.title"), bestFit: true, alignment: Alignment.MiddleCenter);
         Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
 
-        ui.Style.MinHeight = 40f;
+        ui.Style.MinHeight = 30f;
         _newSessionWorld = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
         Fix(_newSessionWorld, TypeScale.Body);
         _newSessionWorld.Color.Value = Theme.TextSecondary;
 
-        ui.Style.MinHeight = 36f;
-        var who = ui.Text((LocaleString)UiStrings.Get("newSession.who"), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(who, TypeScale.Body);
-        who.Color.Value = Theme.TextSecondary;
+        NewSessionHeading(ui, "newSession.who");
 
-        ui.Style.MinHeight = 42f;
-        SkyFrost.Base.SessionAccessLevel?[] levels =
+        // Who can join: one row per level, a ring with a dot on the chosen one, and a hint after the name.
+        ui.Style.MinHeight = 44f;
+        (SkyFrost.Base.SessionAccessLevel? Level, string Name, string Hint)[] levels =
         [
-            null,
-            SkyFrost.Base.SessionAccessLevel.Anyone,
-            SkyFrost.Base.SessionAccessLevel.RegisteredUsers,
-            SkyFrost.Base.SessionAccessLevel.ContactsPlus,
-            SkyFrost.Base.SessionAccessLevel.Contacts,
-            SkyFrost.Base.SessionAccessLevel.LAN,
-            SkyFrost.Base.SessionAccessLevel.Private,
+            (null, UiStrings.Get("newSession.default"), UiStrings.Get("newSession.hint.default")),
+            (SkyFrost.Base.SessionAccessLevel.Anyone, UiStrings.Get("access.Anyone"), UiStrings.Get("newSession.hint.Anyone")),
+            (SkyFrost.Base.SessionAccessLevel.RegisteredUsers, UiStrings.Get("access.RegisteredUsers"), UiStrings.Get("newSession.hint.RegisteredUsers")),
+            (SkyFrost.Base.SessionAccessLevel.ContactsPlus, UiStrings.Get("access.ContactsPlus"), UiStrings.Get("newSession.hint.ContactsPlus")),
+            (SkyFrost.Base.SessionAccessLevel.Contacts, UiStrings.Get("access.Contacts"), UiStrings.Get("newSession.hint.Contacts")),
+            (SkyFrost.Base.SessionAccessLevel.LAN, UiStrings.Get("access.LAN"), UiStrings.Get("newSession.hint.LAN")),
+            (SkyFrost.Base.SessionAccessLevel.Private, UiStrings.Get("access.Private"), UiStrings.Get("newSession.hint.Private")),
         ];
-        foreach (var level in levels)
+        foreach (var (level, name, hint) in levels)
         {
-            var button = ui.Button((LocaleString)"");
+            var button = ui.Button((LocaleString)$"<nobr>{name}   <size=75%><alpha=#99>{hint}</size></nobr>");
             var label = button.Slot.GetComponentInChildren<Text>();
             Fix(label, TypeScale.Body);
+            label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
+            {
+                labelRect.OffsetMin.Value = new float2(52f, 0f);
+                labelRect.OffsetMax.Value = new float2(-12f, 0f);
+            }
+
+            var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
+            RadiantUI_Constants.SetupDefaultStyle(inner);
+            var ring = inner.Image(Theme.Rail);
+            ring.Slot.Name = "Ring";
+            ring.Sprite.Target = _rounded;
+            ring.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+            ring.InteractionTarget.Value = false;
+            ring.RectTransform.AnchorMin.Value = new float2(0f, 0.5f);
+            ring.RectTransform.AnchorMax.Value = new float2(0f, 0.5f);
+            ring.RectTransform.OffsetMin.Value = new float2(14f, -12f);
+            ring.RectTransform.OffsetMax.Value = new float2(38f, 12f);
+            var dotBuilder = new UIBuilder(ring.RectTransform);
+            RadiantUI_Constants.SetupDefaultStyle(dotBuilder);
+            var dot = dotBuilder.Image(Theme.Text);
+            dot.Slot.Name = "Dot";
+            dot.Sprite.Target = _rounded;
+            dot.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+            dot.InteractionTarget.Value = false;
+            dot.RectTransform.AnchorMin.Value = new float2(0.5f, 0.5f);
+            dot.RectTransform.AnchorMax.Value = new float2(0.5f, 0.5f);
+            dot.RectTransform.OffsetMin.Value = new float2(-6f, -6f);
+            dot.RectTransform.OffsetMax.Value = new float2(6f, 6f);
+
             var captured = level;
             button.LocalPressed += (_, _) =>
             {
                 _newSessionLevel = captured;
                 RefreshNewSession();
             };
-            _newSessionLevels.Add((level, button, label));
+            _newSessionLevels.Add((level, button, dot));
         }
 
+        NewSessionHeading(ui, "newSession.options");
         ui.Style.MinHeight = 48f;
-        _newSessionMobileButton = ui.Button((LocaleString)"");
-        _newSessionMobile = _newSessionMobileButton.Slot.GetComponentInChildren<Text>();
-        Fix(_newSessionMobile, TypeScale.Body);
-        _newSessionMobileButton.LocalPressed += (_, _) =>
+        var mobile = SwitchButton(ui, UiStrings.Get("newSession.mobile"), out _, out _newSessionMobileTrack, out _newSessionMobileKnob);
+        mobile.LocalPressed += (_, _) =>
         {
             _newSessionMobileFriendly = !_newSessionMobileFriendly;
             RefreshNewSession();
@@ -727,19 +754,19 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 56f;
         var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        var cancel = ui.Button((LocaleString)UiStrings.Get("confirm.cancel"), Theme.ButtonQuiet);
+        Fix(cancel.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        cancel.LocalPressed += (_, _) => CloseMenus();
         var start = ui.Button((LocaleString)UiStrings.Get("newSession.start"), Theme.ButtonSelected);
         Fix(start.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         start.LocalPressed += (_, _) =>
         {
             var action = _newSessionStart;
             var level = _newSessionLevel;
-            var mobile = _newSessionMobileFriendly;
+            var mobileFriendly = _newSessionMobileFriendly;
             CloseMenus();
-            action?.Invoke(level, mobile);
+            action?.Invoke(level, mobileFriendly);
         };
-        var cancel = ui.Button((LocaleString)UiStrings.Get("confirm.cancel"), Theme.ButtonQuiet);
-        Fix(cancel.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
-        cancel.LocalPressed += (_, _) => CloseMenus();
         ui.NestOut();
 
         ui.NestOut();
@@ -747,18 +774,24 @@ internal sealed class DiscoverUi
         _newSessionPanel = slot;
     }
 
+    private static void NewSessionHeading(UIBuilder ui, string stringId)
+    {
+        ui.Style.MinHeight = 32f;
+        var heading = ui.Text((LocaleString)UiStrings.Get(stringId), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(heading, TypeScale.Caption);
+        heading.Color.Value = Theme.TextSecondary;
+    }
+
     private void RefreshNewSession()
     {
-        foreach (var (level, button, label) in _newSessionLevels)
+        foreach (var (level, button, dot) in _newSessionLevels)
         {
             var on = level == _newSessionLevel;
             SetColor(button, on ? Theme.ButtonSelected : Theme.Button);
-            var name = level is null ? UiStrings.Get("newSession.default") : UiStrings.Get("access." + level);
-            label.Content.Value = "<nobr>" + (on ? "✓  " : "      ") + name + "</nobr>";
+            dot.Slot.ActiveSelf = on;
         }
 
-        SetColor(_newSessionMobileButton, _newSessionMobileFriendly ? Theme.ButtonSelected : Theme.Button);
-        _newSessionMobile.Content.Value = "<nobr>" + (_newSessionMobileFriendly ? "✓  " : "      ") + UiStrings.Get("newSession.mobile") + "</nobr>";
+        ApplySwitch(_newSessionMobileTrack, _newSessionMobileKnob, _newSessionMobileFriendly);
     }
 
     /// <summary>The new-session settings: who can join (default or one of six levels) and mobile friendly, then Start Session.</summary>
@@ -981,8 +1014,19 @@ internal sealed class DiscoverUi
     /// <summary>A "label ... switch" row: the whole row is the button, and the track shows on or off.</summary>
     private Slot SwitchRow(UIBuilder ui, FilterOp op, string stringId)
     {
-        var button = ui.Button((LocaleString)UiStrings.Get(stringId));
-        var label = button.Slot.GetComponentInChildren<Text>();
+        var button = SwitchButton(ui, UiStrings.Get(stringId), out var label, out var track, out var knob);
+        var captured = op;
+        button.LocalPressed += (_, _) => _actions.Filter(captured);
+        _filterItems[op] = (button, label);
+        _switches[op] = (track, knob);
+        return button.Slot;
+    }
+
+    /// <summary>The row button of a switch: label at the left, a track and knob at the right. See <see cref="ApplySwitch"/>.</summary>
+    private Button SwitchButton(UIBuilder ui, string text, out Text label, out Image track, out RectTransform knob)
+    {
+        var button = ui.Button((LocaleString)text);
+        label = button.Slot.GetComponentInChildren<Text>();
         Fix(label, TypeScale.Body);
         label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
         if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
@@ -993,7 +1037,7 @@ internal sealed class DiscoverUi
 
         var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
         RadiantUI_Constants.SetupDefaultStyle(inner);
-        var track = inner.Image(Theme.Rail);
+        track = inner.Image(Theme.Rail);
         track.Slot.Name = "Track";
         track.Sprite.Target = _rounded;
         track.NineSliceSizing.Value = NineSliceSizing.FixedSize;
@@ -1005,17 +1049,23 @@ internal sealed class DiscoverUi
 
         var knobBuilder = new UIBuilder(track.RectTransform);
         RadiantUI_Constants.SetupDefaultStyle(knobBuilder);
-        var knob = knobBuilder.Image(Theme.Text);
-        knob.Slot.Name = "Knob";
-        knob.Sprite.Target = _rounded;
-        knob.NineSliceSizing.Value = NineSliceSizing.FixedSize;
-        knob.InteractionTarget.Value = false;
+        var knobImage = knobBuilder.Image(Theme.Text);
+        knobImage.Slot.Name = "Knob";
+        knobImage.Sprite.Target = _rounded;
+        knobImage.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+        knobImage.InteractionTarget.Value = false;
+        knob = knobImage.RectTransform;
+        return button;
+    }
 
-        var captured = op;
-        button.LocalPressed += (_, _) => _actions.Filter(captured);
-        _filterItems[op] = (button, label);
-        _switches[op] = (track, knob.RectTransform);
-        return button.Slot;
+    /// <summary>Slides a switch's knob to the on or off end and colours its track.</summary>
+    private static void ApplySwitch(Image track, RectTransform knob, bool on)
+    {
+        track.Tint.Value = on ? Theme.ButtonSelected : Theme.Rail;
+        knob.AnchorMin.Value = on ? new float2(1f, 0f) : new float2(0f, 0f);
+        knob.AnchorMax.Value = on ? new float2(1f, 1f) : new float2(0f, 1f);
+        knob.OffsetMin.Value = on ? new float2(-25f, 3f) : new float2(3f, 3f);
+        knob.OffsetMax.Value = on ? new float2(-3f, -3f) : new float2(25f, -3f);
     }
 
     /// <summary>A "- value +" row: the middle button shows the value and does nothing.</summary>
@@ -2260,15 +2310,10 @@ internal sealed class DiscoverUi
         }
     }
 
-    /// <summary>Slides a switch's knob to the on or off end and colours its track.</summary>
     private void Toggle(FilterOp op, bool on)
     {
         var (track, knob) = _switches[op];
-        track.Tint.Value = on ? Theme.ButtonSelected : Theme.Rail;
-        knob.AnchorMin.Value = on ? new float2(1f, 0f) : new float2(0f, 0f);
-        knob.AnchorMax.Value = on ? new float2(1f, 1f) : new float2(0f, 1f);
-        knob.OffsetMin.Value = on ? new float2(-25f, 3f) : new float2(3f, 3f);
-        knob.OffsetMax.Value = on ? new float2(-3f, -3f) : new float2(25f, -3f);
+        ApplySwitch(track, knob, on);
     }
 
     private void SetBanner(string? text)
