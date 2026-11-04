@@ -320,7 +320,7 @@ internal sealed class DiscoverController : IBrowseActions
         if (_revealPending && (!_ui.CardsPending || now >= _revealDeadlineUtc))
         {
             _revealPending = false;
-            _ui.Reveal((float)_settings.TransitionIn.TotalSeconds, _settings.TransitionRise);
+            _ui.Reveal(UiMotion.Seconds(0.45f), 0f);
         }
 
         if (!_slowNoticed && _pager.Loading && now - _loadingSinceUtc >= _settings.SlowSearchNotice)
@@ -2057,11 +2057,49 @@ internal sealed class DiscoverController : IBrowseActions
 
     // ------------------------------------------------------------------ transitions
 
-    /// <summary>A lens switch re-renders on the next tick (the old fade to black is gone; panels animate, the results do not).</summary>
+    /// <summary>
+    /// A lens switch: the sweep rises over the results (the old cards go), the new lens is rendered while they are
+    /// covered, and the sweep retracts once its cards are filled in (RevealWhenFilled). Off with animations.
+    /// </summary>
     private void StartTransition()
     {
         _dirty = true;
         _lastRefreshUtc = DateTime.MinValue;
+        if (_ui is null || !_settings.AnimateTransitions)
+        {
+            return;
+        }
+
+        var ui = _ui;
+        ui.CloseMenus();
+        _transitioning = true;
+        _transitionStartUtc = DateTime.UtcNow;
+
+        // A second click mid-sweep restarts it; the newest lens is what the callback shows.
+        ui.Cover(UiMotion.Seconds(0.30f), () =>
+        {
+            if (!_transitioning || ui != _ui)
+            {
+                return;
+            }
+
+            _transitioning = false;
+            try
+            {
+                // This runs inside the engine's tween update, outside the tick's try/catch.
+                var now = DateTime.UtcNow;
+                _lastRefreshUtc = now;
+                _dirty = false;
+                Render(now);
+                RevealWhenFilled();
+            }
+            catch (Exception ex)
+            {
+                UniLog.Warning($"[Discover] Lens switch failed: {ex.GetType().Name}: {ex.Message} at {FirstFrame(ex)}");
+                ui.Settle();
+                _dirty = true;
+            }
+        });
     }
 
     /// <summary>

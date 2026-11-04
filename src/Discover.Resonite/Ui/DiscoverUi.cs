@@ -69,7 +69,8 @@ internal sealed class DiscoverUi
     private Button _descending = null!;
     private Button _ascending = null!;
     private TextField _search = null!;
-    private Image _curtain = null!;
+    private Slot _wipe = null!;
+    private RectTransform _wipeRect = null!;
     private RectTransform _viewport = null!;
     private float2 _viewportMin;
     private float2 _viewportMax;
@@ -386,12 +387,6 @@ internal sealed class DiscoverUi
         ui.NestOut(); // below2
         ui.NestOut(); // below1
         BuildPopovers(ui, main);
-
-        // Transition curtain: the last child of the main pane, so it draws over everything in it. It never takes
-        // pointer hits and is inactive whenever it is fully transparent.
-        _curtain = ui.Image(Theme.CurtainHidden);
-        _curtain.InteractionTarget.Value = false;
-        _curtain.Slot.ActiveSelf = false;
         ui.NestOut();
     }
 
@@ -626,6 +621,10 @@ internal sealed class DiscoverUi
         ui.NestOut();
         ui.NestOut();
         _emptyArea.ActiveSelf = false;
+
+        // The tab-switch wipe: a sheet over the results area, last in it so it draws over the cards. It rises from the
+        // bottom to cover the old cards, and retracts downward to reveal the new ones, with a cyan leading edge.
+        (_wipe, _wipeRect) = SweepSheet(ui);
         ui.NestOut(); // _bodyRect
         ui.NestOut(); // body
     }
@@ -1374,6 +1373,7 @@ internal sealed class DiscoverUi
         _startLensMenu.ActiveSelf = false;
         _settingsScrim.ActiveSelf = false;
         _detailPanel.ActiveSelf = false;
+        _detailSheet.ActiveSelf = false;
         _detailScrim.ActiveSelf = false;
         ClosePrompt();
     }
@@ -1987,6 +1987,7 @@ internal sealed class DiscoverUi
         _detailPanel = slot;
         _detailHomeMin = slot.GetComponent<RectTransform>().AnchorMin.Value;
         _detailHomeMax = slot.GetComponent<RectTransform>().AnchorMax.Value;
+        (_detailSheet, _detailSheetRect) = SweepSheet(ui);
     }
 
     /// <summary>The detail panel's 360 preview: drawn like the card's, and panned by hovering it.</summary>
@@ -2086,6 +2087,36 @@ internal sealed class DiscoverUi
     /// <summary>The card (or row) the next detail panel opens from; set by the card just before it asks for details.</summary>
     internal static Slot? PendingOrigin;
 
+    private Slot _detailSheet = null!;
+    private RectTransform _detailSheetRect = null!;
+    private int _scanGeneration;
+
+    /// <summary>
+    /// Once the panel has grown into place, a dark sheet over it (the panel's own colour, with a cyan leading edge)
+    /// retracts from the top down, so the contents are scanned in instead of appearing at once.
+    /// </summary>
+    private void ScanDetail(float2 min, float2 max)
+    {
+        try
+        {
+            var generation = ++_scanGeneration;
+            _detailSheet.ActiveSelf = true;
+            _detailSheetRect.AnchorMin.Value = min;
+            _detailSheetRect.AnchorMax.TweenFromTo(max, new float2(max.x, min.y), UiMotion.Seconds(0.42f), CurvePreset.QuarticOut, onDoneLocal: () =>
+            {
+                if (generation == _scanGeneration)
+                {
+                    _detailSheet.ActiveSelf = false;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _detailSheet.ActiveSelf = false;
+            UniLog.Warning($"[Discover] Detail scan failed: {ex.GetType().Name}");
+        }
+    }
+
     private float2 _detailHomeMin;
     private float2 _detailHomeMax;
     private float _detailHeight = 0.84f;
@@ -2168,6 +2199,7 @@ internal sealed class DiscoverUi
                 }
 
                 RestoreDetailGeometry();
+                ScanDetail(end0, end1);
                 _screen.World.RunInUpdates(3, () =>
                 {
                     // Remember how tall the laid-out panel really is, so the next expansion ends where it will settle.
@@ -2193,6 +2225,8 @@ internal sealed class DiscoverUi
         var origin = PendingOrigin;
         PendingOrigin = null;
         _expandGeneration++;
+        _scanGeneration++;
+        _detailSheet.ActiveSelf = false;
         RestoreDetailGeometry(); // an expansion that was cut short must not leave the panel as it was mid-way
         CloseMenus();
         _detailKey = model.Key;
@@ -3188,11 +3222,37 @@ internal sealed class DiscoverUi
     // the newest one; otherwise a second click mid-transition would run the old swap or hide the new curtain.
 
     /// <summary>Fades the curtain in over the main pane, then calls <paramref name="onCovered"/> (update thread).</summary>
+    /// <summary>
+    /// A dark sheet with a cyan line along its top edge, filling its parent and hidden. Its AnchorMax y is the height it
+    /// covers from the bottom, so tweening it moves the line (see <see cref="Cover"/>, <see cref="Reveal"/>).
+    /// </summary>
+    private (Slot Sheet, RectTransform Rect) SweepSheet(UIBuilder ui)
+    {
+        var sheet = ui.Image(Theme.Rail);
+        sheet.Sprite.Target = _rounded;
+        sheet.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+        sheet.Slot.Name = "Sweep";
+        sheet.InteractionTarget.Value = false;
+        var edge = new UIBuilder(sheet.RectTransform);
+        RadiantUI_Constants.SetupDefaultStyle(edge);
+        var line = edge.Image(Theme.Tab);
+        line.Slot.Name = "Edge";
+        line.InteractionTarget.Value = false;
+        line.RectTransform.AnchorMin.Value = new float2(0f, 1f);
+        line.RectTransform.AnchorMax.Value = new float2(1f, 1f);
+        line.RectTransform.OffsetMin.Value = new float2(0f, -4f);
+        line.RectTransform.OffsetMax.Value = float2.Zero;
+        sheet.Slot.ActiveSelf = false;
+        return (sheet.Slot, sheet.RectTransform);
+    }
+
+    /// <summary>Sweeps the sheet up over the results (the old cards go), then calls <paramref name="onCovered"/> on the update thread.</summary>
     public void Cover(float seconds, Action onCovered)
     {
         var generation = ++_curtainGeneration;
-        _curtain.Slot.ActiveSelf = true;
-        _curtain.Tint.TweenTo(Theme.CurtainShown, seconds, CurvePreset.SineIn, onDoneLocal: () =>
+        _wipe.ActiveSelf = true;
+        _wipeRect.AnchorMin.Value = float2.Zero;
+        _wipeRect.AnchorMax.TweenFromTo(new float2(1f, 0f), float2.One, seconds, CurvePreset.QuarticInOut, onDoneLocal: () =>
         {
             if (generation == _curtainGeneration)
             {
@@ -3201,38 +3261,31 @@ internal sealed class DiscoverUi
         });
     }
 
-    /// <summary>Fades the curtain out while the results rise <paramref name="rise"/> units into place.</summary>
+    /// <summary>Sweeps the sheet back down, revealing the new cards from the top. A no-op when nothing is covered.</summary>
     public void Reveal(float seconds, float rise)
     {
+        if (!_wipe.ActiveSelf)
+        {
+            return;
+        }
+
         var generation = ++_curtainGeneration;
-        _curtain.Slot.ActiveSelf = true;
-        _curtain.Tint.TweenFromTo(Theme.CurtainShown, Theme.CurtainHidden, seconds, CurvePreset.CubicOut, onDoneLocal: () =>
+        _wipeRect.AnchorMax.TweenFromTo(float2.One, new float2(1f, 0f), seconds, CurvePreset.QuarticOut, onDoneLocal: () =>
         {
             if (generation == _curtainGeneration)
             {
-                _curtain.Slot.ActiveSelf = false;
+                _wipe.ActiveSelf = false;
             }
         });
-
-        if (rise > 0f)
-        {
-            var down = new float2(0f, rise);
-            _viewport.OffsetMin.TweenFromTo(_viewportMin - down, _viewportMin, seconds, CurvePreset.CubicOut);
-            _viewport.OffsetMax.TweenFromTo(_viewportMax - down, _viewportMax, seconds, CurvePreset.CubicOut);
-        }
     }
 
-    /// <summary>Ends any transition at once: curtain hidden, results in place.</summary>
+    /// <summary>Ends any transition at once: the sheet is hidden.</summary>
     public void Settle()
     {
         _curtainGeneration++;
-        _curtain.Tint.ClearTweens();
-        _viewport.OffsetMin.ClearTweens();
-        _viewport.OffsetMax.ClearTweens();
-        _curtain.Tint.Value = Theme.CurtainHidden;
-        _curtain.Slot.ActiveSelf = false;
-        _viewport.OffsetMin.Value = _viewportMin;
-        _viewport.OffsetMax.Value = _viewportMax;
+        _wipeRect.AnchorMax.ClearTweens();
+        _wipeRect.AnchorMax.Value = float2.One;
+        _wipe.ActiveSelf = false;
     }
 
     // ------------------------------------------------------------------ helpers
@@ -3275,38 +3328,6 @@ internal sealed class DiscoverUi
 internal sealed class CardView
 {
     private readonly Slot _root;
-    private Slot _sheet = null!;
-    private RectTransform _sheetRect = null!;
-    private int _revealGeneration;
-
-    /// <summary>Retracts the card's dark sheet from the top down (see Create). A card refilled mid-reveal starts over.</summary>
-    private void PlayReveal()
-    {
-        if (!UiMotion.Enabled)
-        {
-            _sheet.ActiveSelf = false;
-            return;
-        }
-
-        try
-        {
-            var generation = ++_revealGeneration;
-            _sheet.ActiveSelf = true;
-            _sheetRect.AnchorMin.Value = float2.Zero;
-            _sheetRect.AnchorMax.TweenFromTo(float2.One, new float2(1f, 0f), UiMotion.Seconds(0.45f), CurvePreset.QuarticOut, onDoneLocal: () =>
-            {
-                if (generation == _revealGeneration)
-                {
-                    _sheet.ActiveSelf = false;
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _sheet.ActiveSelf = false;
-            UniLog.Warning($"[Discover] Card reveal failed: {ex.GetType().Name}");
-        }
-    }
     private readonly IBrowseActions _actions;
     private Text _title = null!;
     private Text _meta = null!;
@@ -3493,24 +3514,6 @@ internal sealed class CardView
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
 
-        // The reveal: a dark sheet over the card with a cyan leading edge; it retracts from the top down when the card is
-        // filled with a new world (PlayReveal), so a tab appears as a cascade of cards being scanned in.
-        var sheet = ui.Image(Theme.Rail);
-        sheet.Slot.Name = "Reveal";
-        sheet.InteractionTarget.Value = false;
-        var edge = new UIBuilder(sheet.RectTransform);
-        RadiantUI_Constants.SetupDefaultStyle(edge);
-        var line = edge.Image(Theme.Tab);
-        line.Slot.Name = "Edge";
-        line.InteractionTarget.Value = false;
-        line.RectTransform.AnchorMin.Value = new float2(0f, 1f);
-        line.RectTransform.AnchorMax.Value = new float2(1f, 1f);
-        line.RectTransform.OffsetMin.Value = new float2(0f, -4f);
-        line.RectTransform.OffsetMax.Value = float2.Zero;
-        sheet.Slot.ActiveSelf = false;
-        card._sheet = sheet.Slot;
-        card._sheetRect = sheet.RectTransform;
-
         card.SetListLayout(false);
         DiscoverUi.ApplyTextLift(slot);
         return card;
@@ -3643,13 +3646,8 @@ internal sealed class CardView
 
     public void Bind(CardModel card, Engine engine)
     {
-        var changed = Key != card.Key;
         Key = card.Key;
         _root.ActiveSelf = true;
-        if (changed)
-        {
-            PlayReveal();
-        }
 
         _title.Content.Value = Safe(card.Title);
         _title.Color.Value = card.Dimmed ? Theme.TextSecondary : Theme.Text;
