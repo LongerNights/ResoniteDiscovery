@@ -37,6 +37,28 @@ public class DetailModelTests
     }
 
     [Fact]
+    public void ASessionRowCarriesTheStockInfoAndWhoIsIn()
+    {
+        var users = new[]
+        {
+            new SessionUserSnapshot("U-1", "zed", true, OutputDevice.VR),
+            new SessionUserSnapshot("U-2", "amy", true, OutputDevice.Screen, IsContact: true),
+            new SessionUserSnapshot("U-3", "Bob", false, OutputDevice.Screen),
+        };
+        var index = TestData.IndexOf(TestData.Session("S-1", world: "U-a:R-1", name: "Club", active: 2, joined: 3, max: 16, ageMinutes: 290, users: users));
+        var entry = Assert.Single(index.Entries);
+
+        var detail = DetailBuilder.Build(entry, CardBuilder.Build(entry, null, TestData.Now), TestData.Now);
+
+        var row = Assert.Single(detail.SessionRows!);
+        Assert.Contains("2/16 users (+1 away)", row.Text);
+        Assert.Contains("up 4 h", row.Text);
+        Assert.Contains("Anyone", row.Text);
+        Assert.Equal(["amy", "Bob", "zed"], row.Users!.Select(u => u.Name)); // contacts first, then by name
+        Assert.True(row.Users![0].IsContact);
+    }
+
+    [Fact]
     public void EmptyFieldsGetReadableFallbacks()
     {
         var entry = new DiscoveryEntry { Key = "S:s-random" };

@@ -313,6 +313,29 @@ internal sealed class DiscoverUi
         _ => null,
     };
 
+    /// <summary>
+    /// Puts one of the engine's own icons at the left of a button, over its centred label (read from the install at
+    /// run time; nothing is bundled).
+    /// </summary>
+    private void AddButtonIcon(Button button, Uri iconUri)
+    {
+        var texture = button.Slot.AttachComponent<StaticTexture2D>();
+        texture.URL.Value = iconUri;
+        var sprite = button.Slot.AttachComponent<SpriteProvider>();
+        sprite.Texture.Target = texture;
+        var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
+        RadiantUI_Constants.SetupDefaultStyle(inner);
+        var icon = inner.Image(Theme.Text);
+        icon.Slot.Name = "Icon";
+        icon.Sprite.Target = sprite;
+        icon.PreserveAspect.Value = true;
+        icon.InteractionTarget.Value = false;
+        icon.RectTransform.AnchorMin.Value = new float2(0f, 0f);
+        icon.RectTransform.AnchorMax.Value = new float2(0f, 1f);
+        icon.RectTransform.OffsetMin.Value = new float2(12f, 12f);
+        icon.RectTransform.OffsetMax.Value = new float2(40f, -12f);
+    }
+
     private void AddRailButton(UIBuilder ui, LensKind lens)
     {
         var button = ui.Button((LocaleString)RailBuilder.Title(lens));
@@ -383,6 +406,7 @@ internal sealed class DiscoverUi
         _sortButtonLabel = sort.Slot.GetComponentInChildren<Text>();
         Fix(_sortButtonLabel, TypeScale.Label);
         _sortBtn = sort;
+        AddButtonIcon(sort, OfficialAssets.Common.Icons.Down_Arrow);
         sort.LocalPressed += (_, _) => ToggleMenu(_sortMenu);
         ui.NestOut();
 
@@ -391,6 +415,7 @@ internal sealed class DiscoverUi
         _filtersButtonLabel = filters.Slot.GetComponentInChildren<Text>();
         Fix(_filtersButtonLabel, TypeScale.Label);
         _filtersBtn = filters;
+        AddButtonIcon(filters, OfficialAssets.Common.Icons.Toggle);
         filters.LocalPressed += (_, _) => ToggleMenu(_filtersMenu);
         ui.NestOut();
 
@@ -398,18 +423,21 @@ internal sealed class DiscoverUi
         var presets = ui.Button((LocaleString)(UiStrings.Get("bar.presets") + " ▾"));
         Fix(presets.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _presetsBtn = presets;
+        AddButtonIcon(presets, OfficialAssets.Common.Icons.Star);
         presets.LocalPressed += (_, _) => ToggleMenu(_presetsMenu);
         ui.NestOut();
 
         ui.NestInto(parts[4]);
         var refresh = ui.Button((LocaleString)UiStrings.Get("bar.refresh"));
         Fix(refresh.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+        AddButtonIcon(refresh, OfficialAssets.Common.Icons.Reload);
         refresh.LocalPressed += (_, _) => _actions.Refresh();
         ui.NestOut();
 
         ui.NestInto(parts[5]);
         var settings = ui.Button((LocaleString)UiStrings.Get("bar.settings"), Theme.ButtonQuiet);
         Fix(settings.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+        AddButtonIcon(settings, OfficialAssets.Common.Icons.Gear);
         settings.LocalPressed += (_, _) => _actions.OpenSettings();
         ui.NestOut();
 
@@ -444,7 +472,7 @@ internal sealed class DiscoverUi
         // Clear all is not a tag, so it is not in the row: a red button pinned to the bar's right edge.
         var pin = new UIBuilder(chipBar);
         RadiantUI_Constants.SetupDefaultStyle(pin);
-        _clearChips = pin.Button((LocaleString)("✕  " + UiStrings.Get("chips.clear")), Theme.ClearButton);
+        _clearChips = pin.Button((LocaleString)UiStrings.Get("chips.clear"), Theme.ClearButton);
         Fix(_clearChips.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         _clearChips.Slot.Name = "ClearAll";
         var clearRect = _clearChips.Slot.GetComponent<RectTransform>();
@@ -748,12 +776,12 @@ internal sealed class DiscoverUi
         (SkyFrost.Base.SessionAccessLevel? Level, string Name, string Hint)[] levels =
         [
             (null, UiStrings.Get("newSession.default"), UiStrings.Get("newSession.hint.default")),
-            (SkyFrost.Base.SessionAccessLevel.Anyone, UiStrings.Get("access.Anyone"), UiStrings.Get("newSession.hint.Anyone")),
-            (SkyFrost.Base.SessionAccessLevel.RegisteredUsers, UiStrings.Get("access.RegisteredUsers"), UiStrings.Get("newSession.hint.RegisteredUsers")),
-            (SkyFrost.Base.SessionAccessLevel.ContactsPlus, UiStrings.Get("access.ContactsPlus"), UiStrings.Get("newSession.hint.ContactsPlus")),
-            (SkyFrost.Base.SessionAccessLevel.Contacts, UiStrings.Get("access.Contacts"), UiStrings.Get("newSession.hint.Contacts")),
-            (SkyFrost.Base.SessionAccessLevel.LAN, UiStrings.Get("access.LAN"), UiStrings.Get("newSession.hint.LAN")),
-            (SkyFrost.Base.SessionAccessLevel.Private, UiStrings.Get("access.Private"), UiStrings.Get("newSession.hint.Private")),
+            (SkyFrost.Base.SessionAccessLevel.Anyone, UiStrings.Get("stock.access.Anyone"), UiStrings.Get("newSession.hint.Anyone")),
+            (SkyFrost.Base.SessionAccessLevel.RegisteredUsers, UiStrings.Get("stock.access.RegisteredUsers"), UiStrings.Get("newSession.hint.RegisteredUsers")),
+            (SkyFrost.Base.SessionAccessLevel.ContactsPlus, UiStrings.Get("stock.access.ContactsPlus"), UiStrings.Get("newSession.hint.ContactsPlus")),
+            (SkyFrost.Base.SessionAccessLevel.Contacts, UiStrings.Get("stock.access.Contacts"), UiStrings.Get("newSession.hint.Contacts")),
+            (SkyFrost.Base.SessionAccessLevel.LAN, UiStrings.Get("stock.access.LAN"), UiStrings.Get("newSession.hint.LAN")),
+            (SkyFrost.Base.SessionAccessLevel.Private, UiStrings.Get("stock.access.Private"), UiStrings.Get("newSession.hint.Private")),
         ];
         foreach (var (level, name, hint) in levels)
         {
@@ -1585,9 +1613,11 @@ internal sealed class DiscoverUi
     private Text _detailDescription = null!;
     private Text _detailTags = null!;
     private Text _detailSessions = null!;
-    private readonly List<(Slot Row, Text Label, Button Join)> _detailSessionRows = [];
+    private readonly List<(Slot Row, Text Label, Button Join, Text People)> _detailSessionRows = [];
+    private static readonly string ContactColorHex = "#" + RadiantUI_Constants.Hero.GREEN.ToHexString(false).TrimStart('#');
     private readonly string?[] _detailSessionIds = new string?[DetailBuilder.MaxSessionRows];
     private Text _detailDevices = null!;
+    private Text _detailDates = null!;
     private Button _detailAction = null!;
     private Text _detailActionLabel = null!;
     private Button _detailLists = null!;
@@ -1613,10 +1643,10 @@ internal sealed class DiscoverUi
     {
         _detailScrim = Catcher(ui, "DetailScrim", Theme.ConfirmScrim, CloseMenus);
 
-        var slot = BeginFloating(ui, "Detail", 0.14f, 0.86f, 0.5f, 0.5f, 10f, 22f);
+        var slot = BeginFloating(ui, "Detail", 0.14f, 0.86f, 0.5f, 0.5f, 8f, 18f);
 
         // Top: the world's 360 preview (pans on hover, as on the card) beside its name, byline and description.
-        ui.Style.MinHeight = 210f;
+        ui.Style.MinHeight = 180f;
         var top = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
         top.ForceExpandWidth.Value = false;
         ui.Style.MinWidth = 400f;
@@ -1640,9 +1670,14 @@ internal sealed class DiscoverUi
         Fix(_detailBy, TypeScale.Body);
         _detailBy.Color.Value = Theme.TextSecondary;
 
-        ui.Style.MinHeight = 84f;
+        ui.Style.MinHeight = 50f;
         _detailDescription = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
         Fix(_detailDescription, TypeScale.Body);
+
+        ui.Style.MinHeight = 24f;
+        _detailDates = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(_detailDates, TypeScale.Caption);
+        _detailDates.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 26f;
         _detailDevices = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
@@ -1694,7 +1729,7 @@ internal sealed class DiscoverUi
         for (var i = 0; i < DetailBuilder.MaxSessionRows; i++)
         {
             // Each live session is its own framed card: Join at the left, then who is hosting, how many are in and how old.
-            ui.Style.MinHeight = 54f;
+            ui.Style.MinHeight = 62f;
             var frame = ui.Panel(Theme.Card, _rounded, NineSliceSizing.FixedSize);
             var sessionRow = ui.HorizontalLayout(12f, 8f, Alignment.MiddleLeft);
             sessionRow.ForceExpandWidth.Value = false;
@@ -1704,8 +1739,15 @@ internal sealed class DiscoverUi
             Fix(join.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
             ui.Style.MinWidth = 0f;
             ui.Style.FlexibleWidth = 1f;
+            var details = ui.VerticalLayout(0f, 0f, Alignment.MiddleLeft);
+            details.ForceExpandHeight.Value = false;
+            ui.Style.MinHeight = 28f;
             var text = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
             Fix(text, TypeScale.Body);
+            ui.Style.MinHeight = 24f;
+            var people = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+            Fix(people, TypeScale.Caption);
+            ui.NestOut(); // the details
             ui.Style.FlexibleWidth = -1f;
             var index = i;
             join.LocalPressed += (_, _) =>
@@ -1719,7 +1761,7 @@ internal sealed class DiscoverUi
             ui.NestOut(); // the row layout
             ui.NestOut(); // the frame
             frame.Slot.ActiveSelf = false;
-            _detailSessionRows.Add((frame.Slot, text, join));
+            _detailSessionRows.Add((frame.Slot, text, join, people));
         }
 
         ui.Style.MinHeight = 40f;
@@ -1893,12 +1935,19 @@ internal sealed class DiscoverUi
                 _detailSessionRows[r].Join.Enabled = sessionRows[r].CanJoin;
                 SetColor(_detailSessionRows[r].Join, sessionRows[r].CanJoin ? Theme.ButtonSelected : Theme.ButtonQuiet);
                 _detailSessionRows[r].Join.Slot.GetComponentInChildren<Text>().Content.Value = UiStrings.Get(sessionRows[r].CanJoin ? "card.join" : "card.full");
+
+                // Who is in, contacts first and in green (as on the stock tab); names are shown as plain text.
+                var names = (sessionRows[r].Users ?? []).Take(14).Select(u => u.IsContact
+                    ? $"<color={ContactColorHex}>{Plain(CardText.Ellipsize(u.Name, 18))}</color>"
+                    : Plain(CardText.Ellipsize(u.Name, 18)));
+                _detailSessionRows[r].People.Content.Value = "<nobr>" + string.Join(", ", names) + "</nobr>";
             }
         }
 
         _detailSessions.Slot.ActiveSelf = sessionRows.Count == 0;
         _detailSessions.Content.Value = Plain(model.Sessions);
         _detailDevices.Content.Value = Plain(model.Devices);
+        _detailDates.Content.Value = "<nobr>" + Plain(model.Dates) + "</nobr>";
         _detailLists.Slot.ActiveSelf = model.CanSave;
         _detailCopy.Slot.ActiveSelf = model.CanCopyLink;
         _detailAuthor.Slot.ActiveSelf = model.CanMoreByAuthor;

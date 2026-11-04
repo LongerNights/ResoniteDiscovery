@@ -46,5 +46,5 @@ public sealed record SessionSnapshot
     public IReadOnlyList<SessionUserSnapshot> Users { get; init; } = [];
 }
 
-/// <summary>Present-user info used only for device mix; never persisted (spec safety rule 4).</summary>
-public sealed record SessionUserSnapshot(string UserId, string Username, bool IsPresent, OutputDevice Device);
+/// <summary>Present-user info used for the device mix and the detail panel's user list (as on the stock tab); never persisted (spec safety rule 4).</summary>
+public sealed record SessionUserSnapshot(string UserId, string Username, bool IsPresent, OutputDevice Device, bool IsContact = false);

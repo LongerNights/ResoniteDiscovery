@@ -25,6 +25,21 @@ screen see-through like the stock one, and give the rail tabs icons.
   into the mod as embedded resources, like the existing tab icon.
 - **Typeface.** Resonite's brand font is Poppins; the game's default UI font already is it, so nothing to change.
 
+## Status (2026-11-04)
+
+Every screen in this plan has been redone and deployed. Done: design system (type scale, size-to-content panels), top
+bar, header, rail with counts, icons and the accent bar, chip bar (chips in use first, fits the width, red Clear all),
+Sort menu, Filters (by tab, switch rows), Views, detail panel (hero preview, tag chips, framed session rows with their
+own Join, stock session info and user list), Session Settings (radio rows), Settings (tabs, switches, Start on
+dropdown, Hidden list by name), Organize and name prompts, open animations (on by default), engine icons on the top bar
+and rail, stock look and palette, list mode pass.
+
+Left, all optional: a "..." menu in the detail panel for Hide and Leave; close animations (panels still close
+instantly); a lens-switch title cross-fade and a card hover outline (the engine has no border style, so the outline
+would be a layered shape); Session Settings inside the detail panel rather than as its own panel; Refresh and Settings
+as icon-only buttons (they are icon plus text for now); stock "Get Session Orb" and "Copy Session URL" (left out on
+purpose: the orb is a world write and the session URL is a value the mod never shows).
+
 ## What is wrong today
 
 These problems repeat across every screen, so fixing them once fixes most of the UI.
