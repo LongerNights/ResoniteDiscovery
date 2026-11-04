@@ -158,7 +158,7 @@ public class PersistenceTests
         var loaded = store.LoadSettings();
         Assert.Equal(settings.HiddenSections, loaded.HiddenSections);
         Assert.Equal(settings.HiddenLenses, loaded.HiddenLenses);
-        Assert.Equal(settings with { HiddenSections = loaded.HiddenSections, HiddenLenses = loaded.HiddenLenses, BrowseCategories = loaded.BrowseCategories, HiddenWorlds = loaded.HiddenWorlds, HiddenAuthors = loaded.HiddenAuthors, HiddenWords = loaded.HiddenWords, Presets = loaded.Presets }, loaded);
+        Assert.Equal(settings with { HiddenSections = loaded.HiddenSections, HiddenLenses = loaded.HiddenLenses, BrowseCategories = loaded.BrowseCategories, HiddenWorlds = loaded.HiddenWorlds, HiddenAuthors = loaded.HiddenAuthors, HiddenWords = loaded.HiddenWords, HiddenNames = loaded.HiddenNames, Presets = loaded.Presets }, loaded);
         Assert.Equal(settings.BrowseCategories, loaded.BrowseCategories);
         Assert.Contains("\"friends\"", File.ReadAllText(Path.Combine(dir.Path, "settings.json")).ToLowerInvariant());
     }

@@ -67,6 +67,9 @@ public sealed record DiscoverSettings
     /// <summary>Saved views (spec F17), in the order they were saved.</summary>
     public IReadOnlyList<FilterPreset> Presets { get; init; } = [];
 
+    /// <summary>The names shown for hidden worlds and authors (key or id to name), so Settings can list them.</summary>
+    public IReadOnlyDictionary<string, string> HiddenNames { get; init; } = new Dictionary<string, string>();
+
     /// <summary>Worlds hidden from the live, search and insight lenses (keys). Restored from Settings.</summary>
     public IReadOnlyList<string> HiddenWorlds { get; init; } = [];
 

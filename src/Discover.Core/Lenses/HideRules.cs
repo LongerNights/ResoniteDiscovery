@@ -7,6 +7,16 @@ namespace Discover.Core.Lenses;
 /// Hide lists (spec F19): worlds, authors or hosts, and words the user never wants to see in the live, search and
 /// insight lenses. Favorites, lists, Recent, My Worlds and Current Worlds are the user's own picks and are never hidden.
 /// </summary>
+public enum HiddenKind
+{
+    Author,
+    World,
+    Word,
+}
+
+/// <summary>One entry of the hidden list in Settings.</summary>
+public sealed record HiddenItem(HiddenKind Kind, string Id, string Name);
+
 public static class HideRules
 {
     public const int MaxWords = 50;
@@ -51,15 +61,51 @@ public static class HideRules
         return false;
     }
 
-    public static DiscoverSettings HideWorld(DiscoverSettings settings, string key) =>
+    public static DiscoverSettings HideWorld(DiscoverSettings settings, string key, string? name = null) =>
         settings.HiddenWorlds.Contains(key, StringComparer.OrdinalIgnoreCase)
             ? settings
-            : settings with { HiddenWorlds = [.. settings.HiddenWorlds, key] };
+            : settings with { HiddenWorlds = [.. settings.HiddenWorlds, key], HiddenNames = WithName(settings, key, name) };
 
-    public static DiscoverSettings HideAuthor(DiscoverSettings settings, string authorId) =>
+    public static DiscoverSettings HideAuthor(DiscoverSettings settings, string authorId, string? name = null) =>
         authorId.Length == 0 || settings.HiddenAuthors.Contains(authorId, StringComparer.OrdinalIgnoreCase)
             ? settings
-            : settings with { HiddenAuthors = [.. settings.HiddenAuthors, authorId] };
+            : settings with { HiddenAuthors = [.. settings.HiddenAuthors, authorId], HiddenNames = WithName(settings, authorId, name) };
+
+    private static IReadOnlyDictionary<string, string> WithName(DiscoverSettings settings, string id, string? name)
+    {
+        var names = new Dictionary<string, string>(settings.HiddenNames, StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            names[id] = name;
+        }
+
+        return names;
+    }
+
+    /// <summary>What Settings lists: authors, then worlds, then words, each with its name (the id when none was kept).</summary>
+    public static IReadOnlyList<HiddenItem> Items(DiscoverSettings settings)
+    {
+        string NameOf(string id) => settings.HiddenNames.TryGetValue(id, out var name) && name.Length > 0 ? name : id;
+        return
+        [
+            .. settings.HiddenAuthors.Select(id => new HiddenItem(HiddenKind.Author, id, NameOf(id))),
+            .. settings.HiddenWorlds.Select(id => new HiddenItem(HiddenKind.World, id, NameOf(id))),
+            .. settings.HiddenWords.Select(word => new HiddenItem(HiddenKind.Word, word, word)),
+        ];
+    }
+
+    /// <summary>Takes one hidden thing off the list again.</summary>
+    public static DiscoverSettings Restore(DiscoverSettings settings, HiddenKind kind, string id)
+    {
+        bool Not(string value) => !string.Equals(value, id, StringComparison.OrdinalIgnoreCase);
+        var names = settings.HiddenNames.Where(pair => Not(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        return kind switch
+        {
+            HiddenKind.Author => settings with { HiddenAuthors = settings.HiddenAuthors.Where(Not).ToList(), HiddenNames = names },
+            HiddenKind.World => settings with { HiddenWorlds = settings.HiddenWorlds.Where(Not).ToList(), HiddenNames = names },
+            _ => settings with { HiddenWords = settings.HiddenWords.Where(Not).ToList() },
+        };
+    }
 
     public static DiscoverSettings HideWord(DiscoverSettings settings, string word)
     {
@@ -78,7 +124,7 @@ public static class HideRules
     }
 
     public static DiscoverSettings RestoreAll(DiscoverSettings settings) =>
-        settings with { HiddenWorlds = [], HiddenAuthors = [], HiddenWords = [] };
+        settings with { HiddenWorlds = [], HiddenAuthors = [], HiddenWords = [], HiddenNames = new Dictionary<string, string>() };
 
     /// <summary>The author to hide for an entry: the publisher, else a session host. Empty when there is none.</summary>
     public static string AuthorOf(DiscoveryEntry entry) =>

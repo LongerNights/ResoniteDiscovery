@@ -19,3 +19,14 @@ Built 2026-11-04, not yet run in game.
    sections, and the lenses indented under it (dimmed when the section is off).
 
 Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub repo name.
+
+## Follow-up build (2026-11-04)
+
+6. **Text alignment.** Words with and without descenders sit at the same height in their boxes: tags, tag chips,
+   top-bar buttons ("Refresh" vs "Settings"), rail rows. Long chips ("Educational") keep the same font size as
+   the rest (the chip is made wide enough for its text); list-row tags no longer wrap ("new users").
+7. **Detail panel sessions.** A world with live sessions lists up to three, each with host, people and age and its
+   own Join button (Full and greyed when it cannot be joined). One with none says "Not live right now".
+8. **Settings > Hidden.** Below the counts and the two buttons, each hidden author, world and word is listed by name
+   with a button to bring back just that one (up to six shown, then "and N more"). Hide a world from its detail
+   panel and check its name appears.

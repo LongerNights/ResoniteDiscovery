@@ -1139,6 +1139,17 @@ internal sealed class DiscoverController : IBrowseActions
     }
 
     /// <summary>Detail panel, Hide...: hide the world or everything by its author from the live, search and insight lenses (F19).</summary>
+    /// <summary>Detail panel: join one specific live session of a world.</summary>
+    public void JoinSession(string key, string sessionId)
+    {
+        if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
+        {
+            return;
+        }
+
+        _ = RunAsync(() => _join.JoinAsync(entry, sessionId), entry);
+    }
+
     public void HideOptions(string key)
     {
         if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
@@ -1149,10 +1160,10 @@ internal sealed class DiscoverController : IBrowseActions
         var worldKey = entry.Key;
         var authorId = HideRules.AuthorOf(entry);
         var authorName = entry.Record is { OwnerName.Length: > 0 } record ? record.OwnerName : authorId;
-        var choices = new List<(string, Action)> { (UiStrings.Get("hide.world"), () => ApplyHide(HideRules.HideWorld(_settings, worldKey))) };
+        var choices = new List<(string, Action)> { (UiStrings.Get("hide.world"), () => ApplyHide(HideRules.HideWorld(_settings, worldKey, entry.DisplayName))) };
         if (authorId.Length > 0)
         {
-            choices.Add((UiStrings.Format("hide.author", CardText.Ellipsize(authorName, 22)), () => ApplyHide(HideRules.HideAuthor(_settings, authorId))));
+            choices.Add((UiStrings.Format("hide.author", CardText.Ellipsize(authorName, 22)), () => ApplyHide(HideRules.HideAuthor(_settings, authorId, authorName))));
         }
 
         _ui?.ShowConfirm(UiStrings.Get("hide.title"), Safe(entry.DisplayName), choices);
@@ -1578,7 +1589,8 @@ internal sealed class DiscoverController : IBrowseActions
 
     private SettingsModel SettingsView() =>
         new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings,
-            LensCatalog.Openable(_settings).Select(l => (l, RailBuilder.Title(l), l == _settings.DefaultLens)).ToList());
+            LensCatalog.Openable(_settings).Select(l => (l, RailBuilder.Title(l), l == _settings.DefaultLens)).ToList(),
+            HideRules.Items(_settings));
 
     /// <summary>Restores the stock Worlds button; never throws (it runs on the failure paths).</summary>
     private void RestoreStockTab()
@@ -1664,6 +1676,14 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
+    public void RestoreHidden(HiddenKind kind, string id)
+    {
+        _settings = HideRules.Restore(_settings, kind, id);
+        _store?.SaveSettings(_settings);
+        _dirty = true;
         _ui?.ShowSettings(SettingsView());
     }
 

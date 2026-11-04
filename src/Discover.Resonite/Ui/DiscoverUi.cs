@@ -110,6 +110,12 @@ internal sealed class DiscoverUi
         ui.SplitHorizontally(0.16f, out var rail, out var main);
         BuildRail(ui, rail);
         BuildMain(ui, main);
+
+        // Any text that was not given a size above (button labels with the default) still centres by its line.
+        foreach (var text in _screen.Slot.GetComponentsInChildren<Text>())
+        {
+            text.AlignmentMode.Value = AlignmentMode.LineBased;
+        }
     }
 
     private void BuildRail(UIBuilder ui, RectTransform rail)
@@ -1515,6 +1521,8 @@ internal sealed class DiscoverUi
     private Text _detailDescription = null!;
     private Text _detailTags = null!;
     private Text _detailSessions = null!;
+    private readonly List<(Slot Row, Text Label, Button Join)> _detailSessionRows = [];
+    private readonly string?[] _detailSessionIds = new string?[DetailBuilder.MaxSessionRows];
     private Text _detailDevices = null!;
     private Button _detailAction = null!;
     private Text _detailActionLabel = null!;
@@ -1617,8 +1625,35 @@ internal sealed class DiscoverUi
         var sessionsHeader = ui.Text((LocaleString)UiStrings.Get("detail.sessions"), bestFit: true, alignment: Alignment.BottomLeft);
         Fix(sessionsHeader, TypeScale.Caption);
         sessionsHeader.Color.Value = Theme.TextSecondary;
-        ui.Style.MinHeight = 74f;
-        _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
+        // A row per live session, each with its own Join button.
+        ui.Style.MinHeight = 40f;
+        for (var i = 0; i < DetailBuilder.MaxSessionRows; i++)
+        {
+            var sessionRow = ui.HorizontalLayout(10f, 0f, Alignment.MiddleLeft);
+            ui.Style.FlexibleWidth = 1f;
+            var text = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+            Fix(text, TypeScale.Body);
+            ui.Style.FlexibleWidth = -1f;
+            ui.Style.MinWidth = 110f;
+            var join = ui.Button((LocaleString)UiStrings.Get("card.join"), Theme.ButtonSelected);
+            Fix(join.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            ui.Style.MinWidth = 0f;
+            var index = i;
+            join.LocalPressed += (_, _) =>
+            {
+                if (_detailKey is { } key && _detailSessionIds[index] is { } id)
+                {
+                    CloseMenus();
+                    _actions.JoinSession(key, id);
+                }
+            };
+            ui.NestOut();
+            sessionRow.Slot.ActiveSelf = false;
+            _detailSessionRows.Add((sessionRow.Slot, text, join));
+        }
+
+        ui.Style.MinHeight = 40f;
+        _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
         Fix(_detailSessions, TypeScale.Body);
 
         // Actions: the main one with the everyday ones beside it, then the quieter ones.
@@ -1776,6 +1811,22 @@ internal sealed class DiscoverUi
         _detailTagsHeader.Slot.ActiveSelf = tagList.Count > 0;
         _detailTagGrid.ActiveSelf = tagList.Count > 0;
         SetDetailThumbnail(model.ThumbnailUrl);
+        var sessionRows = model.SessionRows ?? [];
+        for (var r = 0; r < _detailSessionRows.Count; r++)
+        {
+            var show = r < sessionRows.Count;
+            _detailSessionIds[r] = show ? sessionRows[r].SessionId : null;
+            _detailSessionRows[r].Row.ActiveSelf = show;
+            if (show)
+            {
+                _detailSessionRows[r].Label.Content.Value = "<nobr>" + Plain(sessionRows[r].Text) + "</nobr>";
+                _detailSessionRows[r].Join.Enabled = sessionRows[r].CanJoin;
+                SetColor(_detailSessionRows[r].Join, sessionRows[r].CanJoin ? Theme.ButtonSelected : Theme.ButtonQuiet);
+                _detailSessionRows[r].Join.Slot.GetComponentInChildren<Text>().Content.Value = UiStrings.Get(sessionRows[r].CanJoin ? "card.join" : "card.full");
+            }
+        }
+
+        _detailSessions.Slot.ActiveSelf = sessionRows.Count == 0;
         _detailSessions.Content.Value = Plain(model.Sessions);
         _detailDevices.Content.Value = Plain(model.Devices);
         _detailLists.Slot.ActiveSelf = model.CanSave;
@@ -1828,6 +1879,10 @@ internal sealed class DiscoverUi
     private Button _viewList = null!;
     private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
     private Text _hiddenCounts = null!;
+    private const int MaxHiddenRows = 6;
+    private readonly List<(Slot Row, Text Label)> _hiddenRows = [];
+    private Text _hiddenMore = null!;
+    private IReadOnlyList<HiddenItem> _hiddenItems = [];
     private readonly Dictionary<RailSectionId, (Button Button, Image Track, RectTransform Knob)> _sectionRows = [];
     private readonly Dictionary<LensKind, (Button Button, Image Track, RectTransform Knob)> _lensRows = [];
 
@@ -1981,12 +2036,45 @@ internal sealed class DiscoverUi
             _hiddenCounts = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
             Fix(_hiddenCounts, TypeScale.Body);
             ui.Style.MinHeight = 46f;
+            var hiddenButtons = ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
             var add = ui.Button((LocaleString)UiStrings.Get("settings.hiddenWord"));
             Fix(add.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
             add.LocalPressed += (_, _) => _actions.ToggleSetting(SettingKey.HiddenWord);
             var restore = ui.Button((LocaleString)UiStrings.Get("settings.hiddenRestoreAll"), Theme.ButtonQuiet);
             Fix(restore.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
             restore.LocalPressed += (_, _) => _actions.ToggleSetting(SettingKey.HiddenRestore);
+            ui.NestOut();
+
+            // What is hidden, by name, each with a button to bring just that one back.
+            ui.Style.MinHeight = 38f;
+            for (var i = 0; i < MaxHiddenRows; i++)
+            {
+                var hiddenRow = ui.HorizontalLayout(8f, 0f, Alignment.MiddleLeft);
+                ui.Style.FlexibleWidth = 1f;
+                var text = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+                Fix(text, TypeScale.Body);
+                ui.Style.FlexibleWidth = -1f;
+                ui.Style.MinWidth = 52f;
+                var remove = ui.Button((LocaleString)"✕", Theme.ButtonQuiet);
+                Fix(remove.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+                ui.Style.MinWidth = 0f;
+                var index = i;
+                remove.LocalPressed += (_, _) =>
+                {
+                    if (index < _hiddenItems.Count)
+                    {
+                        _actions.RestoreHidden(_hiddenItems[index].Kind, _hiddenItems[index].Id);
+                    }
+                };
+                ui.NestOut();
+                hiddenRow.Slot.ActiveSelf = false;
+                _hiddenRows.Add((hiddenRow.Slot, text));
+            }
+
+            ui.Style.MinHeight = 28f;
+            _hiddenMore = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+            Fix(_hiddenMore, TypeScale.Caption);
+            _hiddenMore.Color.Value = Theme.TextSecondary;
         }));
 
         // Data
@@ -2182,6 +2270,21 @@ internal sealed class DiscoverUi
             SetColor(button, count == perRow ? Theme.ButtonSelected : Theme.Button);
         }
 
+        _hiddenItems = model.HiddenItems ?? [];
+        for (var h = 0; h < _hiddenRows.Count; h++)
+        {
+            var show = h < _hiddenItems.Count;
+            _hiddenRows[h].Row.ActiveSelf = show;
+            if (show)
+            {
+                var item = _hiddenItems[h];
+                _hiddenRows[h].Label.Content.Value = "<nobr><size=70%><alpha=#99>" + UiStrings.Get("settings.hidden." + item.Kind.ToString().ToLowerInvariant()) + "</size>   "
+                    + Plain(CardText.Ellipsize(item.Name, 34)) + "</nobr>";
+            }
+        }
+
+        _hiddenMore.Slot.ActiveSelf = _hiddenItems.Count > MaxHiddenRows;
+        _hiddenMore.Content.Value = _hiddenItems.Count > MaxHiddenRows ? UiStrings.Format("settings.hidden.more", _hiddenItems.Count - MaxHiddenRows) : "";
         _hiddenCounts.Content.Value = UiStrings.Format("settings.hiddenCounts", settings.HiddenWorlds.Count, settings.HiddenAuthors.Count, settings.HiddenWords.Count);
 
         foreach (var (section, row) in _sectionRows)
@@ -2519,6 +2622,12 @@ internal sealed class DiscoverUi
                 _chipTags[i] = chip.Tag;
                 var mark = chip.State switch { ChipState.Required => "+ ", ChipState.Excluded => "− ", _ => "" };
                 label.Content.Value = mark + chip.Label;
+                if (button.Slot.GetComponent<LayoutElement>() is { } chipLayout)
+                {
+                    // Wide enough for its text, so a long tag ("Educational") is not squeezed into a smaller font.
+                    chipLayout.MinWidth.Value = Math.Clamp((mark.Length + chip.Label.Length) * 11f + 34f, 96f, 240f);
+                }
+
                 SetColor(button, chip.State == ChipState.Excluded ? Theme.ChipExcluded
                     : chip.Personal ? Theme.ChipPersonal
                     : chip.State == ChipState.Required ? Theme.ChipRequired
@@ -2694,6 +2803,9 @@ internal sealed class DiscoverUi
     /// <summary>A narrow auto-size range keeps the type steady from card to card; long text is cut by the caller.</summary>
     internal static void Clamp(Text text, float min, float max)
     {
+        // Line-based alignment centres the line, not the glyphs: with the default (geometric) one a word with a
+        // descender ("hangout", "Settings") sits higher in its box than a word without ("Refresh").
+        text.AlignmentMode.Value = AlignmentMode.LineBased;
         text.AutoSizeMin.Value = min;
         text.AutoSizeMax.Value = max;
     }
@@ -2701,6 +2813,7 @@ internal sealed class DiscoverUi
     /// <summary>One fixed size from <see cref="TypeScale"/>: no shrinking to fit, so equal kinds of text look equal.</summary>
     internal static void Fix(Text text, float size)
     {
+        text.AlignmentMode.Value = AlignmentMode.LineBased;
         text.Size.Value = size;
         text.AutoSizeMin.Value = size;
         text.AutoSizeMax.Value = size;
@@ -3050,6 +3163,11 @@ internal sealed class CardView
             var show = i < card.Tags.Count;
             _tags[i].Button.Slot.ActiveSelf = show;
             _tags[i].Label.Content.Value = show ? card.Tags[i].Text : "";
+            if (show && _tags[i].Button.Slot.GetComponent<LayoutElement>() is { } tagLayout)
+            {
+                tagLayout.MinWidth.Value = Math.Clamp(card.Tags[i].Text.Length * (_list ? 10f : 8f) + 26f, 60f, 200f);
+            }
+
             _tagPersonal[i] = show && card.Tags[i].Personal;
             if (show)
             {
