@@ -140,6 +140,20 @@ public class PersistenceTests
     }
 
     [Fact]
+    public void AnimationsAreOnAtNormalSpeedByDefaultAndTheSpeedIsSaved()
+    {
+        using var dir = new TempDir();
+        var store = new UserLibraryStore(dir.Path);
+        Assert.True(store.LoadSettings().AnimateTransitions);
+        Assert.Equal(1f, store.LoadSettings().AnimationSpeed);
+
+        store.SaveSettings(new DiscoverSettings { AnimationSpeed = DiscoverSettings.AnimationSpeedChoices[2] });
+
+        Assert.Equal(1.6f, store.LoadSettings().AnimationSpeed);
+        Assert.Equal([0.6f, 1f, 1.6f], DiscoverSettings.AnimationSpeedChoices);
+    }
+
+    [Fact]
     public void SettingsRoundTripIncludingTimeSpansAndEnums()
     {
         using var dir = new TempDir();

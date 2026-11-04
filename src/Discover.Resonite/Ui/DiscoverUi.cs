@@ -43,6 +43,7 @@ internal sealed class DiscoverUi
     private Slot _content = null!;
     private Text _title = null!;
     private Text _subtitle = null!;
+    private LensKind? _headerLens;
     private Text _count = null!;
     private Text _status = null!;
     private Text _emptyText = null!;
@@ -339,6 +340,17 @@ internal sealed class DiscoverUi
         if (button.Slot.GetComponentInChildren<Text>()?.Slot.GetComponent<RectTransform>() is { } labelRect)
         {
             labelRect.OffsetMin.Value = new float2(42f, labelRect.OffsetMin.Value.y);
+        }
+    }
+
+    /// <summary>Shows or hides a rail row's accent bar; a bar that has just become visible fades in.</summary>
+    private static void ShowAccentBar(Slot bar, bool selected)
+    {
+        var wasShown = bar.ActiveSelf;
+        bar.ActiveSelf = selected;
+        if (selected && !wasShown && bar.GetComponent<Image>() is { } image)
+        {
+            UiMotion.FadeIn(image.Tint, Theme.Text, 0.22f);
         }
     }
 
@@ -745,7 +757,7 @@ internal sealed class DiscoverUi
 
         _confirmScrim.ActiveSelf = true;
         _confirmPanel.ActiveSelf = true;
-        AnimateOpen(_confirmPanel, ModalRise);
+        AnimateOpen(_confirmPanel, ModalRise, _confirmScrim);
     }
 
     // ---- new session panel (modelled on the stock Session Settings dialog: who can join, then Start Session)
@@ -893,7 +905,7 @@ internal sealed class DiscoverUi
         RefreshNewSession();
         _confirmScrim.ActiveSelf = true;
         _newSessionPanel.ActiveSelf = true;
-        AnimateOpen(_newSessionPanel, ModalRise);
+        AnimateOpen(_newSessionPanel, ModalRise, _confirmScrim);
     }
 
     /// <summary>
@@ -1144,17 +1156,49 @@ internal sealed class DiscoverUi
         knobImage.NineSliceSizing.Value = NineSliceSizing.FixedSize;
         knobImage.InteractionTarget.Value = false;
         knob = knobImage.RectTransform;
+        knob.AnchorMin.Value = new float2(KnobOff, 0f);
+        knob.AnchorMax.Value = new float2(KnobOff, 1f);
+        knob.OffsetMin.Value = new float2(-11f, 3f);
+        knob.OffsetMax.Value = new float2(11f, -3f);
         return button;
     }
 
     /// <summary>Slides a switch's knob to the on or off end and colours its track.</summary>
+    // The knob is a point-anchored square: its anchor x is where its centre sits on the 52 px track (14 px and 38 px in).
+    private const float KnobOff = 0.269f;
+    private const float KnobOn = 0.731f;
+
+    /// <summary>Moves a switch's knob to the on or off end and colours its track; slides when animations are on and it is on screen.</summary>
     private static void ApplySwitch(Image track, RectTransform knob, bool on)
     {
-        track.Tint.Value = on ? Theme.ButtonSelected : Theme.Rail;
-        knob.AnchorMin.Value = on ? new float2(1f, 0f) : new float2(0f, 0f);
-        knob.AnchorMax.Value = on ? new float2(1f, 1f) : new float2(0f, 1f);
-        knob.OffsetMin.Value = on ? new float2(-25f, 3f) : new float2(3f, 3f);
-        knob.OffsetMax.Value = on ? new float2(-3f, -3f) : new float2(25f, -3f);
+        var x = on ? KnobOn : KnobOff;
+        var tint = on ? Theme.ButtonSelected : Theme.Rail;
+        knob.OffsetMin.Value = new float2(-11f, 3f);
+        knob.OffsetMax.Value = new float2(11f, -3f);
+        var min = new float2(x, 0f);
+        var max = new float2(x, 1f);
+        if (!UiMotion.Enabled || !knob.Slot.IsActive || Math.Abs(knob.AnchorMin.Value.x - x) < 0.001f)
+        {
+            knob.AnchorMin.Value = min;
+            knob.AnchorMax.Value = max;
+            track.Tint.Value = tint;
+            return;
+        }
+
+        try
+        {
+            var seconds = UiMotion.Seconds(0.16f);
+            knob.AnchorMin.TweenTo(min, seconds, CurvePreset.CubicOut);
+            knob.AnchorMax.TweenTo(max, seconds, CurvePreset.CubicOut);
+            track.Tint.TweenTo(tint, seconds, CurvePreset.SineOut);
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Switch animation failed: {ex.GetType().Name}");
+            knob.AnchorMin.Value = min;
+            knob.AnchorMax.Value = max;
+            track.Tint.Value = tint;
+        }
     }
 
     /// <summary>A "- value +" row: the middle button shows the value and does nothing.</summary>
@@ -1229,14 +1273,25 @@ internal sealed class DiscoverUi
     }
 
     /// <summary>Panel open animations (the Animations setting). Off: panels just appear.</summary>
-    public bool Animate { get; set; } = true;
+    public bool Animate
+    {
+        get => UiMotion.Enabled;
+        set => UiMotion.Enabled = value;
+    }
+
+    /// <summary>1 is normal; see <see cref="UiMotion.Speed"/>.</summary>
+    public float AnimationSpeed
+    {
+        get => UiMotion.Speed;
+        set => UiMotion.Speed = value;
+    }
 
     /// <summary>
     /// Slides a panel into place by tweening its anchors from a small offset (<paramref name="from"/>, in fractions of the
     /// pane) to where they are. Only the anchors move: the panel's size comes from its layout, and its tint is driven by
     /// its press-absorbing button, so neither can be tweened.
     /// </summary>
-    private void AnimateOpen(Slot panel, float2 from)
+    private void AnimateOpen(Slot panel, float2 from, Slot? scrim = null, CurvePreset curve = CurvePreset.QuinticOut)
     {
         if (!Animate || panel.GetComponent<RectTransform>() is not { } rect)
         {
@@ -1247,8 +1302,20 @@ internal sealed class DiscoverUi
         {
             var min = rect.AnchorMin.Value;
             var max = rect.AnchorMax.Value;
-            rect.AnchorMin.TweenFromTo(min + from, min, 0.18f, CurvePreset.CubicOut);
-            rect.AnchorMax.TweenFromTo(max + from, max, 0.18f, CurvePreset.CubicOut);
+            var seconds = UiMotion.Seconds(curve == CurvePreset.QuinticOut ? 0.30f : 0.26f);
+            rect.AnchorMin.TweenFromTo(min + from, min, seconds, curve);
+            rect.AnchorMax.TweenFromTo(max + from, max, seconds, curve);
+
+            // The dimming behind a modal fades in with it. The scrim's tint is driven by its button, so the driver's
+            // colours are what is tweened.
+            if (scrim?.GetComponent<Button>() is { } button)
+            {
+                var driver = button.ColorDrivers[0];
+                var target = Theme.ConfirmScrim;
+                var fade = UiMotion.Seconds(0.24f);
+                driver.NormalColor.TweenFromTo(target.SetA(0f), target, fade, CurvePreset.SineOut);
+                driver.HighlightColor.TweenFromTo(target.SetA(0f), target, fade, CurvePreset.SineOut);
+            }
         }
         catch (Exception ex)
         {
@@ -1272,7 +1339,7 @@ internal sealed class DiscoverUi
         _scrim.ActiveSelf = open;
         if (open)
         {
-            AnimateOpen(menu, MenuDrop);
+            AnimateOpen(menu, MenuDrop, null, CurvePreset.ReboundOutSmall);
         }
     }
 
@@ -1604,7 +1671,7 @@ internal sealed class DiscoverUi
         _organizePanel.ActiveSelf = true;
         if (!wasOpen)
         {
-            AnimateOpen(_organizePanel, ModalRise);
+            AnimateOpen(_organizePanel, ModalRise, _organizeScrim);
         }
     }
 
@@ -1620,6 +1687,7 @@ internal sealed class DiscoverUi
     private readonly List<(Button Button, Text Label)> _detailSessionRows = [];
     private IReadOnlyList<DetailSession> _detailSessionData = [];
     private int _detailSelected;
+    private string? _detailShownSession;
     private DetailModel? _detailModel;
     private HorizontalLayout _detailSessionArea = null!;
     private Slot _detailSessionInfoFrame = null!;
@@ -1972,6 +2040,15 @@ internal sealed class DiscoverUi
         }
 
         var session = _detailSessionData[_detailSelected];
+        if (_detailShownSession != session.SessionId)
+        {
+            _detailShownSession = session.SessionId;
+            UiMotion.FadeIn(_detailUptime.Color, Theme.Text, 0.22f);
+            UiMotion.FadeIn(_detailVisibility.Color, Theme.Text, 0.22f);
+            UiMotion.FadeIn(_detailUsersLine.Color, Theme.Text, 0.22f);
+            UiMotion.FadeIn(_detailPeople.Color, Theme.Text, 0.30f);
+        }
+
         _detailUptime.Content.Value = "<nobr>" + Plain(session.Uptime) + "</nobr>";
         _detailVisibility.Content.Value = "<nobr>" + Plain(session.Visibility) + "</nobr>";
         _detailUsersLine.Content.Value = "<nobr>" + Plain(session.UsersLine) + "</nobr>";
@@ -2011,6 +2088,7 @@ internal sealed class DiscoverUi
         _detailModel = model;
         _detailSessionData = model.SessionRows ?? [];
         _detailSelected = 0;
+        _detailShownSession = null;
         _detailSessionArea.Slot.ActiveSelf = _detailSessionData.Count > 0;
         _detailNewSession.Slot.ActiveSelf = model.CanStartNew && _detailSessionData.Count > 0;
         for (var r = 0; r < _detailSessionRows.Count; r++)
@@ -2052,7 +2130,7 @@ internal sealed class DiscoverUi
         RenderDetailSession();
         _detailScrim.ActiveSelf = true;
         _detailPanel.ActiveSelf = true;
-        AnimateOpen(_detailPanel, ModalRise);
+        AnimateOpen(_detailPanel, ModalRise, _detailScrim);
     }
 
     // ---- settings panel: the sidebar's sections and lenses on the left, general options and your data on the right
@@ -2075,6 +2153,7 @@ internal sealed class DiscoverUi
     private const int MaxStartLensRows = 16;
     private readonly List<(Button Button, Text Label)> _startLensItems = [];
     private IReadOnlyList<(LensKind Lens, string Label, bool Selected)> _startLensChoices = [];
+    private readonly Dictionary<float, Button> _speedButtons = [];
     private Button _viewGrid = null!;
     private Button _viewList = null!;
     private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
@@ -2136,6 +2215,19 @@ internal sealed class DiscoverUi
             _startLensRow = ValueRow(ui, UiStrings.Get("settings.startOn"), ToggleStartLensMenu, out _startLensValue);
             _liveOnlySwitch = SettingsSwitch(ui, UiStrings.Get("settings.liveOnly"), () => _actions.ToggleSetting(SettingKey.LiveOnly));
             _animationsSwitch = SettingsSwitch(ui, UiStrings.Get("settings.animations"), () => _actions.ToggleSetting(SettingKey.Animations));
+            SettingsLabel(ui, UiStrings.Get("settings.animationSpeed"));
+            ui.Style.MinHeight = 46f;
+            var speedRow = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+            foreach (var (value, id) in new[] { (0.6f, "settings.speed.slow"), (1f, "settings.speed.normal"), (1.6f, "settings.speed.fast") })
+            {
+                var speedButton = ui.Button((LocaleString)UiStrings.Get(id));
+                Fix(speedButton.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+                var captured = value;
+                speedButton.LocalPressed += (_, _) => _actions.SetAnimationSpeed(captured);
+                _speedButtons[value] = speedButton;
+            }
+
+            ui.NestOut();
         }));
 
         // Display
@@ -2373,7 +2465,7 @@ internal sealed class DiscoverUi
 
         PositionMenu(_startLensMenu);
         _startLensMenu.ActiveSelf = true;
-        AnimateOpen(_startLensMenu, MenuDrop);
+        AnimateOpen(_startLensMenu, MenuDrop, null, CurvePreset.ReboundOutSmall);
     }
 
     /// <summary>One settings page: a vertical list that fills the page area.</summary>
@@ -2462,6 +2554,11 @@ internal sealed class DiscoverUi
         _startLensValue.Content.Value = "<nobr>" + Plain(model.StartLens) + "  ▾</nobr>";
         _startLensChoices = model.StartLensChoices ?? [];
 
+        foreach (var (value, button) in _speedButtons)
+        {
+            SetColor(button, Math.Abs(value - settings.AnimationSpeed) < 0.01f ? Theme.ButtonSelected : Theme.Button);
+        }
+
         SetColor(_viewGrid, settings.ListView ? Theme.Button : Theme.ButtonSelected);
         SetColor(_viewList, settings.ListView ? Theme.ButtonSelected : Theme.Button);
         var perRow = settings.CardsPerRow > 0 ? settings.CardsPerRow : 4;
@@ -2509,7 +2606,7 @@ internal sealed class DiscoverUi
             CloseMenus();
             _settingsScrim.ActiveSelf = true;
             _settingsPanel.ActiveSelf = true;
-            AnimateOpen(_settingsPanel, ModalRise);
+            AnimateOpen(_settingsPanel, ModalRise, _settingsScrim);
         }
     }
 
@@ -2570,7 +2667,7 @@ internal sealed class DiscoverUi
         _promptAction = onOk;
         _promptScrim.ActiveSelf = true;
         _promptPanel.ActiveSelf = true;
-        AnimateOpen(_promptPanel, ModalRise);
+        AnimateOpen(_promptPanel, ModalRise, _promptScrim);
     }
 
     private void SubmitPrompt()
@@ -2715,7 +2812,7 @@ internal sealed class DiscoverUi
             label.Content.Value = item.Label;
             var extras = _railExtras[lens];
             extras.Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
-            extras.Bar.ActiveSelf = item.Selected;
+            ShowAccentBar(extras.Bar, item.Selected);
             SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
         }
 
@@ -2736,7 +2833,7 @@ internal sealed class DiscoverUi
                 var name = Plain(CardText.Ellipsize(item.Label, 18));
                 label.Content.Value = "<nobr>" + name + "</nobr>";
                 _listExtras[i].Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
-                _listExtras[i].Bar.ActiveSelf = item.Selected;
+                ShowAccentBar(_listExtras[i].Bar, item.Selected);
                 SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
                 button.Slot.ActiveSelf = true;
             }
@@ -2749,6 +2846,12 @@ internal sealed class DiscoverUi
 
         _listTools.ActiveSelf = view.ListTools;
         _title.Content.Value = "<nobr>" + Plain(view.Title) + "</nobr>";
+        if (view.Lens != _headerLens)
+        {
+            _headerLens = view.Lens;
+            UiMotion.FadeIn(_title.Color, Theme.Heading);
+            UiMotion.FadeIn(_subtitle.Color, Theme.TextSecondary, 0.36f);
+        }
         _subtitle.Content.Value = "<nobr>" + Plain(view.Subtitle) + "</nobr>";
         _count.Content.Value = view.Count;
         _sortButtonLabel.Content.Value = $"<nobr>{view.SortLabel} ▾</nobr>";
@@ -3354,12 +3457,20 @@ internal sealed class CardView
 
     public void Bind(CardModel card, Engine engine)
     {
+        var changed = Key != card.Key;
         Key = card.Key;
         _root.ActiveSelf = true;
 
         _title.Content.Value = Safe(card.Title);
         _title.Color.Value = card.Dimmed ? Theme.TextSecondary : Theme.Text;
         _meta.Content.Value = "<nobr>" + Safe(card.Meta) + "</nobr>";
+        if (changed)
+        {
+            // A card showing a different world fades its text in, so a tab fills in with a soft cascade (the cards are
+            // bound a few per frame).
+            UiMotion.FadeIn(_title.Color, card.Dimmed ? Theme.TextSecondary : Theme.Text);
+            UiMotion.FadeIn(_meta.Color, Theme.TextSecondary);
+        }
 
         _usersPill.ActiveSelf = card.Users is not null;
         _users.Content.Value = card.Users ?? "";

@@ -142,6 +142,12 @@ public sealed record DiscoverSettings
     /// <summary>Fade through black when switching lenses. Off by default: it hides the cards loading, but covers the whole results pane.</summary>
     public bool AnimateTransitions { get; init; } = true;
 
+    /// <summary>How fast animations run: 1 is normal, above 1 faster, below 1 slower. See <see cref="AnimationSpeedChoices"/>.</summary>
+    public float AnimationSpeed { get; init; } = 1f;
+
+    /// <summary>The speeds Settings offers: slow, normal, fast.</summary>
+    public static readonly float[] AnimationSpeedChoices = [0.6f, 1f, 1.6f];
+
     /// <summary>Cards per row in the grid layout. Fewer per row means larger cards. A value outside the choices counts as 4.</summary>
     public int CardsPerRow { get; init; } = 4;
 

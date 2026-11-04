@@ -483,6 +483,7 @@ internal sealed class DiscoverController : IBrowseActions
             CardCreatesPerTick = Math.Max(1, _settings.CardCreatesPerTick),
             CardsPerRow = _settings.CardsPerRow,
             Animate = _settings.AnimateTransitions,
+            AnimationSpeed = _settings.AnimationSpeed,
         };
         try
         {
@@ -1726,6 +1727,23 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _settings = _settings with { DefaultLens = lens };
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
+    public void SetAnimationSpeed(float speed)
+    {
+        if (!DiscoverSettings.AnimationSpeedChoices.Contains(speed) || Math.Abs(_settings.AnimationSpeed - speed) < 0.01f)
+        {
+            return;
+        }
+
+        _settings = _settings with { AnimationSpeed = speed };
+        if (_ui is not null)
+        {
+            _ui.AnimationSpeed = speed;
+        }
+
         _store?.SaveSettings(_settings);
         _ui?.ShowSettings(SettingsView());
     }
