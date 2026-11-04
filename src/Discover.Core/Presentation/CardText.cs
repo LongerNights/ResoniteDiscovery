@@ -95,7 +95,7 @@ public static class UiStrings
 {
     private static readonly Dictionary<string, string> Table = new(StringComparer.Ordinal)
     {
-        ["screen.title"] = "Galaxy Sieve",
+        ["screen.title"] = "Worlds",
 
         // rail and lenses
         ["rail.now"] = "NOW",

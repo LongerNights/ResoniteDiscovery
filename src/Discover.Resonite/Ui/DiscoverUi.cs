@@ -6,6 +6,7 @@ using Elements.Assets;
 using Elements.Core;
 using FrooxEngine;
 using FrooxEngine.UIX;
+using Renderite.Shared;
 
 namespace Discover.Resonite.Ui;
 
@@ -74,6 +75,9 @@ internal sealed class DiscoverUi
     private int _curtainGeneration;
     private SpriteProvider _rounded = null!;
 
+    /// <summary>The stock Worlds tab's background tile (read from the live stock screen).</summary>
+    private static readonly Uri StockBackground = new("resdb:///d54b9c04ef6fd23f0e2b65d3e14fbe036fa8e2b922f336e74c9f115a933cb198.png");
+
     public DiscoverUi(RadiantDashScreen screen, int maxCards, IBrowseActions actions)
     {
         _screen = screen;
@@ -91,7 +95,18 @@ internal sealed class DiscoverUi
         var ui = new UIBuilder(_screen.ScreenCanvas);
         RadiantUI_Constants.SetupDefaultStyle(ui);
         ui.Style.ButtonColor = Theme.Button;
-        ui.Panel(Theme.Background); // Panel nests into the new element
+        // The stock tab's background: its tiled texture under a Dark tint at 96.5 %. If the texture cannot load, the
+        // tint alone is drawn.
+        var background = ui.Next("Background");
+        var backgroundTexture = background.AttachComponent<StaticTexture2D>();
+        backgroundTexture.URL.Value = StockBackground;
+        backgroundTexture.WrapModeU.Value = TextureWrapMode.Repeat;
+        backgroundTexture.WrapModeV.Value = TextureWrapMode.Repeat;
+        var tiled = background.AttachComponent<TiledRawImage>();
+        tiled.Texture.Target = backgroundTexture;
+        tiled.Tint.Value = Theme.Background;
+        tiled.TileSize.Value = new float2(768f, 768f);
+        ui.Nest();
         ui.SplitHorizontally(0.16f, out var rail, out var main);
         BuildRail(ui, rail);
         BuildMain(ui, main);
@@ -100,7 +115,7 @@ internal sealed class DiscoverUi
     private void BuildRail(UIBuilder ui, RectTransform rail)
     {
         ui.NestInto(rail);
-        ui.Panel(Theme.Rail);
+        ui.Panel(Theme.RailBackground);
         var layout = ui.VerticalLayout(8f, 14f, Alignment.TopCenter); // Panel and VerticalLayout each nest
         layout.ForceExpandHeight.Value = false;
 
@@ -149,7 +164,7 @@ internal sealed class DiscoverUi
                     _actions.SelectList(id);
                 }
             };
-            _listExtras.Add(DressRailRow(button, label));
+            _listExtras.Add(DressRailRow(button, label, OfficialAssets.Common.Icons.Folder));
             button.Slot.ActiveSelf = false;
             _listButtons.Add((button, label));
         }
@@ -187,11 +202,15 @@ internal sealed class DiscoverUi
     /// Makes a rail button a list row: the label left-aligned, a count at the right edge, and a thin accent bar on the
     /// left that shows when the row is the selected one.
     /// </summary>
-    private static (Text Count, Slot Bar) DressRailRow(Button button, Text label)
+    private static (Text Count, Slot Bar) DressRailRow(Button button, Text label, Uri? iconUri)
     {
         label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
         Fix(label, TypeScale.Label);
-        label.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
+        if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
+        {
+            labelRect.OffsetMin.Value = new float2(iconUri is null ? 12f : 50f, 0f);
+            labelRect.OffsetMax.Value = new float2(-12f, 0f);
+        }
 
         var rect = button.Slot.GetComponent<RectTransform>();
         var inner = new UIBuilder(rect);
@@ -202,6 +221,23 @@ internal sealed class DiscoverUi
         count.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
         count.Slot.Name = "Count";
 
+        if (iconUri is not null)
+        {
+            // The icon is one of the engine's own assets, loaded from the install (nothing is bundled with the mod).
+            var texture = button.Slot.AttachComponent<StaticTexture2D>();
+            texture.URL.Value = iconUri;
+            var sprite = button.Slot.AttachComponent<SpriteProvider>();
+            sprite.Texture.Target = texture;
+            var icon = inner.Image(Theme.Text);
+            icon.Slot.Name = "Icon";
+            icon.Sprite.Target = sprite;
+            icon.PreserveAspect.Value = true;
+            icon.InteractionTarget.Value = false;
+            icon.RectTransform.AnchorMax.Value = new float2(0f, 1f);
+            icon.RectTransform.OffsetMin.Value = new float2(14f, 6f);
+            icon.RectTransform.OffsetMax.Value = new float2(42f, -6f);
+        }
+
         var bar = inner.Image(Theme.Text);
         bar.Slot.Name = "AccentBar";
         bar.InteractionTarget.Value = false;
@@ -211,13 +247,33 @@ internal sealed class DiscoverUi
         return (count, bar.Slot);
     }
 
+    /// <summary>The engine icon for each rail entry: the stock world-category icons where the stock tab has one.</summary>
+    private static Uri? RailIcon(LensKind lens) => lens switch
+    {
+        LensKind.CurrentWorlds => OfficialAssets.Graphics.Icons.Dash.NavigationHub,
+        LensKind.LiveNow => OfficialAssets.Graphics.Icons.World_Categories.ActiveSessions,
+        LensKind.Friends => OfficialAssets.Graphics.Icons.World_Categories.ContactSessions,
+        LensKind.Browse => OfficialAssets.Graphics.Icons.World_Categories.Everything,
+        LensKind.Featured => OfficialAssets.Graphics.Icons.World_Categories.FeaturedRibbon,
+        LensKind.New => OfficialAssets.Graphics.Icons.World_Categories.Published_Worlds,
+        LensKind.Random => OfficialAssets.Graphics.Icons.World_Categories.Shuffle,
+        LensKind.Favorites => OfficialAssets.Common.Icons.Star,
+        LensKind.Recent => OfficialAssets.Common.Icons.Timer,
+        LensKind.MyWorlds => OfficialAssets.Graphics.Icons.World_Categories.MyWorlds,
+        LensKind.GroupWorlds => OfficialAssets.Graphics.Icons.World_Categories.GroupWorlds,
+        LensKind.Trending => OfficialAssets.Common.Icons.Bolt,
+        LensKind.Rising => OfficialAssets.Common.Icons.Up_Arrow,
+        LensKind.HiddenGems => OfficialAssets.Graphics.Icons.General.Sparks,
+        _ => null,
+    };
+
     private void AddRailButton(UIBuilder ui, LensKind lens)
     {
         var button = ui.Button((LocaleString)RailBuilder.Title(lens));
         var text = button.Slot.GetComponentInChildren<Text>();
         button.LocalPressed += (_, _) => _actions.SelectLens(lens);
         _rail[lens] = (button, text);
-        _railExtras[lens] = DressRailRow(button, text);
+        _railExtras[lens] = DressRailRow(button, text, RailIcon(lens));
     }
 
     private void BuildMain(UIBuilder ui, RectTransform main)

@@ -4,8 +4,9 @@ using FrooxEngine;
 namespace Discover.Resonite.Ui;
 
 /// <summary>
-/// The purple-and-black theme. Every colour is a <see cref="RadiantUI_Constants"/> member (CLAUDE.md conventions),
-/// so it follows any future palette change; only the black background is a plain <see cref="colorX.Black"/>.
+/// The look of the stock Worlds tab (read from the live stock screen, 2026-11-04): the neutral Dark and Mid greys, the
+/// cyan accent the dash uses for the selected tab, and the tiled background texture under a Dark tint at 96.5 %.
+/// Every colour is a <see cref="RadiantUI_Constants"/> member (CLAUDE.md conventions), so it follows any future palette change.
 /// </summary>
 /// <summary>
 /// The fixed type scale (docs/ui-redesign.md). Text uses one of these sizes instead of shrinking to fit its label, so
@@ -40,20 +41,27 @@ internal static class TypeScale
 
 internal static class Theme
 {
-    /// <summary>The dash tab colour: a soft purple (verification: the tab's label tint and selected colour).</summary>
-    public static colorX Tab => RadiantUI_Constants.MidLight.PURPLE;
+    /// <summary>The dash tab colour: the accent the dash uses for the selected tab.</summary>
+    public static colorX Tab => RadiantUI_Constants.Hero.CYAN;
 
-    /// <summary>The pane behind everything: fully opaque, so the world never shows through the header and text.</summary>
-    public static colorX Background => colorX.Black;
-    public static colorX Rail => RadiantUI_Constants.Dark.PURPLE;
-    public static colorX Card => RadiantUI_Constants.Dark.PURPLE;
-    public static colorX Button => RadiantUI_Constants.Sub.PURPLE;
-    public static colorX ButtonSelected => RadiantUI_Constants.MidLight.PURPLE;
-    public static colorX Heading => RadiantUI_Constants.Hero.PURPLE;
+    /// <summary>The tint of the tiled background texture: the stock tab's own value (Dark at 96.5 %), so the world just shows through.</summary>
+    public static colorX Background => RadiantUI_Constants.Neutrals.DARK.SetA(0.965f);
+
+    /// <summary>The left rail: a little lighter than the pane, see-through like it.</summary>
+    public static colorX RailBackground => RadiantUI_Constants.Neutrals.MID.SetA(0.35f);
+
+    /// <summary>Popover and dialog panels: solid Dark.</summary>
+    public static colorX Rail => RadiantUI_Constants.Neutrals.DARK;
+    public static colorX Card => RadiantUI_Constants.Neutrals.MID;
+
+    /// <summary>Buttons: the stock Mid grey. The selected and primary ones are the dash's cyan accent.</summary>
+    public static colorX Button => RadiantUI_Constants.Neutrals.MID;
+    public static colorX ButtonSelected => RadiantUI_Constants.MidLight.CYAN;
+    public static colorX Heading => RadiantUI_Constants.Neutrals.LIGHT;
     public static colorX Text => RadiantUI_Constants.TEXT_COLOR;
     public static colorX TextSecondary => RadiantUI_Constants.Neutrals.MIDLIGHT;
     /// <summary>Chips: excluded tags read red, the user's own tags orange, per the design.</summary>
-    public static colorX ChipRequired => RadiantUI_Constants.MidLight.PURPLE;
+    public static colorX ChipRequired => RadiantUI_Constants.MidLight.CYAN;
     public static colorX ChipExcluded => RadiantUI_Constants.MidLight.RED;
     public static colorX ChipPersonal => RadiantUI_Constants.MidLight.ORANGE;
 
@@ -61,7 +69,7 @@ internal static class Theme
     public static colorX Favorite => RadiantUI_Constants.Hero.YELLOW;
 
     /// <summary>A disabled or secondary button.</summary>
-    public static colorX ButtonQuiet => RadiantUI_Constants.Neutrals.MID;
+    public static colorX ButtonQuiet => RadiantUI_Constants.Neutrals.MID.SetA(0.55f);
 
     /// <summary>Behind a popover: a click-catcher that does not dim anything.</summary>
     public static colorX Scrim => colorX.Black.SetA(0.02f);
