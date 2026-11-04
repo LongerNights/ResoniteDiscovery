@@ -155,6 +155,7 @@ internal sealed class DiscoverUi
         }
 
         _newListButton = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
+        Fix(_newListButton.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _newListButton.LocalPressed += (_, _) => _actions.NewListPrompt();
         AddRailButton(ui, LensKind.Recent);
         AddRailButton(ui, LensKind.MyWorlds);
@@ -189,18 +190,19 @@ internal sealed class DiscoverUi
     private static (Text Count, Slot Bar) DressRailRow(Button button, Text label)
     {
         label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+        Fix(label, TypeScale.Label);
         label.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
 
         var rect = button.Slot.GetComponent<RectTransform>();
         var inner = new UIBuilder(rect);
         RadiantUI_Constants.SetupDefaultStyle(inner);
         var count = inner.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleRight);
-        Fix(count, TypeScale.Caption);
+        Fix(count, TypeScale.Body);
         count.Color.Value = Theme.TextSecondary;
         count.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
         count.Slot.Name = "Count";
 
-        var bar = inner.Image(Theme.Heading);
+        var bar = inner.Image(Theme.Text);
         bar.Slot.Name = "AccentBar";
         bar.InteractionTarget.Value = false;
         bar.RectTransform.AnchorMax.Value = new float2(0f, 1f);
@@ -1841,7 +1843,7 @@ internal sealed class DiscoverUi
             var extras = _railExtras[lens];
             extras.Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
             extras.Bar.ActiveSelf = item.Selected;
-            SetColor(button, item.Selected ? Theme.Button : Theme.Rail);
+            SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
         }
 
         _newListButton.Slot.ActiveSelf = view.ShowNewList || view.Rail.Count == 0;
@@ -1862,7 +1864,7 @@ internal sealed class DiscoverUi
                 label.Content.Value = "<nobr>" + name + "</nobr>";
                 _listExtras[i].Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
                 _listExtras[i].Bar.ActiveSelf = item.Selected;
-                SetColor(button, item.Selected ? Theme.Button : Theme.Rail);
+                SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
                 button.Slot.ActiveSelf = true;
             }
             else
