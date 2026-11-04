@@ -1665,6 +1665,36 @@ internal sealed class DiscoverController : IBrowseActions
         _ui?.ShowSettings(SettingsView());
     }
 
+    public void SetCardsPerRow(int count)
+    {
+        if (!DiscoverSettings.CardsPerRowChoices.Contains(count) || _settings.CardsPerRow == count)
+        {
+            return;
+        }
+
+        _settings = _settings with { CardsPerRow = count };
+        if (_ui is not null)
+        {
+            _ui.CardsPerRow = count;
+        }
+
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
+    public void SetListView(bool list)
+    {
+        if (_settings.ListView == list)
+        {
+            return;
+        }
+
+        _settings = _settings with { ListView = list };
+        _dirty = true;
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
     public void ToggleLens(LensKind lens) => ApplyVisibility(LensCatalog.ToggleLens(_settings, lens));
 
     public void ToggleSection(RailSectionId section) => ApplyVisibility(LensCatalog.ToggleSection(_settings, section));
