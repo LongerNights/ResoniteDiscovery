@@ -149,6 +149,7 @@ internal sealed class DiscoverUi
                     _actions.SelectList(id);
                 }
             };
+            _listExtras.Add(DressRailRow(button, label));
             button.Slot.ActiveSelf = false;
             _listButtons.Add((button, label));
         }
@@ -176,7 +177,37 @@ internal sealed class DiscoverUi
     }
 
     private readonly Dictionary<string, Slot> _railHeaders = [];
+    private readonly List<(Text Count, Slot Bar)> _listExtras = [];
     private Button _newListButton = null!;
+
+    private readonly Dictionary<LensKind, (Text Count, Slot Bar)> _railExtras = [];
+
+    /// <summary>
+    /// Makes a rail button a list row: the label left-aligned, a count at the right edge, and a thin accent bar on the
+    /// left that shows when the row is the selected one.
+    /// </summary>
+    private static (Text Count, Slot Bar) DressRailRow(Button button, Text label)
+    {
+        label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+        label.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
+
+        var rect = button.Slot.GetComponent<RectTransform>();
+        var inner = new UIBuilder(rect);
+        RadiantUI_Constants.SetupDefaultStyle(inner);
+        var count = inner.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleRight);
+        Fix(count, TypeScale.Caption);
+        count.Color.Value = Theme.TextSecondary;
+        count.Slot.GetComponent<RectTransform>()?.AddFixedPadding(12f);
+        count.Slot.Name = "Count";
+
+        var bar = inner.Image(Theme.Heading);
+        bar.Slot.Name = "AccentBar";
+        bar.InteractionTarget.Value = false;
+        bar.RectTransform.AnchorMax.Value = new float2(0f, 1f);
+        bar.RectTransform.OffsetMax.Value = new float2(5f, 0f);
+        bar.Slot.ActiveSelf = false;
+        return (count, bar.Slot);
+    }
 
     private void AddRailButton(UIBuilder ui, LensKind lens)
     {
@@ -184,6 +215,7 @@ internal sealed class DiscoverUi
         var text = button.Slot.GetComponentInChildren<Text>();
         button.LocalPressed += (_, _) => _actions.SelectLens(lens);
         _rail[lens] = (button, text);
+        _railExtras[lens] = DressRailRow(button, text);
     }
 
     private void BuildMain(UIBuilder ui, RectTransform main)
@@ -254,7 +286,7 @@ internal sealed class DiscoverUi
         ui.NestOut();
 
         ui.NestInto(parts[3]);
-        var presets = ui.Button((LocaleString)UiStrings.Get("bar.presets"));
+        var presets = ui.Button((LocaleString)(UiStrings.Get("bar.presets") + " ▾"));
         Fix(presets.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _presetsBtn = presets;
         presets.LocalPressed += (_, _) => ToggleMenu(_presetsMenu);
@@ -322,6 +354,7 @@ internal sealed class DiscoverUi
         var parts = ui.SplitHorizontally(0.25f, 0.28f, 0.17f, 0.30f);
         _title = TextIn(ui, parts[0], Alignment.MiddleLeft, Theme.Heading, 26f, 44f);
         _subtitle = TextIn(ui, parts[1], Alignment.MiddleLeft, Theme.TextSecondary, 16f, 22f);
+        Fix(_subtitle, TypeScale.Body);
         _count = TextIn(ui, parts[2], Alignment.MiddleRight, Theme.TextSecondary, 16f, 24f);
 
         // Tools for a named list (rename, move, delete); shown only on a list.
@@ -1804,8 +1837,11 @@ internal sealed class DiscoverUi
 
             button.Slot.ActiveSelf = true;
 
-            label.Content.Value = item.Count is null ? item.Label : $"{item.Label}   {item.Count}";
-            SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
+            label.Content.Value = item.Label;
+            var extras = _railExtras[lens];
+            extras.Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
+            extras.Bar.ActiveSelf = item.Selected;
+            SetColor(button, item.Selected ? Theme.Button : Theme.Rail);
         }
 
         _newListButton.Slot.ActiveSelf = view.ShowNewList || view.Rail.Count == 0;
@@ -1823,8 +1859,10 @@ internal sealed class DiscoverUi
                 var item = listItems[i];
                 _listIds[i] = item.ListId;
                 var name = Plain(CardText.Ellipsize(item.Label, 18));
-                label.Content.Value = item.Count is null ? "<nobr>" + name + "</nobr>" : $"<nobr>{name}   {item.Count}</nobr>";
-                SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
+                label.Content.Value = "<nobr>" + name + "</nobr>";
+                _listExtras[i].Count.Content.Value = item.Count is null ? "" : item.Count.ToString()!;
+                _listExtras[i].Bar.ActiveSelf = item.Selected;
+                SetColor(button, item.Selected ? Theme.Button : Theme.Rail);
                 button.Slot.ActiveSelf = true;
             }
             else
@@ -1836,10 +1874,10 @@ internal sealed class DiscoverUi
 
         _listTools.ActiveSelf = view.ListTools;
         _title.Content.Value = "<nobr>" + Plain(view.Title) + "</nobr>";
-        _subtitle.Content.Value = view.Subtitle;
+        _subtitle.Content.Value = "<nobr>" + Plain(view.Subtitle) + "</nobr>";
         _count.Content.Value = view.Count;
-        _sortButtonLabel.Content.Value = $"{UiStrings.Get("bar.sort")}: {view.SortLabel}";
-        _filtersButtonLabel.Content.Value = view.FilterCount > 0 ? $"{UiStrings.Get("bar.filters")} ({view.FilterCount})" : UiStrings.Get("bar.filters");
+        _sortButtonLabel.Content.Value = $"<nobr>{view.SortLabel} ▾</nobr>";
+        _filtersButtonLabel.Content.Value = "<nobr>" + (view.FilterCount > 0 ? $"{UiStrings.Get("bar.filters")} ({view.FilterCount}) ▾" : UiStrings.Get("bar.filters") + " ▾") + "</nobr>";
 
         RenderChips(view.Chips);
         RenderSortMenu(view);
