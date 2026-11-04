@@ -437,12 +437,23 @@ internal sealed class DiscoverUi
             _chips.Add((chip, label));
         }
 
-        _clearChips = ui.Button((LocaleString)UiStrings.Get("chips.clear"), Theme.ButtonQuiet);
-        _clearChips.Slot.ActiveSelf = false;
-        _clearChips.LocalPressed += (_, _) => _actions.ClearChips();
         ui.Style.MinWidth = 0f;
         ui.NestOut(); // the row
         ui.NestOut(); // the chip bar
+
+        // Clear all is not a tag, so it is not in the row: a red button pinned to the bar's right edge.
+        var pin = new UIBuilder(chipBar);
+        RadiantUI_Constants.SetupDefaultStyle(pin);
+        _clearChips = pin.Button((LocaleString)("✕  " + UiStrings.Get("chips.clear")), Theme.ClearButton);
+        Fix(_clearChips.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _clearChips.Slot.Name = "ClearAll";
+        var clearRect = _clearChips.Slot.GetComponent<RectTransform>();
+        clearRect.AnchorMin.Value = new float2(1f, 0f);
+        clearRect.AnchorMax.Value = new float2(1f, 1f);
+        clearRect.OffsetMin.Value = new float2(-134f, 4f);
+        clearRect.OffsetMax.Value = new float2(-4f, -4f);
+        _clearChips.Slot.ActiveSelf = false;
+        _clearChips.LocalPressed += (_, _) => _actions.ClearChips();
     }
 
     private RectTransform _chipBarRect = null!;

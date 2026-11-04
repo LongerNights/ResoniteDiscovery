@@ -15,6 +15,15 @@ public class SearchTests
         };
 
     [Fact]
+    public void AuthorNamesListsEachNonExcludedAuthorOnce()
+    {
+        var q = SearchQuery.Parse("author:Winter +author:winter -author:Spammer \"author:Two Words\" plain");
+
+        Assert.Equal(["Winter"], q.AuthorNames);
+        Assert.Empty(SearchQuery.Parse("-author:x plain").AuthorNames);
+    }
+
+    [Fact]
     public void AuthorTermMatchesOwnerNameOnly()
     {
         var mine = World("Plaza", owner: "Winter");

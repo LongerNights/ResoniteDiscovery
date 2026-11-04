@@ -35,6 +35,12 @@ public sealed class SearchQuery
         Excluded = excluded;
     }
 
+    /// <summary>The names in <c>author:</c> terms that are not excluded, each once; the controller resolves them to user ids.</summary>
+    public IEnumerable<string> AuthorNames => Optional.Concat(Required)
+        .Where(t => t.IsAuthor)
+        .Select(t => t.Text)
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
     public bool IsEmpty => Optional.Count == 0 && Required.Count == 0 && Excluded.Count == 0;
 
     public static SearchQuery Parse(string? input)

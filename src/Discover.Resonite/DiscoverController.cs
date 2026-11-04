@@ -44,6 +44,7 @@ internal sealed class DiscoverController : IBrowseActions
     private readonly EngineSessionAdapter _adapter;
     private readonly EngineRecordSource _records;
     private readonly JoinService _join;
+    private readonly AuthorResolver _authors;
     private readonly EngineOpenWorldAdapter _openWorlds;
     private readonly SearchCache _cache;
     private readonly SearchPager _pager;
@@ -124,6 +125,7 @@ internal sealed class DiscoverController : IBrowseActions
         _world = userspace;
         _settings = settings;
         _join = new JoinService(engine);
+        _authors = new AuthorResolver(engine);
         _openWorlds = new EngineOpenWorldAdapter(engine);
         _records = new EngineRecordSource(engine);
         _cache = new SearchCache(settings.SearchCacheFirstPageTtl, settings.SearchCacheLaterPageTtl);
@@ -377,6 +379,20 @@ internal sealed class DiscoverController : IBrowseActions
 
         _searchPending = false;
         _search = SearchQuery.Parse(_searchRaw);
+
+        // author:name: look the name up once, then the server can search that owner's worlds (until then, and when
+        // nobody has that name, the term filters the loaded results by name).
+        foreach (var name in _search.AuthorNames)
+        {
+            _authors.Request(name, () => _world.RunSynchronously(() =>
+            {
+                if (!_stopped)
+                {
+                    QueryChanged();
+                }
+            }));
+        }
+
         QueryChanged();
     }
 
@@ -518,6 +534,12 @@ internal sealed class DiscoverController : IBrowseActions
         if (_authorId is not null && _lens is LensKind.Browse or LensKind.New or LensKind.Featured or LensKind.Random)
         {
             query = RecordLenses.ByAuthor(query, _authorId);
+        }
+
+        if (_authorId is null && _lens is LensKind.Browse or LensKind.New or LensKind.Featured or LensKind.Random
+            && _search.AuthorNames.Select(_authors.IdFor).FirstOrDefault(id => id is not null) is { } searched)
+        {
+            query = RecordLenses.ByAuthor(query, searched);
         }
 
         if (_filters.FeaturedOnly)

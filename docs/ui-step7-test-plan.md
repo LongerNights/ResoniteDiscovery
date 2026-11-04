@@ -48,3 +48,9 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
     with a few chips set, and after resizing nothing is clipped at the right edge; Clear all sits after the last chip.
 13. **Pager.** The footer shows the status text and two square arrow buttons (‹ and ›) at the right; the right arrow is
     the cyan one. Both still page; ‹ is greyed on page 1.
+
+14. **Clear all** is a red button with a cross, pinned to the right end of the chip bar (not a chip in the row);
+    it shows only while a chip is set and clears them all.
+15. **`author:` search.** On Browse type `author:` and an exact Resonite user name (for example your own): after a moment
+    the results are that user's worlds (the server was asked, not just the loaded page). A name nobody has just
+    filters what is loaded. Check the log shows no repeated lookups for the same name.

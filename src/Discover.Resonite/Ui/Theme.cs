@@ -60,6 +60,9 @@ internal static class Theme
     /// <summary>Buttons and tags that sit on a card: darker than the card, so they read as inset.</summary>
     public static colorX CardButton => RadiantUI_Constants.Neutrals.DARK;
 
+    /// <summary>"Clear all" in the chip bar: a red button, so it is not mistaken for a tag.</summary>
+    public static colorX ClearButton => RadiantUI_Constants.Sub.RED;
+
     /// <summary>A section's row in Settings: tinted so it stands apart from the lens rows under it.</summary>
     public static colorX SectionRow => RadiantUI_Constants.Sub.CYAN;
 
