@@ -15,6 +15,21 @@ public class SearchTests
         };
 
     [Fact]
+    public void AuthorTermMatchesOwnerNameOnly()
+    {
+        var mine = World("Plaza", owner: "Winter");
+        var other = World("Winter Lodge", owner: "Someone");
+
+        var q = SearchQuery.Parse("author:wint");
+        var term = Assert.Single(q.Optional);
+        Assert.True(term.IsAuthor);
+        Assert.True(q.Matches(mine));
+        Assert.False(q.Matches(other)); // the name matches, the owner does not
+        Assert.True(SearchQuery.Parse("+author:\"Some\" +winter").Matches(other));
+        Assert.False(SearchQuery.Parse("-author:winter").Matches(mine));
+    }
+
+    [Fact]
     public void ParsesOptionalRequiredAndExcluded()
     {
         var q = SearchQuery.Parse("+a -b c");

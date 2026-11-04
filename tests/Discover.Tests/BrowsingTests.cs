@@ -15,8 +15,8 @@ public class BrowsingTests
     [InlineData(LensKind.LiveNow, SortKey.LiveUsers, true)]
     [InlineData(LensKind.LiveNow, SortKey.Visits, false)]
     [InlineData(LensKind.Friends, SortKey.NewestSession, true)]
-    [InlineData(LensKind.MostVisited, SortKey.Visits, true)]
-    [InlineData(LensKind.MostVisited, SortKey.LiveUsers, false)]
+    [InlineData(LensKind.Browse, SortKey.Visits, true)]
+    [InlineData(LensKind.Browse, SortKey.LiveUsers, false)]
     [InlineData(LensKind.New, SortKey.FriendsPresent, false)]
     [InlineData(LensKind.Featured, SortKey.Name, true)]
     public void SortsTheLensCannotHonourAreUnsupported(LensKind lens, SortKey key, bool supported)
@@ -27,7 +27,7 @@ public class BrowsingTests
     [Fact]
     public void EveryLensDefaultIsSupported()
     {
-        foreach (var lens in new[] { LensKind.LiveNow, LensKind.Friends, LensKind.New, LensKind.MostVisited, LensKind.Featured, LensKind.Random })
+        foreach (var lens in new[] { LensKind.LiveNow, LensKind.Friends, LensKind.New, LensKind.Browse, LensKind.Featured, LensKind.Random })
         {
             Assert.True(Sorting.IsSupported(lens, Sorting.Default(lens)), lens.ToString());
         }
@@ -181,5 +181,35 @@ public class BrowsingTests
         Assert.True(chips.Matches(cozy));
         chips.Cycle("chill");
         Assert.False(chips.Matches(cozy));
+    }
+}
+
+public class ParityFilterTests
+{
+    private static DiscoveryEntry Entry(params SessionSnapshot[] sessions) =>
+        new() { Key = "K", Sessions = sessions, PublicSessions = sessions };
+
+    [Fact]
+    public void MinUptimeKeepsOnlyOlderSessions()
+    {
+        var filters = new BrowseFilters { MinUptimeMinutes = 30 };
+        Assert.True(filters.MatchesLive(Entry(TestData.Session("a", ageMinutes: 45)), TestData.Now));
+        Assert.False(filters.MatchesLive(Entry(TestData.Session("b", ageMinutes: 10)), TestData.Now));
+    }
+
+    [Fact]
+    public void LiveNowHidesEmptySessionsUnlessIncluded()
+    {
+        var empty = Entry(TestData.Session("e", active: 0));
+        Assert.Empty(LensEngine.LiveNow([empty]));
+        Assert.Single(LensEngine.LiveNow([empty], includeEmpty: true));
+    }
+
+    [Fact]
+    public void NewFiltersCountOnTheirOwnLenses()
+    {
+        var filters = new BrowseFilters { FeaturedOnly = true, MinUptimeMinutes = 5, IncludeEmpty = true };
+        Assert.Equal(1, filters.ActiveCount(LensSource.Search));
+        Assert.Equal(2, filters.ActiveCount(LensSource.Sessions));
     }
 }

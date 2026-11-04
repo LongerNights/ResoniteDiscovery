@@ -111,7 +111,7 @@ public class LensTests
     public void SearchLensesBuildTheDocumentedQueries()
     {
         Assert.Equal(new RecordQuery { SortBy = RecordSort.FirstPublishTime, Direction = SortDirection.Descending }, RecordLenses.New());
-        Assert.Equal(RecordSort.TotalVisits, RecordLenses.MostVisited().SortBy);
+        Assert.Equal(RecordSort.TotalVisits, RecordLenses.Browse().SortBy);
         Assert.Equal(RecordSort.Random, RecordLenses.Random().SortBy);
 
         var featured = RecordLenses.Featured();
@@ -147,7 +147,7 @@ public class LensTests
             source.Records.Add(TestData.Record($"R-{i}"));
         }
 
-        var query = RecordLenses.MostVisited();
+        var query = RecordLenses.Browse();
         var seen = 0;
         RecordPage page;
         do

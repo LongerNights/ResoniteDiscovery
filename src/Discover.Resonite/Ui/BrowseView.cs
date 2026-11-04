@@ -9,6 +9,10 @@ public enum FilterOp
     MinUsersDown,
     MinVisitsUp,
     MinVisitsDown,
+    MinUptimeUp,
+    MinUptimeDown,
+    ToggleFeatured,
+    ToggleIncludeEmpty,
     ToggleHasRoom,
     ToggleMobile,
     ToggleVr,
@@ -37,7 +41,7 @@ internal sealed record BrowseView(
     string Count,
     string SortLabel,
     int FilterCount,
-    IReadOnlyList<TagChip> Chips,
+    IReadOnlyList<ChipView> Chips,
     IReadOnlyList<CardModel> Cards,
     string? EmptyMessage,
     string? EmptyHint,
@@ -52,7 +56,8 @@ internal sealed record BrowseView(
     bool ShowOtherVersions,
     bool SessionLens,
     bool ListTools = false,
-    bool ShowNewList = true);
+    bool ShowNewList = true,
+    bool ListView = false);
 
 /// <summary>One list in the organize panel, and whether the world is in it.</summary>
 internal sealed record OrganizeList(string Id, string Name, bool Member);
@@ -63,7 +68,7 @@ internal sealed record OrganizeModel(string Key, string Title, IReadOnlyList<Org
 /// <summary>The settings the panel shows.</summary>
 internal sealed record SettingsModel(bool Animations, bool LiveOnly, string StartLens, Discover.Core.Settings.DiscoverSettings Settings);
 
-internal enum SettingKey { Animations, LiveOnly, StartLens }
+internal enum SettingKey { Animations, LiveOnly, StartLens, ListView, CardsPerRow, HiddenRestore, HiddenWord, NotifyLive, NotifyContacts }
 
 /// <summary>What the screen's controls do. Called on the update thread, from button and text-field events.</summary>
 internal interface IBrowseActions
@@ -92,7 +97,15 @@ internal interface IBrowseActions
     void OrganizeRemoveTag(string tag);
     void OrganizeNewList();
     void OpenSettings();
+    void OpenClassicBrowser();
     void OpenDetails(string key);
+    void LeaveWorld(string key);
+    void MoreByAuthor(string key);
+    void HideOptions(string key);
+    void SavePresetPrompt();
+    void ApplyPreset(int index);
+    void DeletePreset(int index);
+    void CopyLink(string key);
     void ToggleSetting(SettingKey key);
     void ToggleLens(LensKind lens);
     void ToggleSection(RailSectionId section);

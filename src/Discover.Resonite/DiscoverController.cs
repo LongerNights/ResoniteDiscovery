@@ -1,3 +1,4 @@
+using Discover.Core.History;
 using Discover.Core.Lenses;
 using Discover.Core.Model;
 using Discover.Core.Persistence;
@@ -28,8 +29,10 @@ internal sealed class DiscoverController : IBrowseActions
     private const int MaxConsecutiveFailures = 5;
     private const double RefreshIntervalSeconds = 0.25;
     private const string ScreenLabel = "Galaxy Sieve";
+    private const string TabLabel = "Worlds"; // V31: not yet driven from the locale key
     private static readonly int[] UserSteps = [0, 1, 2, 3, 5, 10, 20];
     private static readonly int[] VisitSteps = [0, 10, 100, 1000, 10000];
+    private static readonly int[] UptimeSteps = [0, 5, 15, 30, 60, 180];
     private static readonly TimeSpan IconWait = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan TransitionTimeout = TimeSpan.FromSeconds(1);
 
@@ -41,6 +44,7 @@ internal sealed class DiscoverController : IBrowseActions
     private readonly EngineSessionAdapter _adapter;
     private readonly EngineRecordSource _records;
     private readonly JoinService _join;
+    private readonly EngineOpenWorldAdapter _openWorlds;
     private readonly SearchCache _cache;
     private readonly SearchPager _pager;
     private readonly Backoff _backoff = new();
@@ -61,12 +65,18 @@ internal sealed class DiscoverController : IBrowseActions
     private string? _listId;
     private string? _groupId;
     private string? _groupName;
+    private string? _authorId;
+    private string? _authorName;
 
     // The user's own data, per account (spec Integration §5). Loaded once the signed-in account is known.
     private string? _accountId;
     private UserLibrary? _library;
     private UserLibraryStore? _store;
     private LibrarySaver? _saver;
+    private HistoryLog _history = new();
+    private bool _historyLoaded;
+    private DateTime _lastSnapshotUtc = DateTime.MinValue;
+    private DateTime _lastHistorySaveUtc = DateTime.UtcNow;
     private int _accountFrame;
 
     // The entries currently on screen by key (cards can be saved worlds that are not in the index), and the saved
@@ -76,9 +86,14 @@ internal sealed class DiscoverController : IBrowseActions
     private int _hydrationOutstanding;
     private string? _organizeKey;
 
+    // Current Worlds: the open worlds as of the last render, by entry key (Go there and Leave need the session id).
+    private readonly Dictionary<string, OpenWorldItem> _openItems = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastOpenWorldsPollUtc = DateTime.MinValue;
+
     // Timing and flags
     private RadiantDashScreen? _screen;
     private DiscoverUi? _ui;
+    private TabTakeover? _takeover;
     private volatile bool _dirty = true;
     private bool _loadedInitial;
     private bool _wasShown;
@@ -94,6 +109,10 @@ internal sealed class DiscoverController : IBrowseActions
     private DateTime _transitionStartUtc;
     private DateTime _searchChangedUtc;
     private DateTime _retryAtUtc = DateTime.MaxValue;
+    private DateTime _loadingSinceUtc = DateTime.MaxValue;
+    private bool _slowNoticed;
+    private bool _revealPending;
+    private DateTime _revealDeadlineUtc;
     private DateTime _lastManualRefreshUtc = DateTime.MinValue;
     private readonly DateTime _startedUtc = DateTime.UtcNow;
     private volatile Uri? _iconUri;
@@ -105,6 +124,7 @@ internal sealed class DiscoverController : IBrowseActions
         _world = userspace;
         _settings = settings;
         _join = new JoinService(engine);
+        _openWorlds = new EngineOpenWorldAdapter(engine);
         _records = new EngineRecordSource(engine);
         _cache = new SearchCache(settings.SearchCacheFirstPageTtl, settings.SearchCacheLaterPageTtl);
         _pager = new SearchPager(Math.Min(settings.SearchPageSize, settings.MaxCardSlots));
@@ -133,6 +153,7 @@ internal sealed class DiscoverController : IBrowseActions
     public void Stop()
     {
         _stopped = true;
+        RestoreStockTab();
         _engine.WorldManager.WorldsChanged -= OnWorldsChanged;
         _adapter.Dispose();
         FlushLibrary();
@@ -184,6 +205,42 @@ internal sealed class DiscoverController : IBrowseActions
         }
     }
 
+    private readonly FavoriteNotifier _notifier = new();
+    private bool _notifierBaselined;
+
+    /// <summary>Favorite notifications (F26): messages for favorited worlds among the changed keys.</summary>
+    private void NotifyFavorites(IReadOnlyCollection<string> touchedKeys)
+    {
+        if (_library is null)
+        {
+            return;
+        }
+
+        if (!_notifierBaselined)
+        {
+            _notifierBaselined = true;
+            foreach (var favorite in _library.Favorites)
+            {
+                _notifier.Baseline(favorite.Key, _index.TryGetEntry(favorite.Key, out var known) ? known : null);
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var key in touchedKeys)
+        {
+            if (!_library.IsStarred(key))
+            {
+                continue;
+            }
+
+            _index.TryGetEntry(key, out var entry);
+            foreach (var message in _notifier.Observe(key, entry, now, _settings))
+            {
+                Notice(message);
+            }
+        }
+    }
+
     private void Step()
     {
         if (!_loadedInitial)
@@ -194,10 +251,13 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _adapter.Pump(_settings.SessionChangesPerTick);
-        if (_queue.Drain(_index, _settings.SessionChangesPerTick).Count > 0)
+        var touched = _queue.Drain(_index, _settings.SessionChangesPerTick);
+        if (touched.Count > 0)
         {
             _dirty = true;
         }
+
+        NotifyFavorites(touched);
 
         if (_accountFrame++ % 60 == 0)
         {
@@ -205,12 +265,15 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _saver?.Tick();
+        TickHistory();
 
         // Cheap liveness check every frame; the heavier attach conditions only every 30 frames.
         if (_screen is null || _screen.IsRemoved)
         {
             _screen = null;
             _ui = null;
+            RestoreStockTab();
+            _takeover = null;
             if (_frame++ % 30 == 0)
             {
                 TryAttach();
@@ -229,14 +292,19 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _wasShown = shown;
+
+        // With the takeover on, the UI is built before the screen is first opened: the stock tab is hidden only once ours
+        // is ready (spec Integration §2), and it must not wait for a click on a tab the user can no longer see.
+        var takeOver = !_settings.ShowStockWorldsTab;
+        if (_ui is null && !_uiFailed && (shown || takeOver))
+        {
+            _ui = BuildUi();
+        }
+
+        _takeover?.Tick(_screen, takeOver && _ui is not null);
         if (!shown)
         {
             return; // screen closed: no UI work and no requests (spec: zero requests with the screen closed)
-        }
-
-        if (_ui is null && !_uiFailed)
-        {
-            _ui = BuildUi();
         }
 
         if (_ui is null)
@@ -244,7 +312,21 @@ internal sealed class DiscoverController : IBrowseActions
             return;
         }
 
+        _ui.PumpCards();
+
         var now = DateTime.UtcNow;
+        if (_revealPending && (!_ui.CardsPending || now >= _revealDeadlineUtc))
+        {
+            _revealPending = false;
+            _ui.Reveal((float)_settings.TransitionIn.TotalSeconds, _settings.TransitionRise);
+        }
+
+        if (!_slowNoticed && _pager.Loading && now - _loadingSinceUtc >= _settings.SlowSearchNotice)
+        {
+            _slowNoticed = true; // one re-render to show the banner
+            _dirty = true;
+        }
+
         ApplyPendingSearch(now);
         MaintainSearchLens(now);
 
@@ -269,10 +351,17 @@ internal sealed class DiscoverController : IBrowseActions
             Render(now);
             if (_settings.AnimateTransitions)
             {
-                _ui.Reveal((float)_settings.TransitionIn.TotalSeconds, _settings.TransitionRise);
+                RevealWhenFilled();
             }
 
             return;
+        }
+
+        // User counts and focus change without the world list changing, so keep the open-worlds view fresh.
+        if (_lens == LensKind.CurrentWorlds && (now - _lastOpenWorldsPollUtc).TotalSeconds >= 2)
+        {
+            _lastOpenWorldsPollUtc = now;
+            _dirty = true;
         }
 
         if (_dirty && (now - _lastRefreshUtc).TotalSeconds >= RefreshIntervalSeconds)
@@ -349,11 +438,15 @@ internal sealed class DiscoverController : IBrowseActions
             return;
         }
 
-        var screen = dash.AttachScreen(ScreenLabel, Theme.Tab, _iconUri ?? OfficialAssets.Graphics.Icons.Dash.Worlds);
+        // Replacing the stock tab: look like it (label and icon). Beside it: say what it is, with the galaxy icon.
+        var replacing = !_settings.ShowStockWorldsTab;
+        var label = replacing ? TabLabel : ScreenLabel;
+        var icon = !replacing || _settings.GalaxyTabIcon ? _iconUri : null;
+        var screen = dash.AttachScreen(ScreenLabel, Theme.Tab, icon ?? OfficialAssets.Graphics.Icons.Dash.Worlds);
 
         // The tab's label is a single line of auto-sized text; without <nobr> the space wraps "Galaxy Sieve" onto two
         // lines and it spills out of its box (the engine uses the same tag for its own "Old Home" label).
-        screen.Label.Value = "<nobr>" + ScreenLabel + "</nobr>";
+        screen.Label.Value = "<nobr>" + label + "</nobr>";
 
         // The dash screens are a saved cloud workspace; non-persistent slots are skipped when it saves
         // (verification V15, V22a). Without this the screen would be saved and duplicated on every launch.
@@ -364,6 +457,7 @@ internal sealed class DiscoverController : IBrowseActions
         screen.Slot.OrderOffset = worlds is null ? 5 : worlds.Slot.OrderOffset + 1;
 
         _screen = screen;
+        _takeover = new TabTakeover(dash);
         _uiFailed = false;
         _wasShown = false;
         _dirty = true;
@@ -372,7 +466,12 @@ internal sealed class DiscoverController : IBrowseActions
 
     private DiscoverUi? BuildUi()
     {
-        var ui = new DiscoverUi(_screen!, _settings.MaxCardSlots, this);
+        var ui = new DiscoverUi(_screen!, _settings.MaxCardSlots, this)
+        {
+            CardBindsPerTick = Math.Max(1, _settings.CardBindsPerTick),
+            CardCreatesPerTick = Math.Max(1, _settings.CardCreatesPerTick),
+            CardsPerRow = _settings.CardsPerRow,
+        };
         try
         {
             ui.Build();
@@ -409,7 +508,7 @@ internal sealed class DiscoverController : IBrowseActions
             LensKind.Random => RecordLenses.Random(),
             LensKind.MyWorlds when _accountId is not null => RecordLenses.MyWorlds(_accountId),
             LensKind.GroupWorlds when _groupId is not null => RecordLenses.GroupWorlds(_groupId),
-            _ => RecordLenses.MostVisited(),
+            _ => RecordLenses.Browse(),
         };
 
         if (_sort != Sorting.Default(_lens) || _descending != Sorting.DefaultDescending(_sort))
@@ -418,6 +517,16 @@ internal sealed class DiscoverController : IBrowseActions
             {
                 query = query with { SortBy = sort, Direction = _descending ? SortDirection.Descending : SortDirection.Ascending };
             }
+        }
+
+        if (_authorId is not null && _lens is LensKind.Browse or LensKind.New or LensKind.Featured or LensKind.Random)
+        {
+            query = RecordLenses.ByAuthor(query, _authorId);
+        }
+
+        if (_filters.FeaturedOnly)
+        {
+            query = query with { OnlyFeatured = true };
         }
 
         query = _chips.ApplyTo(query);
@@ -445,6 +554,8 @@ internal sealed class DiscoverController : IBrowseActions
         var now = DateTime.UtcNow;
         var (generation, query) = _pager.Begin(BuildQuery(), page);
         _retryAtUtc = DateTime.MaxValue;
+        _loadingSinceUtc = now;
+        _slowNoticed = false;
 
         if (!force && _cache.TryGet(query, now, out var hit))
         {
@@ -514,10 +625,24 @@ internal sealed class DiscoverController : IBrowseActions
 
     private IReadOnlyList<DiscoveryEntry> LiveEntries()
     {
-        var source = _lens == LensKind.Friends ? LensEngine.Friends(_index.Entries) : LensEngine.LiveNow(_index.Entries);
+        var source = _lens == LensKind.Friends ? LensEngine.Friends(_index.Entries) : LensEngine.LiveNow(_index.Entries, _filters.IncludeEmpty);
         return Sorting.SortLive(
-            source.Select(Dec).Where(e => _search.Matches(e) && _chips.Matches(e) && _filters.MatchesLive(e)),
+            source.Select(Dec).Where(e => !HideRules.IsHidden(e, _settings) && _search.Matches(e) && _chips.Matches(e) && _filters.MatchesLive(e)),
             _sort, _descending, _seed);
+    }
+
+    /// <summary>Trending, Rising or Hidden Gems: the index ranked from the local history, then searched and chip-filtered.</summary>
+    private IReadOnlyList<DiscoveryEntry> HistoryEntries(DateTime now)
+    {
+        var formulas = _settings.Formulas;
+        var scored = _lens switch
+        {
+            LensKind.Trending => InsightLenses.Trending(_index.Entries, _history, now, formulas),
+            LensKind.Rising => InsightLenses.Rising(_index.Entries, _history, now, formulas),
+            _ => InsightLenses.HiddenGems(_index.Entries, _history, now, formulas),
+        };
+
+        return scored.Select(s => Dec(s.Entry)).Where(e => !HideRules.IsHidden(e, _settings) && _search.Matches(e) && _chips.Matches(e)).ToList();
     }
 
     private IReadOnlyList<DiscoveryEntry> SearchEntries()
@@ -528,10 +653,33 @@ internal sealed class DiscoverController : IBrowseActions
             if (_filters.MatchesRecord(record) && _index.TryGetEntry(record.Key, out var found))
             {
                 var entry = Dec(found);
-                if (_search.Matches(entry) && _chips.Matches(entry))
+                if (!HideRules.IsHidden(entry, _settings) && _search.Matches(entry) && _chips.Matches(entry))
                 {
                     entries.Add(entry);
                 }
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Current Worlds: every open world (userspace excluded), focused first, built directly so private and LAN worlds the
+    /// user is already in are not hidden by the session visibility rule. Searched and chip-filtered like any lens.
+    /// </summary>
+    private IReadOnlyList<DiscoveryEntry> OpenWorldEntries()
+    {
+        RecordSnapshot? Lookup(string key) => _index.TryGetEntry(key, out var e) ? e.Record : null;
+        var items = CurrentWorlds.Build(_openWorlds.GetOpenWorlds(), Lookup);
+        _openItems.Clear();
+        var entries = new List<DiscoveryEntry>(items.Count);
+        foreach (var item in items)
+        {
+            var entry = Dec(item.Entry);
+            if (_search.Matches(entry) && _chips.Matches(entry))
+            {
+                _openItems[entry.Key] = item with { Entry = entry };
+                entries.Add(entry);
             }
         }
 
@@ -591,7 +739,13 @@ internal sealed class DiscoverController : IBrowseActions
         }
         else
         {
-            all = source == LensSource.Local ? LocalEntries() : LiveEntries();
+            all = source switch
+            {
+                LensSource.Local => LocalEntries(),
+                LensSource.OpenWorlds => OpenWorldEntries(),
+                LensSource.History => HistoryEntries(now),
+                _ => LiveEntries(),
+            };
             var pages = Math.Max(1, (all.Count + maxCards - 1) / maxCards);
             _livePage = Math.Clamp(_livePage, 0, pages - 1);
             shown = all.Skip(_livePage * maxCards).Take(maxCards).ToList();
@@ -610,7 +764,11 @@ internal sealed class DiscoverController : IBrowseActions
             HydrateMissing(shown);
         }
 
-        var cards = shown.Select(e => CardBuilder.Build(e, _join.OpenSession(e), now, _library?.IsStarred(e.Key) ?? false)).ToList();
+        var cards = shown
+            .Select(e => source == LensSource.OpenWorlds && _openItems.TryGetValue(e.Key, out var open)
+                ? CardBuilder.BuildOpenWorld(open with { Entry = e }, now, _library?.IsStarred(e.Key) ?? false)
+                : CardBuilder.Build(e, _join.OpenSession(e), now, _library?.IsStarred(e.Key) ?? false))
+            .ToList();
         var people = source == LensSource.Local ? 0 : all.Sum(e => _lens == LensKind.Friends ? e.Sessions.Sum(s => s.ActiveUsers) : e.LiveUsers);
 
         string? emptyMessage = null;
@@ -638,6 +796,14 @@ internal sealed class DiscoverController : IBrowseActions
             {
                 emptyMessage = UiStrings.Get(_lens switch { LensKind.Favorites => "empty.favorites", LensKind.Recent => "empty.recent", _ => "empty.list" });
             }
+            else if (source == LensSource.OpenWorlds)
+            {
+                emptyMessage = UiStrings.Get("empty.currentWorlds");
+            }
+            else if (source == LensSource.History)
+            {
+                emptyMessage = UiStrings.Get("empty.history");
+            }
             else if (!searchLens)
             {
                 emptyMessage = UiStrings.Get(_lens == LensKind.Friends ? "empty.friends" : "empty.liveNow");
@@ -651,6 +817,11 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         string? banner = null;
+        if (searchLens && _pager.Error is null && _pager.Loading && now - _loadingSinceUtc >= _settings.SlowSearchNotice)
+        {
+            banner = UiStrings.Get("banner.searchSlow");
+        }
+
         if (searchLens && _pager.Error is not null)
         {
             var wait = Math.Max(1, (int)Math.Ceiling((_retryAtUtc - now).TotalSeconds));
@@ -660,6 +831,7 @@ internal sealed class DiscoverController : IBrowseActions
         var listInfos = _library is null ? [] : LibraryViews.ListInfos(_library);
         var title = _lens == LensKind.NamedList && _library?.GetList(_listId ?? "") is { } list ? list.Name
             : _lens == LensKind.GroupWorlds && _groupName is not null ? RailBuilder.Title(_lens) + " · " + CardText.Ellipsize(_groupName, 24)
+            : _lens == LensKind.Browse && _authorName is not null ? RailBuilder.Title(_lens) + " · " + UiStrings.Format("title.byAuthor", CardText.Ellipsize(_authorName, 24))
             : RailBuilder.Title(_lens);
 
         var view = new BrowseView(
@@ -672,13 +844,16 @@ internal sealed class DiscoverController : IBrowseActions
                 listInfos,
                 _library?.Recent.Count ?? 0,
                 _listId,
-                _settings),
+                _settings,
+                _openWorlds.GetOpenWorlds().Count),
             title,
             RailBuilder.Subtitle(_lens),
             RailBuilder.Count(_lens, all.Count, people),
             RailBuilder.SortLabel(_sort),
             _filters.ActiveCount(source),
-            _chips.Items,
+            _lens == LensKind.Browse
+                ? BrowseTags.Row(BrowseTags.Build(_settings, all, _chips.Items, _library?.AllTags.ToList() ?? []), _chips.Items, DiscoverUi.MaxChips)
+                : BrowseTags.ActiveOnly(_chips.Items),
             cards,
             emptyMessage,
             emptyHint,
@@ -693,8 +868,10 @@ internal sealed class DiscoverController : IBrowseActions
             _showOtherVersions,
             source == LensSource.Sessions,
             ListTools: _lens == LensKind.NamedList && _library is not null,
-            ShowNewList: _settings.IsVisible(LensKind.NamedList));
+            ShowNewList: _settings.IsVisible(LensKind.NamedList),
+            ListView: _settings.ListView);
 
+        _ui.SetPresets(_settings.Presets.Select(p => p.Name).ToList());
         _ui.Render(view);
     }
 
@@ -785,6 +962,8 @@ internal sealed class DiscoverController : IBrowseActions
         var folder = AccountPaths.AccountDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), id);
         _store = new UserLibraryStore(folder, message => UniLog.Warning(message));
         _library = _store.LoadLibrary();
+        _history = _store.LoadHistory();
+        _historyLoaded = true;
         _saver = new LibrarySaver(_store, _library, _settings.MinWriteInterval);
         _library.Changed += _ => _dirty = true;
         var firstAccount = _accountId is null;
@@ -808,8 +987,50 @@ internal sealed class DiscoverController : IBrowseActions
         }
     }
 
+    /// <summary>Snapshots the index into the history on the settings' intervals and saves it every few minutes.</summary>
+    private void TickHistory()
+    {
+        if (!_historyLoaded)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var interval = _wasShown ? _settings.SnapshotIntervalScreenOpen : _settings.SnapshotIntervalScreenClosed;
+        if (now - _lastSnapshotUtc >= interval)
+        {
+            _lastSnapshotUtc = now;
+            _history.Snapshot(_index.Entries, now);
+            _dirty |= LensEngine.SourceOf(_lens) == LensSource.History;
+        }
+
+        if (now - _lastHistorySaveUtc >= TimeSpan.FromMinutes(5))
+        {
+            SaveHistory(now);
+        }
+    }
+
+    private void SaveHistory(DateTime now)
+    {
+        _lastHistorySaveUtc = now;
+        try
+        {
+            _history.Prune(now, _settings.HistoryRetention);
+            _store?.SaveHistory(_history);
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Could not save history: {ex.GetType().Name}");
+        }
+    }
+
     private void FlushLibrary()
     {
+        if (_historyLoaded)
+        {
+            SaveHistory(DateTime.UtcNow);
+        }
+
         try
         {
             _saver?.Flush();
@@ -833,7 +1054,139 @@ internal sealed class DiscoverController : IBrowseActions
             return;
         }
 
-        GoToLens(lens, null);
+        var hadAuthor = _authorId is not null;
+        _authorId = null;
+        _authorName = null;
+        GoToLens(lens, null, force: hadAuthor);
+    }
+
+    // ---- saved views (F17)
+
+    public void SavePresetPrompt() => _ui?.ShowPrompt(UiStrings.Get("prompt.presetTitle"), UiStrings.Get("prompt.presetPlaceholder"), "", name =>
+    {
+        var preset = new FilterPreset
+        {
+            Name = name,
+            Lens = _lens,
+            ListId = _lens == LensKind.NamedList ? _listId : null,
+            Search = _searchRaw,
+            Chips = _chips.Items.ToList(),
+            Sort = _sort,
+            Descending = _descending,
+            Filters = _filters,
+        };
+
+        var next = FilterPresets.Save(_settings, preset);
+        if (next is null)
+        {
+            Notice(UiStrings.Format("presets.full", FilterPresets.MaxPresets));
+            return;
+        }
+
+        _settings = next;
+        _store?.SaveSettings(_settings);
+        _dirty = true;
+        Notice(UiStrings.Format("presets.saved", Safe(preset.Name)));
+    });
+
+    public void DeletePreset(int index)
+    {
+        if (index < 0 || index >= _settings.Presets.Count)
+        {
+            return;
+        }
+
+        _settings = FilterPresets.Delete(_settings, _settings.Presets[index].Name);
+        _store?.SaveSettings(_settings);
+        _dirty = true;
+    }
+
+    public void ApplyPreset(int index)
+    {
+        if (index < 0 || index >= _settings.Presets.Count)
+        {
+            return;
+        }
+
+        var preset = _settings.Presets[index];
+        if (!_settings.IsVisible(preset.Lens) || (preset.Lens == LensKind.NamedList && (preset.ListId is null || _library?.GetList(preset.ListId) is null)))
+        {
+            Notice(UiStrings.Get("presets.gone"));
+            return;
+        }
+
+        _chips.Clear();
+        foreach (var chip in preset.Chips)
+        {
+            _chips.Cycle(chip.Tag, chip.Personal);
+            if (chip.State == ChipState.Excluded)
+            {
+                _chips.Cycle(chip.Tag, chip.Personal);
+            }
+        }
+
+        _filters = preset.Filters;
+        _searchRaw = preset.Search;
+        _search = SearchQuery.Parse(preset.Search);
+        _searchPending = false;
+        _ui?.SetSearchText(preset.Search);
+        _authorId = null;
+        _authorName = null;
+        GoToLens(preset.Lens, preset.ListId, force: true);
+        if (Sorting.IsSupported(preset.Lens, preset.Sort))
+        {
+            _sort = preset.Sort;
+            _descending = preset.Descending;
+        }
+
+        QueryChanged();
+    }
+
+    /// <summary>Detail panel, Hide...: hide the world or everything by its author from the live, search and insight lenses (F19).</summary>
+    public void HideOptions(string key)
+    {
+        if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
+        {
+            return;
+        }
+
+        var worldKey = entry.Key;
+        var authorId = HideRules.AuthorOf(entry);
+        var authorName = entry.Record is { OwnerName.Length: > 0 } record ? record.OwnerName : authorId;
+        var choices = new List<(string, Action)> { (UiStrings.Get("hide.world"), () => ApplyHide(HideRules.HideWorld(_settings, worldKey))) };
+        if (authorId.Length > 0)
+        {
+            choices.Add((UiStrings.Format("hide.author", CardText.Ellipsize(authorName, 22)), () => ApplyHide(HideRules.HideAuthor(_settings, authorId))));
+        }
+
+        _ui?.ShowConfirm(UiStrings.Get("hide.title"), Safe(entry.DisplayName), choices);
+    }
+
+    private void ApplyHide(DiscoverSettings next)
+    {
+        _settings = next;
+        _store?.SaveSettings(_settings);
+        _dirty = true;
+        Notice(UiStrings.Get("hide.done"));
+    }
+
+    /// <summary>Detail panel, More by author: Browse narrowed to that owner (stock "By owner"), cleared by picking any lens.</summary>
+    public void MoreByAuthor(string key)
+    {
+        if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
+        {
+            return;
+        }
+
+        if (entry.Record is not { OwnerId.Length: > 0 } record)
+        {
+            return;
+        }
+
+        _authorId = record.OwnerId;
+        _authorName = string.IsNullOrWhiteSpace(record.OwnerName) ? record.OwnerId : record.OwnerName;
+        _chips.Clear();
+        GoToLens(LensKind.Browse, null, force: true);
     }
 
     /// <summary>
@@ -945,6 +1298,10 @@ internal sealed class DiscoverController : IBrowseActions
             case FilterOp.MinUsersDown: _filters = _filters with { MinUsers = Step(UserSteps, _filters.MinUsers, -1) }; break;
             case FilterOp.MinVisitsUp: _filters = _filters with { MinVisits = Step(VisitSteps, _filters.MinVisits, +1) }; break;
             case FilterOp.MinVisitsDown: _filters = _filters with { MinVisits = Step(VisitSteps, _filters.MinVisits, -1) }; break;
+            case FilterOp.MinUptimeUp: _filters = _filters with { MinUptimeMinutes = Step(UptimeSteps, _filters.MinUptimeMinutes, +1) }; break;
+            case FilterOp.MinUptimeDown: _filters = _filters with { MinUptimeMinutes = Step(UptimeSteps, _filters.MinUptimeMinutes, -1) }; break;
+            case FilterOp.ToggleFeatured: _filters = _filters with { FeaturedOnly = !_filters.FeaturedOnly }; break;
+            case FilterOp.ToggleIncludeEmpty: _filters = _filters with { IncludeEmpty = !_filters.IncludeEmpty }; break;
             case FilterOp.ToggleHasRoom: _filters = _filters with { HasRoom = !_filters.HasRoom }; break;
             case FilterOp.ToggleMobile: _filters = _filters with { MobileFriendly = !_filters.MobileFriendly }; break;
             case FilterOp.ToggleVr: _filters = _filters with { HasVr = !_filters.HasVr }; break;
@@ -1138,6 +1495,32 @@ internal sealed class DiscoverController : IBrowseActions
         return TagSuggester.Suggest(typed, known, mine, forSearch ? 4 : 5);
     }
 
+    /// <summary>Copies the published world's record link. The clipboard call is the engine's own (InventoryBrowser.CopyURL).</summary>
+    public void CopyLink(string key)
+    {
+        if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
+        {
+            return;
+        }
+
+        var url = RecordUrls.For(entry);
+        if (url is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _engine.InputInterface.Clipboard.SetText(url);
+            Notice(UiStrings.Get("notice.linkCopied"));
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Copy link failed: {ex.GetType().Name}");
+            Notice(UiStrings.Get("notice.linkFailed"));
+        }
+    }
+
     public void OpenDetails(string key)
     {
         if (_ui is null || (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry)))
@@ -1146,14 +1529,80 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         var now = DateTime.UtcNow;
+        if (_lens == LensKind.CurrentWorlds && _openItems.TryGetValue(key, out var open))
+        {
+            var openCard = CardBuilder.BuildOpenWorld(open with { Entry = entry }, now, _library?.IsStarred(key) ?? false);
+            _ui.ShowDetails(DetailBuilder.Build(entry, openCard, now, open.World));
+            return;
+        }
+
         var card = CardBuilder.Build(entry, _join.OpenSession(entry), now, _library?.IsStarred(key) ?? false);
         _ui.ShowDetails(DetailBuilder.Build(entry, card, now));
+    }
+
+    /// <summary>Leave (or, for a world you host, end) an open world, after asking. Spec F30.</summary>
+    public void LeaveWorld(string key)
+    {
+        if (_ui is null || _lens != LensKind.CurrentWorlds || !_openItems.TryGetValue(key, out var open) || !open.World.CanLeave)
+        {
+            return;
+        }
+
+        var sessionId = open.World.SessionId;
+        var name = Safe(open.Entry.DisplayName);
+        var host = open.World.IsHost;
+        _ui.ShowConfirm(
+            UiStrings.Get("confirm.leaveTitle"),
+            UiStrings.Format(host ? "confirm.endBody" : "confirm.leaveBody", name),
+            [(UiStrings.Get(host ? "confirm.end" : "confirm.leave"), () => _ = LeaveAsync(sessionId))]);
+    }
+
+    private async Task LeaveAsync(string sessionId)
+    {
+        var ok = await _join.LeaveAsync(sessionId);
+        try
+        {
+            _world.RunSynchronously(() =>
+            {
+                if (!ok)
+                {
+                    Notice(UiStrings.Get("notice.leaveFailed"));
+                }
+
+                _dirty = true;
+            });
+        }
+        catch (Exception)
+        {
+            // The userspace world is gone.
+        }
     }
 
     // ---- settings, export and import
 
     private SettingsModel SettingsView() =>
         new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings);
+
+    /// <summary>Restores the stock Worlds button; never throws (it runs on the failure paths).</summary>
+    private void RestoreStockTab()
+    {
+        try
+        {
+            _takeover?.Restore();
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Restoring the stock Worlds tab failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    public void OpenClassicBrowser()
+    {
+        if (_takeover?.OpenClassic() != true)
+        {
+            Notice(UiStrings.Get("notice.classicMissing"));
+        }
+    }
 
     public void OpenSettings() => _ui?.ShowSettings(SettingsView());
 
@@ -1172,6 +1621,38 @@ internal sealed class DiscoverController : IBrowseActions
                 }
 
                 EnsureLensVisible();
+                break;
+            case SettingKey.ListView:
+                _settings = _settings with { ListView = !_settings.ListView };
+                _dirty = true;
+                break;
+            case SettingKey.NotifyLive:
+                _settings = _settings with { NotifyFavoriteLive = !_settings.NotifyFavoriteLive };
+                break;
+            case SettingKey.NotifyContacts:
+                _settings = _settings with { NotifyContactsInFavorite = !_settings.NotifyContactsInFavorite };
+                break;
+            case SettingKey.HiddenRestore:
+                _settings = HideRules.RestoreAll(_settings);
+                _dirty = true;
+                break;
+            case SettingKey.HiddenWord:
+                _ui?.ShowPrompt(UiStrings.Get("prompt.hiddenWordTitle"), UiStrings.Get("prompt.hiddenWordPlaceholder"), "", word =>
+                {
+                    _settings = HideRules.HideWord(_settings, word);
+                    _store?.SaveSettings(_settings);
+                    _dirty = true;
+                });
+                return; // the prompt replaces the settings panel
+            case SettingKey.CardsPerRow:
+                var choices = DiscoverSettings.CardsPerRowChoices;
+                var index = Array.IndexOf(choices, _settings.CardsPerRow);
+                _settings = _settings with { CardsPerRow = index < 0 ? choices[0] : choices[(index + 1) % choices.Length] };
+                if (_ui is not null)
+                {
+                    _ui.CardsPerRow = _settings.CardsPerRow;
+                }
+
                 break;
             case SettingKey.StartLens:
                 var openable = LensCatalog.Openable(_settings);
@@ -1357,6 +1838,24 @@ internal sealed class DiscoverController : IBrowseActions
 
     public void CardPressed(string key)
     {
+        if (_lens == LensKind.CurrentWorlds && _openItems.TryGetValue(key, out var openWorld))
+        {
+            if (_join.Focus(openWorld.World.SessionId))
+            {
+                if (openWorld.Entry.CanSave)
+                {
+                    _library?.RecordOpened(openWorld.Entry.Key, openWorld.Entry.DisplayName); // F16: Recent includes worlds opened from here
+                }
+            }
+            else
+            {
+                Notice(UiStrings.Get("notice.leaveFailed"));
+            }
+
+            _dirty = true;
+            return;
+        }
+
         if (!_shown.TryGetValue(key, out var entry) && !_index.TryGetEntry(key, out entry))
         {
             return;
@@ -1413,11 +1912,11 @@ internal sealed class DiscoverController : IBrowseActions
             return;
         }
 
-        _ui?.ShowConfirm(
-            UiStrings.Get("confirm.newTitle"),
-            UiStrings.Format("confirm.newBody", Safe(entry.DisplayName)),
-            [(UiStrings.Get("confirm.start"), () => _ = RunAsync(() => _join.StartNewSessionAsync(record), entry))]);
+        _ui?.ShowNewSession(Safe(entry.DisplayName), (level, mobile) => StartNew(entry, record, level, mobile));
     }
+
+    private void StartNew(DiscoveryEntry entry, RecordSnapshot record, SkyFrost.Base.SessionAccessLevel? level, bool mobileFriendly) =>
+        _ = RunAsync(() => _join.StartNewSessionAsync(record, level, mobileFriendly), entry);
 
     private async Task RunAsync(Func<Task<JoinOutcome>> action, DiscoveryEntry? entry = null)
     {
@@ -1475,7 +1974,7 @@ internal sealed class DiscoverController : IBrowseActions
                 _lastRefreshUtc = now;
                 _dirty = false;
                 Render(now);
-                ui.Reveal((float)_settings.TransitionIn.TotalSeconds, _settings.TransitionRise);
+                RevealWhenFilled();
             }
             catch (Exception ex)
             {
@@ -1486,9 +1985,20 @@ internal sealed class DiscoverController : IBrowseActions
         });
     }
 
+    /// <summary>
+    /// Lifts the curtain once the queued cards are filled in (or after <see cref="DiscoverSettings.CardFillTimeout"/>), so the
+    /// cards appearing one by one, and the old tab's images still on them, stay out of sight.
+    /// </summary>
+    private void RevealWhenFilled()
+    {
+        _revealPending = true;
+        _revealDeadlineUtc = DateTime.UtcNow + _settings.CardFillTimeout;
+    }
+
     private void Pause()
     {
         _paused = true;
+        RestoreStockTab(); // F25: never leave the user without a working Worlds tab
         _adapter.Dispose();
         UniLog.Warning("[Discover] Paused after repeated errors");
         try

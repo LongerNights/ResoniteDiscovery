@@ -3,12 +3,13 @@ using Discover.Core.Sources;
 
 namespace Discover.Core.Lenses;
 
+[System.Text.Json.Serialization.JsonConverter(typeof(LegacyNames.LensConverter))]
 public enum LensKind
 {
     LiveNow,
     Friends,
     New,
-    MostVisited,
+    Browse,
     Featured,
     Random,
     Trending,
@@ -19,6 +20,7 @@ public enum LensKind
     MyWorlds,
     GroupWorlds,
     Recent,
+    CurrentWorlds,
 }
 
 public enum LensSource
@@ -34,6 +36,9 @@ public enum LensSource
 
     /// <summary>User data on disk.</summary>
     Local,
+
+    /// <summary>The worlds the user has open, from the world manager; costs no requests.</summary>
+    OpenWorlds,
 }
 
 /// <summary>A saved or recent world. <see cref="Entry"/> is null when the world has no live session and no hydrated record yet.</summary>
@@ -46,16 +51,17 @@ public static class LensEngine
 
     public static LensSource SourceOf(LensKind lens) => lens switch
     {
+        LensKind.CurrentWorlds => LensSource.OpenWorlds,
         LensKind.LiveNow or LensKind.Friends => LensSource.Sessions,
-        LensKind.New or LensKind.MostVisited or LensKind.Featured or LensKind.Random
+        LensKind.Browse or LensKind.New or LensKind.Featured or LensKind.Random
             or LensKind.MyWorlds or LensKind.GroupWorlds => LensSource.Search,
         LensKind.Trending or LensKind.Rising or LensKind.HiddenGems => LensSource.History,
         _ => LensSource.Local,
     };
 
     /// <summary>Visible sessions with 1 or more active users. Sorted by LiveUsers, ties by FriendsPresent, then name.</summary>
-    public static IReadOnlyList<DiscoveryEntry> LiveNow(IEnumerable<DiscoveryEntry> entries) => entries
-        .Where(e => e.PublicSessions.Any(s => s.ActiveUsers >= 1))
+    public static IReadOnlyList<DiscoveryEntry> LiveNow(IEnumerable<DiscoveryEntry> entries, bool includeEmpty = false) => entries
+        .Where(e => e.PublicSessions.Any(s => includeEmpty || s.ActiveUsers >= 1))
         .OrderByDescending(e => e.LiveUsers)
         .ThenByDescending(e => e.FriendsPresent)
         .ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase)
@@ -96,7 +102,7 @@ public static class RecordLenses
 {
     public static RecordQuery New() => new() { SortBy = RecordSort.FirstPublishTime, Direction = SortDirection.Descending };
 
-    public static RecordQuery MostVisited() => new() { SortBy = RecordSort.TotalVisits, Direction = SortDirection.Descending };
+    public static RecordQuery Browse() => new() { SortBy = RecordSort.TotalVisits, Direction = SortDirection.Descending };
 
     public static RecordQuery Featured() => new() { SortBy = RecordSort.LastUpdateDate, Direction = SortDirection.Descending, OnlyFeatured = true };
 
@@ -121,6 +127,13 @@ public static class RecordLenses
     };
 
     /// <summary>The New lens's optional minimum-visits chip (F27). Applied client-side; 0 or less turns it off.</summary>
+    /// <summary>Narrows a search lens to one author's worlds. Group ids start with "G-", user ids with "U-".</summary>
+    public static RecordQuery ByAuthor(RecordQuery query, string ownerId) => query with
+    {
+        ByOwner = ownerId,
+        OwnerType = ownerId.StartsWith("G-", StringComparison.OrdinalIgnoreCase) ? OwnerKind.Group : OwnerKind.User,
+    };
+
     public static IReadOnlyList<RecordSnapshot> WithMinVisits(IEnumerable<RecordSnapshot> records, int minVisits) =>
         minVisits <= 0 ? records.ToList() : records.Where(r => r.Visits >= minVisits).ToList();
 }
