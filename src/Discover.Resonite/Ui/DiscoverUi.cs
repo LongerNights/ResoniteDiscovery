@@ -111,12 +111,36 @@ internal sealed class DiscoverUi
         BuildRail(ui, rail);
         BuildMain(ui, main);
 
-        // Any text that was not given a size above (button labels with the default) still centres by its line.
-        foreach (var text in _screen.Slot.GetComponentsInChildren<Text>())
+        ApplyTextLift(_screen.Slot);
+    }
+
+    /// <summary>
+    /// Line-based alignment gives every word the same height whether or not it has a descender, but the line sits
+    /// low in its box (measured in game: about 0.17 of the font size), so each text's rect is raised by that much.
+    /// Done once per text, after the layout offsets are final; also called for each new card.
+    /// </summary>
+    internal static void ApplyTextLift(Slot root)
+    {
+        foreach (var text in root.GetComponentsInChildren<Text>())
         {
             text.AlignmentMode.Value = AlignmentMode.LineBased;
+            if (Lifted.TryGetValue(text, out _) || text.Slot.GetComponent<RectTransform>() is not { } rect)
+            {
+                continue;
+            }
+
+            Lifted.Add(text, new object());
+            var size = text.AutoSizeMax.Value > 0f && text.AutoSizeMax.Value >= text.AutoSizeMin.Value
+                ? (text.AutoSizeMin.Value + text.AutoSizeMax.Value) * 0.5f
+                : text.Size.Value;
+            var lift = new float2(0f, TextLift * size);
+            rect.OffsetMin.Value += lift;
+            rect.OffsetMax.Value += lift;
         }
     }
+
+    private const float TextLift = 0.17f;
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Text, object> Lifted = new();
 
     private void BuildRail(UIBuilder ui, RectTransform rail)
     {
@@ -1629,15 +1653,20 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 40f;
         for (var i = 0; i < DetailBuilder.MaxSessionRows; i++)
         {
-            var sessionRow = ui.HorizontalLayout(10f, 0f, Alignment.MiddleLeft);
+            // Each live session is its own framed card: Join at the left, then who is hosting, how many are in and how old.
+            ui.Style.MinHeight = 54f;
+            var frame = ui.Panel(Theme.Card, _rounded, NineSliceSizing.FixedSize);
+            var sessionRow = ui.HorizontalLayout(12f, 8f, Alignment.MiddleLeft);
+            sessionRow.ForceExpandWidth.Value = false;
+            ui.Style.MinWidth = 110f;
+            ui.Style.FlexibleWidth = -1f;
+            var join = ui.Button((LocaleString)UiStrings.Get("card.join"), Theme.ButtonSelected);
+            Fix(join.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            ui.Style.MinWidth = 0f;
             ui.Style.FlexibleWidth = 1f;
             var text = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
             Fix(text, TypeScale.Body);
             ui.Style.FlexibleWidth = -1f;
-            ui.Style.MinWidth = 110f;
-            var join = ui.Button((LocaleString)UiStrings.Get("card.join"), Theme.ButtonSelected);
-            Fix(join.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
-            ui.Style.MinWidth = 0f;
             var index = i;
             join.LocalPressed += (_, _) =>
             {
@@ -1647,9 +1676,10 @@ internal sealed class DiscoverUi
                     _actions.JoinSession(key, id);
                 }
             };
-            ui.NestOut();
-            sessionRow.Slot.ActiveSelf = false;
-            _detailSessionRows.Add((sessionRow.Slot, text, join));
+            ui.NestOut(); // the row layout
+            ui.NestOut(); // the frame
+            frame.Slot.ActiveSelf = false;
+            _detailSessionRows.Add((frame.Slot, text, join));
         }
 
         ui.Style.MinHeight = 40f;
@@ -3012,6 +3042,7 @@ internal sealed class CardView
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
         card.SetListLayout(false);
+        DiscoverUi.ApplyTextLift(slot);
         return card;
     }
 
