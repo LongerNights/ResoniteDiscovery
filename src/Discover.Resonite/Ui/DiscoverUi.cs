@@ -38,6 +38,7 @@ internal sealed class DiscoverUi
     private readonly List<CardView> _cards = [];
     private readonly List<(Button Button, Text Label)> _chips = [];
     private readonly Dictionary<SortKey, (Button Button, Text Label)> _sortItems = [];
+    private readonly Dictionary<SortKey, Text> _sortHints = [];
     private readonly Dictionary<FilterOp, (Button Button, Text Label)> _filterItems = [];
 
     private Slot _content = null!;
@@ -132,6 +133,14 @@ internal sealed class DiscoverUi
             }
 
             Lifted.Add(text, new object());
+
+            // A label that fills its button (no placement of its own) is inset a little, so long words do not run to the edge.
+            if (text.Slot.Parent?.GetComponent<Button>() is not null && rect.OffsetMin.Value.x == 0f && rect.OffsetMax.Value.x == 0f)
+            {
+                rect.OffsetMin.Value += new float2(10f, 0f);
+                rect.OffsetMax.Value -= new float2(10f, 0f);
+            }
+
             // Fixed and narrowly clamped texts have a known size; a text with a wide auto-size range was never given one.
             var range = text.AutoSizeMax.Value - text.AutoSizeMin.Value;
             var size = text.AutoSizeMax.Value > 0f && range is >= 0f and <= 14f
@@ -1044,9 +1053,31 @@ internal sealed class DiscoverUi
         foreach (var key in Sorting.All)
         {
             var button = ui.Button((LocaleString)"");
+            var rowLabel = button.Slot.GetComponentInChildren<Text>();
+            Fix(rowLabel, TypeScale.Body);
+            rowLabel.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (rowLabel.Slot.GetComponent<RectTransform>() is { } rowRect)
+            {
+                rowRect.OffsetMin.Value = new float2(16f, 0f);
+                rowRect.OffsetMax.Value = new float2(-150f, 0f);
+            }
+
+            // The hint ("Total visits") sits at the right edge, smaller and dimmer.
+            var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
+            RadiantUI_Constants.SetupDefaultStyle(inner);
+            var hint = inner.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleRight);
+            Fix(hint, TypeScale.Caption);
+            hint.Color.Value = Theme.TextSecondary;
+            if (hint.Slot.GetComponent<RectTransform>() is { } hintRect)
+            {
+                hintRect.OffsetMin.Value = new float2(0f, 0f);
+                hintRect.OffsetMax.Value = new float2(-16f, 0f);
+            }
+
             var captured = key;
             button.LocalPressed += (_, _) => { _actions.ChooseSort(captured); CloseMenus(); };
-            _sortItems[key] = (button, button.Slot.GetComponentInChildren<Text>());
+            _sortItems[key] = (button, rowLabel);
+            _sortHints[key] = hint;
         }
     }
 
@@ -3139,7 +3170,8 @@ internal sealed class DiscoverUi
         foreach (var item in view.SortMenu)
         {
             var (button, label) = _sortItems[item.Key];
-            label.Content.Value = "<nobr>" + (item.Selected ? "✓  " : "") + item.Label + "   <size=65%>" + item.Hint + "</size></nobr>";
+            label.Content.Value = "<nobr>" + (item.Selected ? "✓  " : "") + item.Label + "</nobr>";
+            _sortHints[item.Key].Content.Value = "<nobr>" + item.Hint + "</nobr>";
             button.Enabled = item.Enabled;
             button.Slot.ActiveSelf = item.Enabled; // sorts this tab cannot use are left out, not greyed
             SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);

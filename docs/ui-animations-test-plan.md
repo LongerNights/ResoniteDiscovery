@@ -22,3 +22,12 @@ Built 2026-11-04, not yet run in game. Settings > General has **Animations** (on
 7. **Detail panel sessions:** choosing another session fades its information in.
 
 Not animated: closing panels (still instant).
+
+## Dropdown text padding (2026-11-04)
+
+18. **Sort menu rows** all use one size: the name at the left (check mark on the chosen one) and its hint ("Total visits")
+    at the right edge, dimmer and smaller, with room at both edges. Every other button label that fills its button (Filters
+    host choices, steppers, the Views and Start on rows, Done / Reset, chips) is inset 10 px from the left and right edge;
+    check nothing now wraps that fit before.
+19. **Start on.** The built-in default has been Live Now since the overhaul, but your saved setting said Browse (picked in
+    Settings earlier), which is what you saw; it has been reset to Live Now. Settings > General > Start on changes it.
