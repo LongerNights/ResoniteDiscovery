@@ -106,7 +106,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 72f;
         var title = ui.Text((LocaleString)UiStrings.Get("screen.title"), bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(title, 28f, 44f);
+        Fix(title, TypeScale.Hero);
         title.Color.Value = Theme.Heading;
 
         foreach (var (label, lenses) in new[]
@@ -118,7 +118,7 @@ internal sealed class DiscoverUi
             ui.Style.MinHeight = 34f;
             var section = ui.Text((LocaleString)label, bestFit: true, alignment: Alignment.BottomLeft);
             _railHeaders[label] = section.Slot;
-            Clamp(section, 14f, 20f);
+            Fix(section, TypeScale.Body);
             section.Color.Value = Theme.TextSecondary;
 
             ui.Style.MinHeight = 40f;
@@ -132,7 +132,7 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 34f;
         var mine = ui.Text((LocaleString)UiStrings.Get("rail.yours"), bestFit: true, alignment: Alignment.BottomLeft);
         _railHeaders[UiStrings.Get("rail.yours")] = mine.Slot;
-        Clamp(mine, 14f, 20f);
+        Fix(mine, TypeScale.Body);
         mine.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -162,7 +162,7 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 34f;
         var insights = ui.Text((LocaleString)UiStrings.Get("rail.insights"), bestFit: true, alignment: Alignment.BottomLeft);
         _railHeaders[UiStrings.Get("rail.insights")] = insights.Slot;
-        Clamp(insights, 14f, 20f);
+        Fix(insights, TypeScale.Body);
         insights.Color.Value = Theme.TextSecondary;
         ui.Style.MinHeight = 40f;
         foreach (var lens in new[] { LensKind.Trending, LensKind.Rising, LensKind.HiddenGems })
@@ -240,6 +240,7 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[1]);
         var sort = ui.Button((LocaleString)"");
         _sortButtonLabel = sort.Slot.GetComponentInChildren<Text>();
+        Fix(_sortButtonLabel, TypeScale.Label);
         _sortBtn = sort;
         sort.LocalPressed += (_, _) => ToggleMenu(_sortMenu);
         ui.NestOut();
@@ -247,25 +248,27 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[2]);
         var filters = ui.Button((LocaleString)"");
         _filtersButtonLabel = filters.Slot.GetComponentInChildren<Text>();
+        Fix(_filtersButtonLabel, TypeScale.Label);
         _filtersBtn = filters;
         filters.LocalPressed += (_, _) => ToggleMenu(_filtersMenu);
         ui.NestOut();
 
         ui.NestInto(parts[3]);
         var presets = ui.Button((LocaleString)UiStrings.Get("bar.presets"));
-        Clamp(presets.Slot.GetComponentInChildren<Text>(), 14f, 22f);
+        Fix(presets.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _presetsBtn = presets;
         presets.LocalPressed += (_, _) => ToggleMenu(_presetsMenu);
         ui.NestOut();
 
         ui.NestInto(parts[4]);
         var refresh = ui.Button((LocaleString)UiStrings.Get("bar.refresh"));
+        Fix(refresh.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         refresh.LocalPressed += (_, _) => _actions.Refresh();
         ui.NestOut();
 
         ui.NestInto(parts[5]);
         var settings = ui.Button((LocaleString)UiStrings.Get("bar.settings"), Theme.ButtonQuiet);
-        Clamp(settings.Slot.GetComponentInChildren<Text>(), 14f, 22f);
+        Fix(settings.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         settings.LocalPressed += (_, _) => _actions.OpenSettings();
         ui.NestOut();
 
@@ -284,7 +287,7 @@ internal sealed class DiscoverUi
         {
             var chip = ui.Button((LocaleString)"");
             var label = chip.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 14f, 22f);
+            Fix(label, TypeScale.Body);
             chip.Slot.ActiveSelf = false;
             var index = i;
             chip.LocalPressed += (_, _) => ChipPressed(index);
@@ -330,7 +333,7 @@ internal sealed class DiscoverUi
         foreach (var (tool, id) in new[] { (ListTool.Rename, "list.rename"), (ListTool.MoveUp, "list.moveUp"), (ListTool.MoveDown, "list.moveDown"), (ListTool.Delete, "list.delete") })
         {
             var button = ui.Button((LocaleString)UiStrings.Get(id), Theme.ButtonQuiet);
-            Clamp(button.Slot.GetComponentInChildren<Text>(), 11f, 15f);
+            Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Caption);
             var captured = tool;
             button.LocalPressed += (_, _) => _actions.ListToolPressed(captured);
         }
@@ -355,7 +358,7 @@ internal sealed class DiscoverUi
 
         ui.NestInto(parts[1]);
         var classic = ui.Button((LocaleString)UiStrings.Get("bar.classic"), Theme.ButtonQuiet);
-        Clamp(classic.Slot.GetComponentInChildren<Text>(), 12f, 18f);
+        Fix(classic.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         classic.LocalPressed += (_, _) => _actions.OpenClassicBrowser();
         ui.NestOut();
 
@@ -503,23 +506,16 @@ internal sealed class DiscoverUi
     {
         _confirmScrim = Catcher(ui, "ConfirmScrim", Theme.ConfirmScrim, CloseMenus);
 
-        var slot = ui.Empty("Confirm");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.26f, 0.22f);
-        rect.AnchorMax.Value = new float2(0.74f, 0.80f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(10f, 22f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "Confirm", 0.26f, 0.74f, 0.5f, 0.5f, 10f, 22f);
 
         ui.Style.MinHeight = 58f;
         _confirmTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(_confirmTitle, 24f, 36f);
+        Fix(_confirmTitle, TypeScale.Title);
         _confirmTitle.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 84f;
         _confirmBody = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(_confirmBody, 18f, 26f);
+        Fix(_confirmBody, TypeScale.Label);
         _confirmBody.Color.Value = Theme.Text;
 
         ui.Style.MinHeight = 54f;
@@ -527,7 +523,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.ButtonSelected);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 16f, 24f);
+            Fix(label, TypeScale.Label);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -540,11 +536,9 @@ internal sealed class DiscoverUi
         }
 
         var cancel = ui.Button((LocaleString)UiStrings.Get("confirm.cancel"), Theme.ButtonQuiet);
-        Clamp(cancel.Slot.GetComponentInChildren<Text>(), 16f, 24f);
+        Fix(cancel.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         cancel.LocalPressed += (_, _) => CloseMenus();
 
-        ui.NestOut();
-        ui.NestOut();
         ui.NestOut();
         slot.ActiveSelf = false;
         _confirmPanel = slot;
@@ -581,28 +575,21 @@ internal sealed class DiscoverUi
 
     private void BuildNewSession(UIBuilder ui)
     {
-        var slot = ui.Empty("NewSession");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.32f, 0.04f);
-        rect.AnchorMax.Value = new float2(0.68f, 0.96f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(6f, 20f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "NewSession", 0.32f, 0.68f, 0.5f, 0.5f, 6f, 20f);
 
         ui.Style.MinHeight = 48f;
         var title = ui.Text((LocaleString)UiStrings.Get("newSession.title"), bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(title, 20f, 32f);
+        Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 40f;
         _newSessionWorld = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(_newSessionWorld, 14f, 22f);
+        Fix(_newSessionWorld, TypeScale.Body);
         _newSessionWorld.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 36f;
         var who = ui.Text((LocaleString)UiStrings.Get("newSession.who"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(who, 14f, 20f);
+        Fix(who, TypeScale.Body);
         who.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 42f;
@@ -620,7 +607,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"");
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 14f, 22f);
+            Fix(label, TypeScale.Body);
             var captured = level;
             button.LocalPressed += (_, _) =>
             {
@@ -633,7 +620,7 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 48f;
         _newSessionMobileButton = ui.Button((LocaleString)"");
         _newSessionMobile = _newSessionMobileButton.Slot.GetComponentInChildren<Text>();
-        Clamp(_newSessionMobile, 14f, 22f);
+        Fix(_newSessionMobile, TypeScale.Body);
         _newSessionMobileButton.LocalPressed += (_, _) =>
         {
             _newSessionMobileFriendly = !_newSessionMobileFriendly;
@@ -643,7 +630,7 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 56f;
         var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
         var start = ui.Button((LocaleString)UiStrings.Get("newSession.start"), Theme.ButtonSelected);
-        Clamp(start.Slot.GetComponentInChildren<Text>(), 16f, 24f);
+        Fix(start.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         start.LocalPressed += (_, _) =>
         {
             var action = _newSessionStart;
@@ -653,12 +640,10 @@ internal sealed class DiscoverUi
             action?.Invoke(level, mobile);
         };
         var cancel = ui.Button((LocaleString)UiStrings.Get("confirm.cancel"), Theme.ButtonQuiet);
-        Clamp(cancel.Slot.GetComponentInChildren<Text>(), 16f, 24f);
+        Fix(cancel.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         cancel.LocalPressed += (_, _) => CloseMenus();
         ui.NestOut();
 
-        ui.NestOut();
-        ui.NestOut();
         ui.NestOut();
         slot.ActiveSelf = false;
         _newSessionPanel = slot;
@@ -691,20 +676,49 @@ internal sealed class DiscoverUi
         _newSessionPanel.ActiveSelf = true;
     }
 
+    /// <summary>
+    /// A popover that is exactly as tall as its content. The slot is anchored by a point on the vertical axis (its top,
+    /// or its middle for <paramref name="pivotY"/> 0.5) and sized by a ContentSizeFitter, with the panel look, the
+    /// vertical layout and the fitter all on the one slot. <paramref name="anchorMin"/> and <paramref name="anchorMax"/>
+    /// give the horizontal range; the vertical anchor is <paramref name="anchorY"/>.
+    /// </summary>
+    private Slot BeginFloating(UIBuilder ui, string name, float xMin, float xMax, float anchorY, float pivotY, float spacing, float padding)
+    {
+        var slot = ui.Empty(name);
+        var rect = slot.GetComponent<RectTransform>();
+        rect.AnchorMin.Value = new float2(xMin, anchorY);
+        rect.AnchorMax.Value = new float2(xMax, anchorY);
+        rect.Pivot.Value = new float2(0.5f, pivotY);
+
+        var image = slot.AttachComponent<Image>();
+        image.Tint.Value = Theme.Rail;
+        image.Sprite.Target = _rounded;
+        image.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+        Absorb(image);
+
+        var layout = slot.AttachComponent<VerticalLayout>();
+        layout.Spacing.Value = spacing;
+        layout.PaddingTop.Value = padding;
+        layout.PaddingBottom.Value = padding;
+        layout.PaddingLeft.Value = padding;
+        layout.PaddingRight.Value = padding;
+        layout.ChildAlignment = Alignment.TopCenter;
+        layout.ForceExpandHeight.Value = false;
+
+        var fitter = slot.AttachComponent<ContentSizeFitter>();
+        fitter.VerticalFit.Value = SizeFit.PreferredSize;
+        fitter.HorizontalFit.Value = SizeFit.Disabled;
+
+        ui.NestInto(rect);
+        return slot;
+    }
+
     private Slot BuildMenu(UIBuilder ui, float2 anchorMin, float2 anchorMax, Action<UIBuilder> fill)
     {
-        var slot = ui.Empty("Menu");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = anchorMin;
-        rect.AnchorMax.Value = anchorMax;
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(6f, 14f, Alignment.TopLeft);
-        layout.ForceExpandHeight.Value = false;
+        // anchorMax.y is the top edge; the height comes from the content. PositionMenu moves it under its button.
+        var slot = BeginFloating(ui, "Menu", anchorMin.x, anchorMax.x, anchorMax.y, 1f, 6f, 14f);
         ui.Style.MinHeight = 46f;
         fill(ui);
-        ui.NestOut();
-        ui.NestOut();
         ui.NestOut();
         slot.ActiveSelf = false;
         return slot;
@@ -713,7 +727,7 @@ internal sealed class DiscoverUi
     private void BuildPresetsMenu(UIBuilder ui)
     {
         var title = ui.Text((LocaleString)UiStrings.Get("presets.title"), bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(title, 14f, 20f);
+        Fix(title, TypeScale.Body);
         title.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 46f;
@@ -722,7 +736,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 90f;
         _presetsEmpty = ui.Text((LocaleString)UiStrings.Get("presets.empty"), bestFit: true, alignment: Alignment.TopLeft);
-        Clamp(_presetsEmpty, 12f, 18f);
+        Fix(_presetsEmpty, TypeScale.Body);
         _presetsEmpty.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 42f;
@@ -733,7 +747,7 @@ internal sealed class DiscoverUi
             ui.Style.FlexibleWidth = 1f;
             var load = ui.Button((LocaleString)"");
             var label = load.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 14f, 22f);
+            Fix(label, TypeScale.Body);
             load.LocalPressed += (_, _) => { CloseMenus(); _actions.ApplyPreset(index); };
             ui.Style.FlexibleWidth = -1f;
             ui.Style.MinWidth = 52f;
@@ -771,7 +785,7 @@ internal sealed class DiscoverUi
     private void BuildSortMenu(UIBuilder ui)
     {
         var title = ui.Text((LocaleString)UiStrings.Get("sort.title"), bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(title, 14f, 20f);
+        Fix(title, TypeScale.Body);
         title.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f; // ten sorts have to fit the panel
@@ -796,7 +810,7 @@ internal sealed class DiscoverUi
     {
         var head = ui.HorizontalLayout(8f, 0f, Alignment.MiddleLeft);
         var title = ui.Text((LocaleString)UiStrings.Get("filters.title"), bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(title, 20f, 30f);
+        Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
         var reset = ui.Button((LocaleString)UiStrings.Get("filters.reset"), Theme.ButtonQuiet);
         reset.LocalPressed += (_, _) => _actions.Filter(FilterOp.Reset);
@@ -819,7 +833,7 @@ internal sealed class DiscoverUi
             foreach (var op in new[] { first, second })
             {
                 var button = ui.Button((LocaleString)"");
-                Clamp(button.Slot.GetComponentInChildren<Text>(), 11f, 18f);
+                Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Caption);
                 var captured = op;
                 button.LocalPressed += (_, _) => _actions.Filter(captured);
                 _filterItems[op] = (button, button.Slot.GetComponentInChildren<Text>());
@@ -898,8 +912,9 @@ internal sealed class DiscoverUi
             var top = (buttonRect.position.y - hostRect.position.y) / hostRect.size.y - 0.01f;
             var min = menuRect.AnchorMin.Value;
             var max = menuRect.AnchorMax.Value;
-            menuRect.AnchorMin.Value = new float2(left, min.y);
-            menuRect.AnchorMax.Value = new float2(left + width, top is > 0.4f and < 1f ? top : max.y);
+            var topY = top is > 0.4f and < 1f ? top : max.y;
+            menuRect.AnchorMin.Value = new float2(left, topY);
+            menuRect.AnchorMax.Value = new float2(left + width, topY);
             UniLog.Log($"[Discover] Popover placed: centre={centre:F2} left={left:F2} top={top:F2}");
         }
         catch (Exception ex)
@@ -970,17 +985,17 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 50f;
         _organizeTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(_organizeTitle, 22f, 32f);
+        Fix(_organizeTitle, TypeScale.Title);
         _organizeTitle.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 28f;
         var lists = ui.Text((LocaleString)UiStrings.Get("organize.lists"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(lists, 13f, 18f);
+        Fix(lists, TypeScale.Body);
         lists.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
         _organizeNoLists = ui.Text((LocaleString)UiStrings.Get("organize.noLists"), bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(_organizeNoLists, 14f, 20f);
+        Fix(_organizeNoLists, TypeScale.Body);
         _organizeNoLists.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 42f;
@@ -988,7 +1003,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"");
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 14f, 20f);
+            Fix(label, TypeScale.Body);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1002,17 +1017,17 @@ internal sealed class DiscoverUi
         }
 
         var newList = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
-        Clamp(newList.Slot.GetComponentInChildren<Text>(), 14f, 20f);
+        Fix(newList.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         newList.LocalPressed += (_, _) => _actions.OrganizeNewList();
 
         ui.Style.MinHeight = 28f;
         var tags = ui.Text((LocaleString)UiStrings.Get("organize.tags"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(tags, 13f, 18f);
+        Fix(tags, TypeScale.Body);
         tags.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 38f;
         _organizeNoTags = ui.Text((LocaleString)UiStrings.Get("organize.noTags"), bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(_organizeNoTags, 14f, 20f);
+        Fix(_organizeNoTags, TypeScale.Body);
         _organizeNoTags.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1023,7 +1038,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.ChipPersonal);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 12f, 17f);
+            Fix(label, TypeScale.Caption);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1054,7 +1069,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 28f;
         var suggested = ui.Text((LocaleString)UiStrings.Get("organize.suggested"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(suggested, 13f, 18f);
+        Fix(suggested, TypeScale.Body);
         suggested.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1065,7 +1080,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.Button);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 12f, 17f);
+            Fix(label, TypeScale.Caption);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1138,7 +1153,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.Button);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Clamp(label, 14f, 20f);
+            Fix(label, TypeScale.Body);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1274,36 +1289,36 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 56f;
         _detailTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(_detailTitle, 22f, 34f);
+        Fix(_detailTitle, TypeScale.Title);
         _detailTitle.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 28f;
         _detailBy = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(_detailBy, 13f, 18f);
+        Fix(_detailBy, TypeScale.Body);
         _detailBy.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 110f;
         _detailDescription = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
-        Clamp(_detailDescription, 13f, 20f);
+        Fix(_detailDescription, TypeScale.Body);
 
         ui.Style.MinHeight = 26f;
         var tagsHeader = ui.Text((LocaleString)UiStrings.Get("detail.tags"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(tagsHeader, 12f, 17f);
+        Fix(tagsHeader, TypeScale.Caption);
         tagsHeader.Color.Value = Theme.TextSecondary;
         ui.Style.MinHeight = 52f;
         _detailTags = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
-        Clamp(_detailTags, 12f, 18f);
+        Fix(_detailTags, TypeScale.Body);
 
         ui.Style.MinHeight = 26f;
         var sessionsHeader = ui.Text((LocaleString)UiStrings.Get("detail.sessions"), bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(sessionsHeader, 12f, 17f);
+        Fix(sessionsHeader, TypeScale.Caption);
         sessionsHeader.Color.Value = Theme.TextSecondary;
         ui.Style.MinHeight = 96f;
         _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
-        Clamp(_detailSessions, 12f, 18f);
+        Fix(_detailSessions, TypeScale.Body);
         ui.Style.MinHeight = 26f;
         _detailDevices = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-        Clamp(_detailDevices, 12f, 17f);
+        Fix(_detailDevices, TypeScale.Caption);
         _detailDevices.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 50f;
@@ -1447,7 +1462,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 48f;
         var title = ui.Text((LocaleString)UiStrings.Get("settings.title"), bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(title, 24f, 36f);
+        Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 0f;
@@ -1505,7 +1520,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 90f;
         var note = ui.Text((LocaleString)UiStrings.Get("settings.note"), bestFit: true, alignment: Alignment.TopLeft);
-        Clamp(note, 12f, 16f);
+        Fix(note, TypeScale.Caption);
         note.Color.Value = Theme.TextSecondary;
         ui.NestOut();
 
@@ -1526,7 +1541,7 @@ internal sealed class DiscoverUi
     {
         ui.Style.MinHeight = 30f;
         var heading = ui.Text((LocaleString)text, bestFit: true, alignment: Alignment.BottomLeft);
-        Clamp(heading, 13f, 18f);
+        Fix(heading, TypeScale.Body);
         heading.Color.Value = Theme.TextSecondary;
     }
 
@@ -1534,7 +1549,7 @@ internal sealed class DiscoverUi
     {
         var button = ui.Button((LocaleString)"");
         var label = button.Slot.GetComponentInChildren<Text>();
-        Clamp(label, 13f, 20f);
+        Fix(label, TypeScale.Body);
         button.LocalPressed += (_, _) => pressed();
         return (button, label);
     }
@@ -1612,7 +1627,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 52f;
         _promptTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-        Clamp(_promptTitle, 22f, 32f);
+        Fix(_promptTitle, TypeScale.Title);
         _promptTitle.Color.Value = Theme.Heading;
 
         ui.Style.MinHeight = 56f;
@@ -2049,6 +2064,14 @@ internal sealed class DiscoverUi
     {
         text.AutoSizeMin.Value = min;
         text.AutoSizeMax.Value = max;
+    }
+
+    /// <summary>One fixed size from <see cref="TypeScale"/>: no shrinking to fit, so equal kinds of text look equal.</summary>
+    internal static void Fix(Text text, float size)
+    {
+        text.Size.Value = size;
+        text.AutoSizeMin.Value = size;
+        text.AutoSizeMax.Value = size;
     }
 }
 
