@@ -107,6 +107,8 @@ internal interface IBrowseActions
     void DeletePreset(int index);
     void CopyLink(string key);
     void ToggleSetting(SettingKey key);
+    void SetCardsPerRow(int count);
+    void SetListView(bool list);
     void ToggleLens(LensKind lens);
     void ToggleSection(RailSectionId section);
     void ExportLibrary();

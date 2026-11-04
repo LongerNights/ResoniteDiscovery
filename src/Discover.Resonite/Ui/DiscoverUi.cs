@@ -1768,150 +1768,322 @@ internal sealed class DiscoverUi
 
     private Slot _settingsScrim = null!;
     private Slot _settingsPanel = null!;
-    private Text _animationsLabel = null!;
-    private Text _liveOnlyLabel = null!;
-    private Text _startLensLabel = null!;
-    private Text _viewModeLabel = null!;
-    private readonly Dictionary<RailSectionId, (Button Button, Text Label)> _sectionRows = [];
-    private readonly Dictionary<LensKind, (Button Button, Text Label)> _lensRows = [];
+    private readonly List<Slot> _settingsPages = [];
+    private readonly List<Button> _settingsTabs = [];
+    private int _settingsTab;
+    private bool _settingsListView;
+
+    // Page controls, bound by ShowSettings.
+    private (Image Track, RectTransform Knob) _animationsSwitch;
+    private (Image Track, RectTransform Knob) _liveOnlySwitch;
+    private (Image Track, RectTransform Knob) _notifyLiveSwitch;
+    private (Image Track, RectTransform Knob) _notifyContactsSwitch;
+    private Text _startLensValue = null!;
+    private Button _viewGrid = null!;
+    private Button _viewList = null!;
+    private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
+    private Text _hiddenCounts = null!;
+    private readonly Dictionary<RailSectionId, (Button Button, Image Track, RectTransform Knob)> _sectionRows = [];
+    private readonly Dictionary<LensKind, (Button Button, Image Track, RectTransform Knob)> _lensRows = [];
 
     private void BuildSettings(UIBuilder ui)
     {
         _settingsScrim = Catcher(ui, "SettingsScrim", Theme.ConfirmScrim, CloseMenus);
-
-        var slot = ui.Empty("Settings");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.10f, 0.03f);
-        rect.AnchorMax.Value = new float2(0.90f, 0.97f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(8f, 20f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "Settings", 0.12f, 0.88f, 0.5f, 0.5f, 10f, 22f);
 
         ui.Style.MinHeight = 48f;
-        var title = ui.Text((LocaleString)UiStrings.Get("settings.title"), bestFit: true, alignment: Alignment.MiddleCenter);
+        var title = ui.Text((LocaleString)UiStrings.Get("settings.title"), bestFit: true, alignment: Alignment.MiddleLeft);
         Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
 
-        ui.Style.MinHeight = 0f;
-        ui.Style.FlexibleHeight = 1f;
-        var columns = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
-        columns.ForceExpandHeight.Value = false;
-        ui.Style.FlexibleHeight = -1f;
+        // Tabs at the left, the chosen page at the right; the height is the same for every page.
+        ui.Style.MinHeight = 440f;
+        var body = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
+        body.ForceExpandWidth.Value = false;
 
-        // Left: one switch per section, and one per lens under it.
-        ui.Style.FlexibleWidth = 1f;
-        var left = ui.VerticalLayout(5f, 0f, Alignment.TopCenter);
-        left.ForceExpandHeight.Value = false;
+        ui.Style.MinWidth = 190f;
         ui.Style.FlexibleWidth = -1f;
-        SettingsHeading(ui, UiStrings.Get("settings.sidebar"));
-        foreach (var section in LensCatalog.Sections)
+        var tabs = ui.VerticalLayout(6f, 0f, Alignment.TopCenter);
+        tabs.ForceExpandHeight.Value = false;
+        ui.Style.MinHeight = 46f;
+        foreach (var (id, index) in new[] { "settings.tab.general", "settings.tab.display", "settings.tab.sidebar", "settings.tab.alerts", "settings.tab.hidden", "settings.tab.data" }.Select((id, index) => (id, index)))
         {
-            ui.Style.MinHeight = 36f;
-            var id = section;
-            _sectionRows[section] = SettingsRow(ui, () => _actions.ToggleSection(id));
-            foreach (var lens in LensCatalog.LensesOf(section))
+            var tab = ui.Button((LocaleString)UiStrings.Get(id));
+            Fix(tab.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            tab.Slot.GetComponentInChildren<Text>().HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (tab.Slot.GetComponentInChildren<Text>().Slot.GetComponent<RectTransform>() is { } tabRect)
             {
-                ui.Style.MinHeight = 32f;
-                var kind = lens;
-                _lensRows[lens] = SettingsRow(ui, () => _actions.ToggleLens(kind));
+                tabRect.OffsetMin.Value = new float2(16f, 0f);
             }
+
+            var captured = index;
+            tab.LocalPressed += (_, _) => ShowSettingsTab(captured);
+            _settingsTabs.Add(tab);
         }
 
         ui.NestOut();
 
-        // Right: general options and the export and import buttons.
+        ui.Style.MinWidth = 0f;
         ui.Style.FlexibleWidth = 1f;
-        var right = ui.VerticalLayout(8f, 0f, Alignment.TopCenter);
-        right.ForceExpandHeight.Value = false;
+        var pages = ui.Next("Pages").GetComponent<RectTransform>();
         ui.Style.FlexibleWidth = -1f;
-        SettingsHeading(ui, UiStrings.Get("settings.general"));
-        ui.Style.MinHeight = 44f;
-        _animationsLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.Animations)).Label;
-        _liveOnlyLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.LiveOnly)).Label;
-        _startLensLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.StartLens)).Label;
-        _viewModeLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.ListView)).Label;
-        _cardsPerRowLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.CardsPerRow)).Label;
-        _notifyLiveLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.NotifyLive)).Label;
-        _notifyContactsLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.NotifyContacts)).Label;
-        _hiddenRestoreLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.HiddenRestore)).Label;
-        _hiddenWordLabel = SettingsRow(ui, () => _actions.ToggleSetting(SettingKey.HiddenWord)).Label;
+        ui.NestInto(pages);
 
-        SettingsHeading(ui, UiStrings.Get("settings.data"));
-        ui.Style.MinHeight = 44f;
-        var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
-        var export = ui.Button((LocaleString)UiStrings.Get("settings.export"));
-        export.LocalPressed += (_, _) => _actions.ExportLibrary();
-        var import = ui.Button((LocaleString)UiStrings.Get("settings.import"));
-        import.LocalPressed += (_, _) => _actions.ImportLibrary();
-        ui.NestOut();
+        // General
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            SettingsGroup(ui, "settings.tab.general");
+            var startRow = ValueRow(ui, UiStrings.Get("settings.startOn"), () => _actions.ToggleSetting(SettingKey.StartLens), out _startLensValue);
+            _liveOnlySwitch = SettingsSwitch(ui, UiStrings.Get("settings.liveOnly"), () => _actions.ToggleSetting(SettingKey.LiveOnly));
+            _animationsSwitch = SettingsSwitch(ui, UiStrings.Get("settings.animations"), () => _actions.ToggleSetting(SettingKey.Animations));
+        }));
 
-        ui.Style.MinHeight = 90f;
-        var note = ui.Text((LocaleString)UiStrings.Get("settings.note"), bestFit: true, alignment: Alignment.TopLeft);
-        Fix(note, TypeScale.Caption);
-        note.Color.Value = Theme.TextSecondary;
-        ui.NestOut();
+        // Display
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            SettingsGroup(ui, "settings.tab.display");
+            SettingsLabel(ui, UiStrings.Get("settings.view"));
+            ui.Style.MinHeight = 46f;
+            var layoutRow = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+            _viewGrid = ui.Button((LocaleString)UiStrings.Get("settings.viewGrid"));
+            Fix(_viewGrid.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            _viewGrid.LocalPressed += (_, _) => _actions.SetListView(false);
+            _viewList = ui.Button((LocaleString)UiStrings.Get("settings.viewList"));
+            Fix(_viewList.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            _viewList.LocalPressed += (_, _) => _actions.SetListView(true);
+            ui.NestOut();
 
-        ui.NestOut(); // columns
+            SettingsLabel(ui, UiStrings.Get("settings.cardsPerRow"));
+            ui.Style.MinHeight = 46f;
+            var cardsRow = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+            foreach (var count in DiscoverSettings.CardsPerRowChoices)
+            {
+                var button = ui.Button((LocaleString)count.ToString());
+                Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+                var captured = count;
+                button.LocalPressed += (_, _) => _actions.SetCardsPerRow(captured);
+                _cardsPerRowButtons[count] = button;
+            }
+
+            ui.NestOut();
+        }));
+
+        // Sidebar: two columns, since there are two dozen switches.
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            ui.Style.MinHeight = 0f;
+            ui.Style.FlexibleHeight = 1f;
+            var columns = ui.HorizontalLayout(14f, 0f, Alignment.TopLeft);
+            columns.ForceExpandHeight.Value = false;
+            ui.Style.FlexibleHeight = -1f;
+            foreach (var group in new[] { new[] { RailSectionId.Now, RailSectionId.Discover }, new[] { RailSectionId.Yours, RailSectionId.Insights } })
+            {
+                ui.Style.FlexibleWidth = 1f;
+                var column = ui.VerticalLayout(4f, 0f, Alignment.TopCenter);
+                column.ForceExpandHeight.Value = false;
+                ui.Style.FlexibleWidth = -1f;
+                foreach (var section in group)
+                {
+                    ui.Style.MinHeight = 40f;
+                    var id = section;
+                    var sectionRow = SettingsSwitchRow(ui, "", () => _actions.ToggleSection(id));
+                    _sectionRows[section] = (sectionRow.Button, sectionRow.Track, sectionRow.Knob);
+                    foreach (var lens in LensCatalog.LensesOf(section))
+                    {
+                        ui.Style.MinHeight = 36f;
+                        var kind = lens;
+                        var lensRow = SettingsSwitchRow(ui, "", () => _actions.ToggleLens(kind));
+                        if (lensRow.Label.Slot.GetComponent<RectTransform>() is { } lensRect)
+                        {
+                            lensRect.OffsetMin.Value = new float2(36f, 0f);
+                        }
+
+                        _lensRows[lens] = (lensRow.Button, lensRow.Track, lensRow.Knob);
+                    }
+                }
+
+                ui.NestOut();
+            }
+
+            ui.NestOut();
+        }));
+
+        // Alerts
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            SettingsGroup(ui, "settings.tab.alerts");
+            _notifyLiveSwitch = SettingsSwitch(ui, UiStrings.Get("settings.notifyLive"), () => _actions.ToggleSetting(SettingKey.NotifyLive));
+            _notifyContactsSwitch = SettingsSwitch(ui, UiStrings.Get("settings.notifyContacts"), () => _actions.ToggleSetting(SettingKey.NotifyContacts));
+            ui.Style.MinHeight = 56f;
+            var note = ui.Text((LocaleString)UiStrings.Get("settings.alertsNote"), bestFit: true, alignment: Alignment.TopLeft);
+            Fix(note, TypeScale.Caption);
+            note.Color.Value = Theme.TextSecondary;
+        }));
+
+        // Hidden
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            SettingsGroup(ui, "settings.tab.hidden");
+            ui.Style.MinHeight = 44f;
+            _hiddenCounts = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+            Fix(_hiddenCounts, TypeScale.Body);
+            ui.Style.MinHeight = 46f;
+            var add = ui.Button((LocaleString)UiStrings.Get("settings.hiddenWord"));
+            Fix(add.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            add.LocalPressed += (_, _) => _actions.ToggleSetting(SettingKey.HiddenWord);
+            var restore = ui.Button((LocaleString)UiStrings.Get("settings.hiddenRestoreAll"), Theme.ButtonQuiet);
+            Fix(restore.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+            restore.LocalPressed += (_, _) => _actions.ToggleSetting(SettingKey.HiddenRestore);
+        }));
+
+        // Data
+        _settingsPages.Add(SettingsPage(ui, () =>
+        {
+            SettingsGroup(ui, "settings.tab.data");
+            ui.Style.MinHeight = 50f;
+            var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+            var export = ui.Button((LocaleString)UiStrings.Get("settings.export"));
+            Fix(export.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+            export.LocalPressed += (_, _) => _actions.ExportLibrary();
+            var import = ui.Button((LocaleString)UiStrings.Get("settings.import"));
+            Fix(import.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+            import.LocalPressed += (_, _) => _actions.ImportLibrary();
+            ui.NestOut();
+            ui.Style.MinHeight = 90f;
+            var note = ui.Text((LocaleString)UiStrings.Get("settings.note"), bestFit: true, alignment: Alignment.TopLeft);
+            Fix(note, TypeScale.Caption);
+            note.Color.Value = Theme.TextSecondary;
+        }));
+
+        ui.NestOut(); // pages
+        ui.NestOut(); // body
 
         ui.Style.MinHeight = 50f;
+        var footer = ui.HorizontalLayout(10f, 0f, Alignment.MiddleRight);
+        footer.ForceExpandWidth.Value = false;
+        ui.Style.MinWidth = 160f;
         var done = ui.Button((LocaleString)UiStrings.Get("organize.done"), Theme.ButtonSelected);
+        Fix(done.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         done.LocalPressed += (_, _) => CloseMenus();
+        ui.Style.MinWidth = 0f;
+        ui.NestOut();
 
-        ui.NestOut();
-        ui.NestOut();
-        ui.NestOut();
+        ui.NestOut(); // the panel
         slot.ActiveSelf = false;
         _settingsPanel = slot;
+        ShowSettingsTab(0);
     }
 
-    private static void SettingsHeading(UIBuilder ui, string text)
+    /// <summary>One settings page: a vertical list that fills the page area.</summary>
+    private Slot SettingsPage(UIBuilder ui, Action fill)
     {
-        ui.Style.MinHeight = 30f;
-        var heading = ui.Text((LocaleString)text, bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(heading, TypeScale.Body);
+        var layout = ui.VerticalLayout(6f, 0f, Alignment.TopCenter);
+        layout.ForceExpandHeight.Value = false;
+        var page = layout.Slot;
+        fill();
+        ui.NestOut();
+        page.ActiveSelf = false;
+        return page;
+    }
+
+    private void ShowSettingsTab(int index)
+    {
+        _settingsTab = index;
+        for (var i = 0; i < _settingsPages.Count; i++)
+        {
+            _settingsPages[i].ActiveSelf = i == index;
+            SetColor(_settingsTabs[i], i == index ? Theme.ButtonSelected : Theme.Button);
+        }
+    }
+
+    private static void SettingsGroup(UIBuilder ui, string stringId)
+    {
+        ui.Style.MinHeight = 34f;
+        var heading = ui.Text((LocaleString)UiStrings.Get(stringId).ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(heading, TypeScale.Caption);
         heading.Color.Value = Theme.TextSecondary;
     }
 
-    private (Button Button, Text Label) SettingsRow(UIBuilder ui, Action pressed)
+    private static void SettingsLabel(UIBuilder ui, string text)
     {
-        var button = ui.Button((LocaleString)"");
+        ui.Style.MinHeight = 30f;
+        var label = ui.Text((LocaleString)text, bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(label, TypeScale.Body);
+    }
+
+    private (Image Track, RectTransform Knob) SettingsSwitch(UIBuilder ui, string text, Action pressed)
+    {
+        ui.Style.MinHeight = 48f;
+        var row = SettingsSwitchRow(ui, text, pressed);
+        return (row.Track, row.Knob);
+    }
+
+    private (Button Button, Text Label, Image Track, RectTransform Knob) SettingsSwitchRow(UIBuilder ui, string text, Action pressed)
+    {
+        var button = SwitchButton(ui, text, out var label, out var track, out var knob);
+        button.LocalPressed += (_, _) => pressed();
+        return (button, label, track, knob);
+    }
+
+    /// <summary>A "label ... value" row; pressing it steps to the next value.</summary>
+    private Button ValueRow(UIBuilder ui, string text, Action pressed, out Text value)
+    {
+        ui.Style.MinHeight = 48f;
+        var button = ui.Button((LocaleString)text);
         var label = button.Slot.GetComponentInChildren<Text>();
         Fix(label, TypeScale.Body);
+        label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+        if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
+        {
+            labelRect.OffsetMin.Value = new float2(16f, 0f);
+        }
+
+        var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
+        RadiantUI_Constants.SetupDefaultStyle(inner);
+        value = inner.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleRight);
+        Fix(value, TypeScale.Body);
+        value.Color.Value = Theme.TextSecondary;
+        value.Slot.GetComponent<RectTransform>()?.AddFixedPadding(16f);
         button.LocalPressed += (_, _) => pressed();
-        return (button, label);
+        return button;
     }
 
     public void ShowSettings(SettingsModel model)
     {
-        string OnOff(bool on) => UiStrings.Get(on ? "settings.on" : "settings.off");
         var settings = model.Settings;
+        _settingsListView = settings.ListView;
 
-        _animationsLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.animations")}:  {OnOff(model.Animations)}</nobr>";
-        _liveOnlyLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.liveOnly")}:  {OnOff(model.LiveOnly)}</nobr>";
-        _startLensLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.startOn")}:  {Plain(model.StartLens)}</nobr>";
-        _viewModeLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.view")}:  {UiStrings.Get(settings.ListView ? "settings.viewList" : "settings.viewGrid")}</nobr>";
+        ApplySwitch(_animationsSwitch.Track, _animationsSwitch.Knob, model.Animations);
+        ApplySwitch(_liveOnlySwitch.Track, _liveOnlySwitch.Knob, model.LiveOnly);
+        ApplySwitch(_notifyLiveSwitch.Track, _notifyLiveSwitch.Knob, settings.NotifyFavoriteLive);
+        ApplySwitch(_notifyContactsSwitch.Track, _notifyContactsSwitch.Knob, settings.NotifyContactsInFavorite);
+        _startLensValue.Content.Value = "<nobr>" + Plain(model.StartLens) + "  ›</nobr>";
 
-        _cardsPerRowLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.cardsPerRow")}:  {(settings.CardsPerRow > 0 ? settings.CardsPerRow : 4)}</nobr>";
-
-        _notifyLiveLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.notifyLive")}:  {OnOff(settings.NotifyFavoriteLive)}</nobr>";
-        _notifyContactsLabel.Content.Value = $"<nobr>{UiStrings.Get("settings.notifyContacts")}:  {OnOff(settings.NotifyContactsInFavorite)}</nobr>";
-        _hiddenRestoreLabel.Content.Value = "<nobr>" + UiStrings.Format("settings.hiddenRestore", settings.HiddenWorlds.Count, settings.HiddenAuthors.Count, settings.HiddenWords.Count) + "</nobr>";
-        _hiddenWordLabel.Content.Value = "<nobr>" + UiStrings.Get("settings.hiddenWord") + "</nobr>";
-
-        foreach (var (section, (button, label)) in _sectionRows)
+        SetColor(_viewGrid, settings.ListView ? Theme.Button : Theme.ButtonSelected);
+        SetColor(_viewList, settings.ListView ? Theme.ButtonSelected : Theme.Button);
+        var perRow = settings.CardsPerRow > 0 ? settings.CardsPerRow : 4;
+        foreach (var (count, button) in _cardsPerRowButtons)
         {
-            var on = settings.IsSectionOn(section);
-            label.Content.Value = $"<nobr>{SectionName(section)}:  {OnOff(on)}</nobr>";
-            SetColor(button, on ? Theme.ButtonSelected : Theme.ButtonQuiet);
+            SetColor(button, count == perRow ? Theme.ButtonSelected : Theme.Button);
         }
 
-        foreach (var (lens, (button, label)) in _lensRows)
+        _hiddenCounts.Content.Value = UiStrings.Format("settings.hiddenCounts", settings.HiddenWorlds.Count, settings.HiddenAuthors.Count, settings.HiddenWords.Count);
+
+        foreach (var (section, row) in _sectionRows)
+        {
+            var on = settings.IsSectionOn(section);
+            row.Button.Slot.GetComponentInChildren<Text>().Content.Value = "<nobr>" + SectionName(section) + "</nobr>";
+            ApplySwitch(row.Track, row.Knob, on);
+            SetColor(row.Button, Theme.Button);
+        }
+
+        foreach (var (lens, row) in _lensRows)
         {
             var switchOn = !settings.HiddenLenses.Contains(lens);
             var shown = settings.IsVisible(lens);
-            label.Content.Value = $"<nobr>      {Plain(LensName(lens))}:  {OnOff(switchOn)}</nobr>";
-            SetColor(button, shown ? Theme.ButtonSelected : switchOn ? Theme.Button : Theme.ButtonQuiet);
+            row.Button.Slot.GetComponentInChildren<Text>().Content.Value = "<nobr>" + Plain(LensName(lens)) + "</nobr>";
+            ApplySwitch(row.Track, row.Knob, switchOn);
+            SetColor(row.Button, shown ? Theme.Button : Theme.ButtonQuiet);
         }
 
         if (!_settingsPanel.ActiveSelf)
@@ -2013,11 +2185,6 @@ internal sealed class DiscoverUi
 
     // ------------------------------------------------------------------ binding
 
-    private Text _cardsPerRowLabel = null!;
-    private Text _hiddenRestoreLabel = null!;
-    private Text _notifyLiveLabel = null!;
-    private Text _notifyContactsLabel = null!;
-    private Text _hiddenWordLabel = null!;
 
     /// <summary>Cards per row in the grid layout (0 = automatic); set from the settings.</summary>
     public int CardsPerRow { get; set; } = 4;
