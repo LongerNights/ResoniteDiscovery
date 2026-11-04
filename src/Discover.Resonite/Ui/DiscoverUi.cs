@@ -69,8 +69,8 @@ internal sealed class DiscoverUi
     private Button _descending = null!;
     private Button _ascending = null!;
     private TextField _search = null!;
-    private Slot _wipe = null!;
-    private RectTransform _wipeRect = null!;
+    private Slot _scanLine = null!;
+    private RectTransform _scanLineRect = null!;
     private RectTransform _viewport = null!;
     private float2 _viewportMin;
     private float2 _viewportMax;
@@ -622,9 +622,18 @@ internal sealed class DiscoverUi
         ui.NestOut();
         _emptyArea.ActiveSelf = false;
 
-        // The tab-switch wipe: a sheet over the results area, last in it so it draws over the cards. It rises from the
-        // bottom to cover the old cards, and retracts downward to reveal the new ones, with a cyan leading edge.
-        (_wipe, _wipeRect) = SweepSheet(ui);
+        // The tab-switch scan line: a thin cyan line over the results area (last in it, so nothing is drawn over it). It
+        // travels with the results viewport's bottom edge while that edge moves (see Cover and Reveal).
+        var line = ui.Image(Theme.Tab);
+        line.Slot.Name = "ScanLine";
+        line.InteractionTarget.Value = false;
+        line.RectTransform.AnchorMin.Value = float2.Zero;
+        line.RectTransform.AnchorMax.Value = new float2(1f, 0f);
+        line.RectTransform.OffsetMin.Value = new float2(8f, -2f);
+        line.RectTransform.OffsetMax.Value = new float2(-8f, 2f);
+        line.Slot.ActiveSelf = false;
+        _scanLine = line.Slot;
+        _scanLineRect = line.RectTransform;
         ui.NestOut(); // _bodyRect
         ui.NestOut(); // body
     }
@@ -3246,13 +3255,16 @@ internal sealed class DiscoverUi
         return (sheet.Slot, sheet.RectTransform);
     }
 
-    /// <summary>Sweeps the sheet up over the results (the old cards go), then calls <paramref name="onCovered"/> on the update thread.</summary>
+    /// <summary>
+    /// The old cards are scanned away: the results viewport's bottom edge rises from the bottom to the top (the viewport
+    /// clips what is below it, so the cards vanish at the line and the pane's own background shows), then
+    /// <paramref name="onCovered"/> runs on the update thread.
+    /// </summary>
     public void Cover(float seconds, Action onCovered)
     {
         var generation = ++_curtainGeneration;
-        _wipe.ActiveSelf = true;
-        _wipeRect.AnchorMin.Value = float2.Zero;
-        _wipeRect.AnchorMax.TweenFromTo(new float2(1f, 0f), float2.One, seconds, CurvePreset.QuarticInOut, onDoneLocal: () =>
+        _scanLine.ActiveSelf = true;
+        Sweep(0f, 1f, seconds, CurvePreset.QuarticInOut, () =>
         {
             if (generation == _curtainGeneration)
             {
@@ -3261,31 +3273,41 @@ internal sealed class DiscoverUi
         });
     }
 
-    /// <summary>Sweeps the sheet back down, revealing the new cards from the top. A no-op when nothing is covered.</summary>
+    /// <summary>The new cards are scanned in: the bottom edge travels back down, uncovering them from the top. A no-op when nothing is scanned away.</summary>
     public void Reveal(float seconds, float rise)
     {
-        if (!_wipe.ActiveSelf)
+        if (!_scanLine.ActiveSelf)
         {
             return;
         }
 
         var generation = ++_curtainGeneration;
-        _wipeRect.AnchorMax.TweenFromTo(float2.One, new float2(1f, 0f), seconds, CurvePreset.QuarticOut, onDoneLocal: () =>
+        Sweep(1f, 0f, seconds, CurvePreset.QuarticOut, () =>
         {
             if (generation == _curtainGeneration)
             {
-                _wipe.ActiveSelf = false;
+                _scanLine.ActiveSelf = false;
             }
         });
     }
 
-    /// <summary>Ends any transition at once: the sheet is hidden.</summary>
+    /// <summary>Moves the viewport's bottom edge and the scan line together, from <paramref name="from"/> to <paramref name="to"/> (fractions of the area's height).</summary>
+    private void Sweep(float from, float to, float seconds, CurvePreset curve, Action done)
+    {
+        _viewport.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve, onDoneLocal: () => done());
+        _scanLineRect.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve);
+        _scanLineRect.AnchorMax.TweenFromTo(new float2(1f, from), new float2(1f, to), seconds, curve);
+    }
+
+    /// <summary>Ends any transition at once: the results fully shown, the line hidden.</summary>
     public void Settle()
     {
         _curtainGeneration++;
-        _wipeRect.AnchorMax.ClearTweens();
-        _wipeRect.AnchorMax.Value = float2.One;
-        _wipe.ActiveSelf = false;
+        _viewport.AnchorMin.ClearTweens();
+        _scanLineRect.AnchorMin.ClearTweens();
+        _scanLineRect.AnchorMax.ClearTweens();
+        _viewport.AnchorMin.Value = float2.Zero;
+        _scanLine.ActiveSelf = false;
     }
 
     // ------------------------------------------------------------------ helpers
