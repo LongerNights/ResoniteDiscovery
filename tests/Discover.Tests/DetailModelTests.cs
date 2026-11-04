@@ -51,9 +51,10 @@ public class DetailModelTests
         var detail = DetailBuilder.Build(entry, CardBuilder.Build(entry, null, TestData.Now), TestData.Now);
 
         var row = Assert.Single(detail.SessionRows!);
-        Assert.Contains("2/16 users (+1 away)", row.Text);
-        Assert.Contains("up 4 h", row.Text);
-        Assert.Contains("Anyone", row.Text);
+        Assert.Equal("Users: 2 (+1 away) out of 16", row.UsersLine);
+        Assert.Equal("Uptime: 4 h", row.Uptime);
+        Assert.Equal("Visibility: Anyone", row.Visibility);
+        Assert.Contains("2/16", row.ListText);
         Assert.Equal(["amy", "Bob", "zed"], row.Users!.Select(u => u.Name)); // contacts first, then by name
         Assert.True(row.Users![0].IsContact);
     }
