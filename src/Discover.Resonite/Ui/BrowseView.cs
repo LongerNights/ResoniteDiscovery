@@ -71,7 +71,8 @@ internal sealed record SettingsModel(
     bool LiveOnly,
     string StartLens,
     Discover.Core.Settings.DiscoverSettings Settings,
-    IReadOnlyList<(LensKind Lens, string Label, bool Selected)>? StartLensChoices = null);
+    IReadOnlyList<(LensKind Lens, string Label, bool Selected)>? StartLensChoices = null,
+    IReadOnlyList<HiddenItem>? HiddenItems = null);
 
 internal enum SettingKey { Animations, LiveOnly, StartLens, ListView, CardsPerRow, HiddenRestore, HiddenWord, NotifyLive, NotifyContacts }
 
@@ -107,6 +108,7 @@ internal interface IBrowseActions
     void LeaveWorld(string key);
     void MoreByAuthor(string key);
     void HideOptions(string key);
+    void JoinSession(string key, string sessionId);
     void SavePresetPrompt();
     void ApplyPreset(int index);
     void DeletePreset(int index);
@@ -114,6 +116,7 @@ internal interface IBrowseActions
     void ToggleSetting(SettingKey key);
     void SetCardsPerRow(int count);
     void SetStartLens(LensKind lens);
+    void RestoreHidden(HiddenKind kind, string id);
     void SetListView(bool list);
     void ToggleLens(LensKind lens);
     void ToggleSection(RailSectionId section);

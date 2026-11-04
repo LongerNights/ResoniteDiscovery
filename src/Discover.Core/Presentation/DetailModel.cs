@@ -18,7 +18,11 @@ public sealed record DetailModel(
     bool CanMoreByAuthor = false,
     bool IsFavorite = false,
     string? ThumbnailUrl = null,
-    IReadOnlyList<string>? TagList = null);
+    IReadOnlyList<string>? TagList = null,
+    IReadOnlyList<DetailSession>? SessionRows = null);
+
+/// <summary>One live session in the detail panel: its line of text and whether it can be joined (not full, same build).</summary>
+public sealed record DetailSession(string SessionId, string Text, bool CanJoin);
 
 /// <summary>What the detail panel's leave button does: nothing, leave a world you joined, or end one you host.</summary>
 public enum LeaveKind
@@ -31,6 +35,7 @@ public enum LeaveKind
 public static class DetailBuilder
 {
     public const int MaxSessions = 4;
+    public const int MaxSessionRows = 3;
     public const int MaxTags = 16;
 
     public static DetailModel Build(DiscoveryEntry entry, CardModel card, DateTime nowUtc, OpenWorldSnapshot? openWorld = null)
@@ -69,6 +74,12 @@ public static class DetailBuilder
             : string.Join("\n", entry.Sessions.Take(MaxSessions).Select(s =>
                 UiStrings.Format("detail.session", CardText.Ellipsize(s.HostUsername, 22), CardText.Users(s.ActiveUsers, s.MaximumUsers), CardText.Age(s.SessionBeginTime, nowUtc))));
 
+        var joinable = JoinPlanner.JoinableSessions(entry).Select(j => j.SessionId).ToHashSet(StringComparer.Ordinal);
+        var rows = entry.Sessions.Take(MaxSessionRows).Select(s => new DetailSession(
+            s.SessionId,
+            UiStrings.Format("detail.session", CardText.Ellipsize(s.HostUsername, 22), CardText.Users(s.ActiveUsers, s.MaximumUsers), CardText.Age(s.SessionBeginTime, nowUtc)),
+            joinable.Contains(s.SessionId))).ToList();
+
         var mix = entry.DeviceMix;
         var devices = mix.Total == 0 ? "" : UiStrings.Format("detail.devices", mix.Vr, mix.Screen, mix.Camera);
 
@@ -87,6 +98,7 @@ public static class DetailBuilder
             !string.IsNullOrEmpty(record?.OwnerId),
             card.IsFavorite,
             card.ThumbnailUrl,
-            tags);
+            tags,
+            rows);
     }
 }

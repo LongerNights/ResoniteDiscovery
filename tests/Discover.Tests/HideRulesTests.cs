@@ -39,4 +39,20 @@ public class HideRulesTests
         var cleared = HideRules.RestoreAll(HideRules.HideWord(once, "x"));
         Assert.True(HideRules.IsEmpty(cleared));
     }
+
+    [Fact]
+    public void HiddenItemsAreListedByNameAndCanBeRestoredOneAtATime()
+    {
+        var settings = HideRules.HideWord(HideRules.HideAuthor(HideRules.HideWorld(new DiscoverSettings(), "K-1", "Plaza"), "U-bad", "Mr Bad"), "spam");
+
+        var items = HideRules.Items(settings);
+        Assert.Equal(["Mr Bad", "Plaza", "spam"], items.Select(i => i.Name));
+        Assert.Equal([HiddenKind.Author, HiddenKind.World, HiddenKind.Word], items.Select(i => i.Kind));
+
+        var without = HideRules.Restore(settings, HiddenKind.Author, "U-bad");
+        Assert.DoesNotContain(HideRules.Items(without), i => i.Kind == HiddenKind.Author);
+        Assert.Equal(2, HideRules.Items(without).Count);
+        Assert.False(without.HiddenNames.ContainsKey("U-bad"));
+        Assert.Equal("Plaza", without.HiddenNames["K-1"]);
+    }
 }
