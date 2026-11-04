@@ -57,6 +57,12 @@ internal static class Theme
     /// <summary>Buttons: the stock Mid grey. The selected and primary ones are the dash's cyan accent.</summary>
     public static colorX Button => RadiantUI_Constants.Neutrals.MID;
     public static colorX ButtonSelected => RadiantUI_Constants.MidLight.CYAN;
+    /// <summary>Buttons and tags that sit on a card: darker than the card, so they read as inset.</summary>
+    public static colorX CardButton => RadiantUI_Constants.Neutrals.DARK;
+
+    /// <summary>A section's row in Settings: tinted so it stands apart from the lens rows under it.</summary>
+    public static colorX SectionRow => RadiantUI_Constants.Sub.CYAN;
+
     public static colorX Heading => RadiantUI_Constants.Neutrals.LIGHT;
     public static colorX Text => RadiantUI_Constants.TEXT_COLOR;
     public static colorX TextSecondary => RadiantUI_Constants.Neutrals.MIDLIGHT;

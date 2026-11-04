@@ -26,7 +26,7 @@ internal static class IconLoader
                 return null;
             }
 
-            var folder = Path.Combine(Path.GetTempPath(), "GalaxySieve");
+            var folder = Path.Combine(Path.GetTempPath(), "ResoniteDiscovery");
             Directory.CreateDirectory(folder);
             var path = Path.Combine(folder, "galaxy-icon.png");
             await using (var file = File.Create(path))

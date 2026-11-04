@@ -100,7 +100,8 @@ public sealed class JsonFileStore
 public static class AccountPaths
 {
     /// <summary>
-    /// <c>&lt;root&gt;\GalaxySieve\&lt;userId&gt;\</c>, one folder per account. The caller passes
+    /// <c>&lt;root&gt;\ResoniteDiscovery\&lt;userId&gt;\</c>, one folder per account (the mod's earlier name,
+    /// <c>GalaxySieve</c>, is copied over once if its folder is the only one there). The caller passes
     /// <c>Environment.SpecialFolder.ApplicationData</c>. Anything but letters, digits, '-' and '_' in the id becomes '_',
     /// so an id can never escape the folder.
     /// </summary>
@@ -112,6 +113,34 @@ public static class AccountPaths
         }
 
         var safe = new string(userId.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '_').ToArray());
-        return Path.Combine(root, "GalaxySieve", safe);
+        var current = Path.Combine(root, "ResoniteDiscovery", safe);
+        var legacy = Path.Combine(root, "GalaxySieve", safe);
+        if (!Directory.Exists(current) && Directory.Exists(legacy))
+        {
+            try
+            {
+                CopyDirectory(legacy, current);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The new folder starts empty; the old one is left as it was.
+            }
+        }
+
+        return current;
+    }
+
+    private static void CopyDirectory(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.GetFiles(from))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)), overwrite: false);
+        }
+
+        foreach (var directory in Directory.GetDirectories(from))
+        {
+            CopyDirectory(directory, Path.Combine(to, Path.GetFileName(directory)));
+        }
     }
 }

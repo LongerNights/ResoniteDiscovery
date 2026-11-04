@@ -14,7 +14,7 @@
          install. Off: compile against the real install's public API (2026.10.29.1239) when ResonitePath
          exists, else the SDK's stripped refs. See verification B1/B2. -->
     <ResoniteUsePublicizedAssemblies>false</ResoniteUsePublicizedAssemblies>
-    <Title>Galaxy Sieve</Title>
+    <Title>ResoniteDiscovery</Title>
     <Authors>Winter</Authors>
     <Description>World discovery screen for the Resonite dash: live sessions and published worlds in ranked, searchable lenses.</Description>
     <Version>0.2.0</Version>

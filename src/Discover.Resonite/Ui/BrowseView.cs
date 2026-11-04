@@ -66,7 +66,12 @@ internal sealed record OrganizeList(string Id, string Name, bool Member);
 internal sealed record OrganizeModel(string Key, string Title, IReadOnlyList<OrganizeList> Lists, IReadOnlyList<string> Tags);
 
 /// <summary>The settings the panel shows.</summary>
-internal sealed record SettingsModel(bool Animations, bool LiveOnly, string StartLens, Discover.Core.Settings.DiscoverSettings Settings);
+internal sealed record SettingsModel(
+    bool Animations,
+    bool LiveOnly,
+    string StartLens,
+    Discover.Core.Settings.DiscoverSettings Settings,
+    IReadOnlyList<(LensKind Lens, string Label, bool Selected)>? StartLensChoices = null);
 
 internal enum SettingKey { Animations, LiveOnly, StartLens, ListView, CardsPerRow, HiddenRestore, HiddenWord, NotifyLive, NotifyContacts }
 
@@ -108,6 +113,7 @@ internal interface IBrowseActions
     void CopyLink(string key);
     void ToggleSetting(SettingKey key);
     void SetCardsPerRow(int count);
+    void SetStartLens(LensKind lens);
     void SetListView(bool list);
     void ToggleLens(LensKind lens);
     void ToggleSection(RailSectionId section);

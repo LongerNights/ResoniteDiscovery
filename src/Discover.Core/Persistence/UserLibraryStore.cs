@@ -59,7 +59,7 @@ public sealed class UserLibraryStore
     }
 
     /// <summary>Writes the export file into <see cref="ExportsDirectory"/> and returns its path.</summary>
-    public string WriteExport(UserLibrary library, string fileName = "galaxy-sieve-export.json")
+    public string WriteExport(UserLibrary library, string fileName = ExportFileName)
     {
         var exports = new JsonFileStore(ExportsDirectory);
         exports.Save(Path.GetFileName(fileName), library.Export());
@@ -67,13 +67,22 @@ public sealed class UserLibraryStore
     }
 
     /// <summary>Reads an export from <see cref="ExportsDirectory"/>. Null when missing or unreadable.</summary>
-    public LibraryExport? ReadExport(string fileName = "galaxy-sieve-export.json")
+    public LibraryExport? ReadExport(string fileName = ExportFileName)
     {
         var exports = new JsonFileStore(ExportsDirectory);
-        return File.Exists(exports.PathOf(Path.GetFileName(fileName)))
-            ? exports.Load<LibraryExport>(Path.GetFileName(fileName), () => null!)
+        var name = Path.GetFileName(fileName);
+        if (!File.Exists(exports.PathOf(name)) && name == ExportFileName && File.Exists(exports.PathOf(LegacyExportFileName)))
+        {
+            name = LegacyExportFileName; // exported before the mod was renamed
+        }
+
+        return File.Exists(exports.PathOf(name))
+            ? exports.Load<LibraryExport>(name, () => null!)
             : null;
     }
+
+    public const string ExportFileName = "resonite-discovery-export.json";
+    public const string LegacyExportFileName = "galaxy-sieve-export.json";
 }
 
 /// <summary>

@@ -95,7 +95,7 @@ public sealed record DiscoverSettings
     /// <summary>How many "popular here" chips Browse adds after the categories.</summary>
     public int BrowsePopularTagCount { get; init; } = 8;
 
-    /// <summary>Keep the stock Worlds tab visible beside Galaxy Sieve's (spec F31). Off: the stock button is hidden at runtime.</summary>
+    /// <summary>Keep the stock Worlds tab visible beside ResoniteDiscovery's (spec F31). Off: the stock button is hidden at runtime.</summary>
     public bool ShowStockWorldsTab { get; init; }
 
     /// <summary>Use the galaxy icon for the tab instead of the stock Worlds icon (applies on the next start).</summary>
@@ -137,7 +137,7 @@ public sealed record DiscoverSettings
 
     /// <summary>Lens switches fade the content out and back in with a short rise; off for an instant swap.</summary>
     /// <summary>Fade through black when switching lenses. Off by default: it hides the cards loading, but covers the whole results pane.</summary>
-    public bool AnimateTransitions { get; init; }
+    public bool AnimateTransitions { get; init; } = true;
 
     /// <summary>Cards per row in the grid layout. Fewer per row means larger cards. A value outside the choices counts as 4.</summary>
     public int CardsPerRow { get; init; } = 4;
