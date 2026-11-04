@@ -51,32 +51,66 @@ So instead of a second discovery tab next to the stock one, Galaxy Sieve becomes
 
 The stock tab is a `GridContainerScreen` whose facets are laid out by `WorldsScreenInitializer` (batch 1): `WorldListFacetPreset` at `[12,0,52,33]`, `SearchBarFacetPreset` `[12,33,38,3]`, `PagingControlFacetPreset` `[50,33,14,3]`, `WorldFilterFacetPreset` (the left rail) `[0,0,12,36]`. Its list is `LegacyWorldListManager` → `LegacyWorldThumbnailItem` → `LegacyWorldDetail`. Search parameters come from `LegacyWorldListManager.GenerateSearchParameters`, which can set every `SearchParameters` field below except `ExtraSignatures`.
 
-**V24 (open): exact inventory.** The rail's buttons, the tag each category button sends, each preset's sort and flags, and the full list of controls in the Custom panel are not yet recorded. Close V24 (decompile `WorldFilterFacetPreset` and the filter data it feeds `LegacyWorldListManager`, or read the live screen with McpLink, read-only in userspace) before M7. Until then the tables below use the names Winter observed in game, and the tag strings are placeholders.
+**Audit result (V24, closed Nov 3, 2026).** Read from the decompile of `WorldFilterFacetPreset` and `LegacyWorldListManager`, and checked against the live screen (the rail's button slots match). The stock rail has 16 preset buttons plus a **Custom** button that slides in a second panel with every other control. Each preset button sets a bundle of data-source, filter, sort and paging values, plus a hidden search term:
 
-**Parity table.** Each stock capability, where it lives in the stock tab, and where it lives in the overhaul. "Stock" cells marked † are from Winter's in-game observation and need V24 to confirm.
+| Stock button | Sources | Hidden search | Sort | Notes |
+| --- | --- | --- | --- | --- |
+| Everything | open worlds, sessions, published | none | first published ↓ | |
+| Featured | published | none | first published ↓ | featured only |
+| MMC26 | published | `+mmc26` | random | event button, 200 per page |
+| Published Worlds | published | none | first published ↓ | |
+| Active Sessions | open worlds, sessions | none | first published ↓ | sessions with at least 1 user |
+| Contacts Sessions | open worlds, sessions | none | first published ↓ | at least 1 contact present, access up to Contacts |
+| Headless Sessions | open worlds, sessions | none | first published ↓ | headless hosts only, **empty sessions shown** |
+| Social | all but local | `+social` | first published ↓ | |
+| Avatars | all but local | `+avatar` | **total visits ↓** | the only category that sorts by popularity |
+| Games | all but local | `+game` | first published ↓ | |
+| Art | all but local | `+art` | first published ↓ | |
+| Tutorials | all but local | `+tutorial` | *keeps whatever sort was set* | the button sets no sort |
+| Educational | all but local | `+educational` | first published ↓ | the tag is `educational`, not `education` |
+| Random | published | none | random | |
+| My Worlds | local + published | none | first published ↓ (creation date for own worlds) | own worlds, private search |
+| Group Worlds | local + published | none | same | own-worlds search with no owner name |
+
+Page size is 60 (200 for MMC26). The **Custom** panel holds: four data-source checkboxes (open worlds, active sessions, published worlds, local worlds); a hidden "base search" text; By owner with User or Group radios; "Submitted to group" (editable only in a universe); Featured only; My worlds; minimum users (0 to 32) and minimum contacts (0 to 32) sliders; Only headless; Incompatible sessions; a maximum access level radio (Anyone, Registered users, Contacts, LAN, Private); minimum uptime; sort direction; and six sort parameters (first published, last updated, created, total visits, last visit, random). `MinDate` and `MaxDate` exist as variables but have no control. Two sort details: "last visit" has no server equivalent, so the stock list fetches its default sort and orders the page client-side by the user's last visit; the stock Random comparator reads `Rating` (a stock bug, ignored).
+
+**Parity table.** Each stock capability and where it lives in the overhaul. "Not ported" and "Gap" rows carry the reason; the F-ids are in the requirements table.
 
 | Capability | Stock tab | Overhaul | F |
 | --- | --- | --- | --- |
-| Free-text search | Search bar at the bottom | Search box in the top bar, on every lens; Ctrl+F | F4 |
-| Sort key | Custom panel † | Sort menu in the top bar | F14 |
-| Sort direction | Custom panel † | Direction toggle beside the sort menu | F14 |
-| Required tags | Custom panel †, or typed | Tag chips (click once), `+tag:` syntax, recommended tags in Browse | F5, F29 |
-| Excluded tags | Custom panel †, or typed | Tag chips (click twice), `-tag:` syntax | F5 |
-| Featured only | Custom panel † | Featured lens; "Featured only" in Filters on any search lens | F11, F32 |
-| Date window (`MinDate`, `MaxDate`) | Custom panel † | "Published" in Filters: any time, past week, month, year, or custom | F32 |
-| By owner / author | Custom panel † | `author:name` in search; "By author" in the detail panel | F32 |
-| Category buttons (Social, Games, Avatars, Art, Tutorials, Educational) | Six rail buttons † | One Browse lens with recommended-tag chips | F29 |
-| Preset lists (popular, new, …) † | Rail buttons † | Browse (most visited), New, Featured, Random | F3, F29 |
-| Live sessions | Rail button †, and mixed into results | Live Now and Friends lenses; sessions nested in world cards everywhere | F2, F10 |
-| Worlds you are in | Mixed into results † | Current Worlds lens; Open badge elsewhere | F30, F8 |
-| Show incompatible sessions | Filter toggle | "Show other versions" in Filters | F11, Q2 |
-| My worlds | Rail button † | My Worlds lens | F24 |
-| Group worlds | Rail button † | Group Worlds lens with group picker | F24 |
-| World detail (description, tags, sessions) | `LegacyWorldDetail` | Detail panel (Info on each card) | F18 |
-| Open (join best session or focus) | Detail → Open | Join on the card, confirmation menu | F7 |
-| Start new session with options (access level, unsafe mode, ports) | Detail → `CustomWorldStart` with `NewWorldDialog` | "New session" menu with access level and an Advanced row | F33 |
-| Paging | Paging facet | Previous and Next in the status bar | F3 |
-| Anything not yet ported | — | "Classic browser" button opens the hidden stock tab | F31 |
+| Free-text search | Search bar, bottom | Search box in the top bar, every lens; Ctrl+F | F4 |
+| Hidden base search | Custom, Base search | Not needed: the search box, chips and `+tag:` cover it | F4 |
+| Sort: first published, last updated, total visits, random | Custom, Sorting | Sort menu | F14 |
+| Sort: created | Custom, Sorting | Not ported yet: the server supports `CreationDate`, but the sort popover has no room for a tenth row. Add with M9 when the popover is reworked | F14 |
+| Sort: last visit | Custom, Sorting (client-side) | Not ported: needs the engine's visit history; candidate for a local sort | none |
+| Sort direction | Custom, Sorting | Direction toggle in the sort menu | F14 |
+| Required and excluded tags | Hidden search terms (`+tag`, `-tag`) | Tag chips (click to require, again to exclude), `+tag:` syntax, recommended tags in Browse | F5, F29 |
+| Category buttons | Six rail buttons (`social`, `avatar`, `game`, `art`, `tutorial`, `educational`) | One Browse lens with the six as chips, sorted by total visits | F29 |
+| Preset sorts | Mostly first published ↓ | Browse defaults to total visits ↓ (stock does that only for Avatars) | F29 |
+| Everything, Published Worlds | Rail | Browse | F3, F29 |
+| Featured | Rail, and Custom, Featured only | Featured lens; "Featured only" in Filters on Browse and New | F11, F32 |
+| Random | Rail | Random lens | F3 |
+| Event button (MMC26) | Rail | Not ported: event-specific; type `+mmc26` in search | none |
+| Active Sessions | Rail | Live Now | F2 |
+| Contacts Sessions | Rail | Friends | F10 |
+| Headless Sessions, Only headless | Rail; Custom | Filters, Host: Headless on Live Now. Stock also lists *empty* headless sessions, so Live Now has an "Include empty" filter (built M9) | F11 |
+| Minimum users | Custom slider 0 to 32 | Filters, Minimum users (steps to 20) | F11 |
+| Minimum contacts | Custom slider 0 to 32 | Partial: the Friends lens (at least 1 contact). Add a minimum-friends filter in M9 if wanted | F11 |
+| Minimum uptime | Custom | Filters, "Up for N+" stepper on session lenses (built M9) | F32 |
+| Show incompatible sessions | Custom checkbox | "Show other versions" in Filters | F11, Q2 |
+| Max access level (Anyone to Private) | Custom radios | By design not ported for other people's sessions: the visibility rule hides private, LAN and hidden sessions. Your own private worlds are in Current Worlds | none |
+| Data source: open worlds | Custom checkbox | Current Worlds lens, and the Open badge everywhere | F30, F8 |
+| Data sources: sessions, published | Custom checkboxes | Sessions and worlds are merged on every card; Live Now and Browse are the two views | F2, F3 |
+| Data source: local worlds | Custom checkbox; included in My Worlds and Group Worlds | **Not ported** (worlds saved only on this machine). Decide in M9 whether My Worlds should include them | F24 |
+| By owner, user or group | Custom, By owner and radios | "More by author" in the detail panel (built M9, by owner id so no name lookup, V30 not needed; works for users and groups); `author:name` in search works client-side on loaded results (built M9; server-side resolution still open on V30); Group Worlds lens with a group picker | F32, F24 |
+| Submitted to group | Custom (universe only) | Not ported: a client in a universe is outside this mod's scope (V14) | none |
+| My worlds | Rail and Custom | My Worlds lens | F24 |
+| Date window (`MinDate`, `MaxDate`) | No control in the stock tab | Extra: "Published" in Filters (needs V7) | F32 |
+| World detail | `LegacyWorldDetail` | Detail panel (Info on each card) | F18 |
+| Open (join best session or focus) | Detail, Open | Join on the card, confirmation menu | F7 |
+| New session with options | Detail, `CustomWorldStart` and `NewWorldDialog` | "New session" menu with access level and Advanced | F33 |
+| Paging | Paging facet, 60 per page | Previous and Next, 40 per page (card-slot limit) | F3 |
+| Anything not yet ported | none | "Classic browser" button opens the hidden stock tab | F31 |
 
 The gate for the overhaul MVP is that every row passes in game, or is explicitly marked "not ported" with its reason in `decisions.md`.
 
@@ -145,9 +179,9 @@ Calls marked ✓ were read in the decompile of 2026.10.29.1239 or a live probe (
 | Open world thumbnail (VERIFY V26) | `Userspace.GetThumbnailData(world)?.LocalThumbnail` | The stock card uses it first (V10). |
 | Leave or close a world (VERIFY V27) | The call the engine's own session control / world switcher uses to leave (candidates: `Userspace.ExitWorld`, `Userspace.EndSession`, `World.Destroy`) | Leave must ask first and must use the engine's own path, so the engine's own "save changes?" and host-migration behaviour apply. |
 | New-session options (VERIFY V28) | `WorldStartSettings.DefaultAccessLevel`, `UnsafeMode`, `ForcePorts`, as set by `LegacyWorldDetail.CustomWorldStart` from `NewWorldDialog` ✓ (V4) | Parity for "start new session". |
-| Stock tab structure (VERIFY V24) | `WorldFilterFacetPreset`, the filter state it gives `LegacyWorldListManager` | Category tags and Custom controls for the parity table. |
+| Stock tab structure ✓ (V24) | `WorldFilterFacetPreset` (rail presets and Custom panel), `LegacyWorldListManager.GenerateSearchParameters` | Category tags and Custom controls, recorded in the parity table. |
 | Add a dash screen ✓ | `UserspaceRadiantDash.Dash.AttachScreen(string name, colorX color, Uri icon)` | Returns a plain `RadiantDashScreen`. |
-| Stock tab button (VERIFY V29) | `RadiantDashScreen._button` (`SyncRef<RadiantDashButton>`) → `.Slot` under the dash `Buttons` canvas; `RadiantDash.CurrentScreen` | Takeover: hide the stock button; switch away from the stock screen. |
+| Stock tab button ✓ (V29) | `RadiantDash.Slot`, then `GetComponentsInChildren<RadiantDashButton>()` (not `ButtonsRoot`: that is the overlay's Buttons slot) and match the public `RadiantDashButton.Screen` reference to the stock screen; `RadiantDash.CurrentScreen` (public `SyncRef`) | Takeover: hide the stock button; switch away from the stock screen. A button press is exactly `dash.CurrentScreen.Target = button.Screen.Target`. |
 | Toasts ✓ | `NotificationPanel.ShowNotification(userId, message, thumbnail, colorX, NotificationType)` (V19) | Safe from any thread. Put the whole text in `message`. |
 | Clipboard ✓ (decision 2026-11-02) | `InputInterface.Clipboard.SetText` | Copy link. |
 
@@ -233,24 +267,24 @@ Core sees open worlds through a new `IOpenWorldSource` (list plus change events,
 | Lens | Source | Filter | Default sort | Stock equivalent |
 | --- | --- | --- | --- | --- |
 | Current Worlds | Open worlds | All worlds the user has open except userspace | Focused first, then last focused | None (mixed into results) |
-| Live Now | Sessions | Visible sessions with `ActiveUsers` ≥ 1 | Live users ↓, ties by friends present | Live/sessions button † |
+| Live Now | Sessions | Visible sessions with `ActiveUsers` ≥ 1 | Live users ↓, ties by friends present | Active Sessions button |
 | Friends | Sessions | `FriendsPresent` > 0, any contact-visible access level | Friends present ↓ | None |
-| Browse | Search | Optional recommended-tag chips and search text | **Total visits ↓** | Six category buttons, popular preset † |
-| Featured | Search | `OnlyFeatured = true` | Last updated ↓ | Featured preset † |
-| New | Search | `SortBy = FirstPublishTime`; optional minimum-visits chip, off by default | First published ↓ | New preset † |
-| Random | Search | `SortBy = Random` | Server order; reshuffle button | Random preset † |
+| Browse | Search | Optional recommended-tag chips and search text | **Total visits ↓** | Everything, Published Worlds and the six category buttons (all first published ↓ except Avatars) |
+| Featured | Search | `OnlyFeatured = true` | Last updated ↓ | Featured button |
+| New | Search | `SortBy = FirstPublishTime`; optional minimum-visits chip, off by default | First published ↓ | Published Worlds button (first published ↓ is the stock default) |
+| Random | Search | `SortBy = Random` | Server order; reshuffle button | Random button |
 | Favorites | Local | Starred keys | Live first by users, then date starred ↓ | None |
 | Named list | Local | Keys in the list | As Favorites | None |
 | Recent | Local | Worlds opened through this tab | Last opened ↓ | None |
-| My Worlds | Search | `ByOwner` = user id, `Private = true` | Last updated ↓ | My worlds † |
-| Group Worlds | Search | `ByOwner` = group id, `OwnerType` group; group picker | Last updated ↓ | Group worlds † |
+| My Worlds | Search | `ByOwner` = user id, `Private = true` | Last updated ↓ | My Worlds button |
+| Group Worlds | Search | `ByOwner` = group id, `OwnerType` group; group picker | Last updated ↓ | Group Worlds button |
 | Trending, Rising, Hidden Gems (v1.1) | History | As formulas below | Score ↓ | None |
 
 The sort menu can change any search lens's sort for the session; the per-lens default can be changed in Settings. Search-backed sorts the source cannot honour are disabled (F14).
 
 **Browse and recommended tags.** Browse is one lens with a **recommended-tags row** under the top bar:
 
-1. **Categories** — six fixed chips in this order: Social, Games, Avatars, Art, Tutorials, Educational. Each sends the same tag the stock category button sends (V24; placeholders until closed: `social`, `game`, `avatar`, `art`, `tutorial`, `education`). The strings live in settings (`BrowseCategories`, label + tag), so a changed tag needs no rebuild and users can add their own.
+1. **Categories** — six fixed chips in this order: Social, Games, Avatars, Art, Tutorials, Educational. Each sends the same tag the stock category button sends (V24, closed): `social`, `game`, `avatar`, `art`, `tutorial`, `educational`. The strings live in settings (`BrowseCategories`, label + tag), so a changed tag needs no rebuild and users can add their own.
 2. **Popular here** — up to 8 more chips: the most frequent published tags across the current results page and the live session cache, excluding the categories and the user's excluded tags. Computed locally, zero requests, recomputed when the page changes.
 3. **Your tags** — the user's personal tags with at least one world, in orange, filtering locally as elsewhere.
 
@@ -302,7 +336,7 @@ Each requirement has one acceptance test a developer can run in game. IDs F1–F
 | F27 | New lens minimum-visits chip, off by default | At 10, worlds under 10 visits are hidden | MVP |
 | F28 (rev) | Customizable rail: Settings can switch off a section (Now, Discover, Yours) or any lens in it. At least one lens outside Your lists stays on. If the current or start lens is hidden, the tab moves to the first visible lens. "Live lenses only" overrides and hides every search lens. Saved per account (`hiddenSections`, `hiddenLenses`) | Hide Discover: Browse, Featured, New, Random disappear and no search request is sent; show it again: the lenses return with their own switches | MVP |
 | F29 | **Browse** lens with the recommended-tags row (categories, popular here, your tags), default sort total visits ↓ | Press Games: results are worlds with the Games tag, most visited first, in 2 clicks from opening the tab; the chip shows as required and Clear all removes it | MVP |
-| F30 | **Current Worlds** lens: every world the user has open (not userspace), one card each with name, host, your role, access level, users/max, uptime, focused badge; buttons Go there, Info, star and Lists (when saveable), Leave (asks first, engine's own leave path) | Open three worlds: Current Worlds shows three cards, the focused one first with "You are here"; Go there focuses each; Leave on a non-focused world asks, then closes it and the card disappears within one tick; no network request is made | MVP |
+| F30 | **Current Worlds** lens: every world the user has open (not userspace), one card each with name, host, your role, access level, users/max, uptime, focused badge; buttons Go there, Info, star and Lists (when saveable); Leave (End session for a world you host) is in the Info panel, asks first and uses the engine's own `Userspace.ExitWorld` path | Open three worlds: Current Worlds shows three cards, the focused one first with "You are here"; Go there focuses each; Leave in the Info panel of a non-focused world asks, then closes it and the card disappears within one tick; no network request is made | MVP |
 | F31 | **Tab takeover**: on attach, hide the stock Worlds button at runtime and move the dash off the stock screen if it is current; "Show the stock Worlds tab" in Settings (off by default) shows both; a **Classic browser** button in the rail footer and the paused banner opens the stock screen even while its button is hidden; on shutdown, failure or setting change, restore the button | With the setting off there is one Worlds tab; Classic browser opens the stock list and the dash returns to Galaxy Sieve when the user next picks Worlds; turning the setting on shows both tabs without restart | MVP |
 | F32 | **Custom-panel parity** in the Filters popover for search lenses: Featured only, Published (any time, past week, month, year, custom `MinDate`/`MaxDate`), sort direction (with F14), and `author:` search with "More by author" in the detail panel | Each stock Custom control (V24 inventory) has a row in the parity table that passes; "Published: past week" on Browse sends `MinDate` = now − 7 d | MVP |
 | F33 | **New session options**: "New session" in the join menu offers access level (Anyone, Registered users, Contacts+, Contacts, LAN, Private; default as the engine chooses) and an Advanced row (unsafe mode, force ports) matching `CustomWorldStart` | Start a new session at Contacts: the world opens and its access level is Contacts; with no choice made, the access level matches what the stock "Open" gives | MVP |
@@ -326,7 +360,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 | Results | 12, 5, 52, 28 | Card grid, 4 columns, or list view |
 | Status bar | 12, 33, 52, 3 | Page number and "updated" age, Previous and Next. Same place as the stock paging facet |
 
-**Current Worlds layout.** Same regions; the chip bar is replaced by a one-line summary ("3 worlds open · you are in Kitchen"). Cards use the normal card with: a "You are here" pill instead of the Open pill on the focused world, a role badge (Host/Guest), an access-level badge, and Go there / Leave in place of Join. List view is the default for this lens (it is a short list) and is remembered separately.
+**Current Worlds layout.** Same regions; the chip bar is replaced by a one-line summary ("3 worlds open · you are in Kitchen"). Cards use the normal card with: a "You are here" pill instead of the Open pill on the focused world, a role badge (Host/Guest), an access-level badge, and Go there in place of Join (Leave is in the Info panel). List view is the default for this lens (it is a short list) and is remembered separately.
 
 **Palette.** Purple and black (author's request, Nov 2, 2026), all from `RadiantUI_Constants` by name in `Ui/Theme.cs`. Hex values are for review only.
 
@@ -406,15 +440,15 @@ The analysis from M0 stands: `ScreenEnabled = false` only greys the button (V3) 
 
 | Step | What `TabTakeover` does | Why it is safe |
 | --- | --- | --- |
-| Hide | Set the stock Worlds screen's button slot (`screen._button.Target.Slot`, under the dash `Buttons` canvas) `ActiveSelf = false` | The button hierarchy is rebuilt by the dash every launch and is outside the saved screens workspace (VERIFY V29: confirm the button slot's parent chain and that it is non-persistent or outside the workspace) |
+| Hide | Find the button whose `Screen` is the stock Worlds screen under `dash.Slot`, and set its slot `ActiveSelf = false` | The button is built at runtime by `RadiantDash.UpdateScreens` under `Render/Buttons/Image/Horizontal Layout`, a different subtree from the saved `ScreensRoot/Screens` workspace (V29, probed live: the slot reads `persistent: true` but sits outside the workspace root, so a workspace save never writes it) |
 | Keep hidden | Each tick (cheap check), if the stock button slot exists and is active while takeover is on, hide it again | `RadiantDash.UpdateScreens` may rebuild buttons when screens change (another mod adds one, our re-attach) |
-| Switch away | If `dash.CurrentScreen` is the stock Worlds screen when takeover starts, or becomes it while takeover is on and the user did not press Classic browser, set `CurrentScreen` to ours | VERIFY V29: whether `CurrentScreen` is saved; if it is, it is a value the user also changes every time they press a tab, so the write is no different from a click |
+| Switch away | If `dash.CurrentScreen` is the stock Worlds screen when takeover starts, or becomes it while takeover is on and the user did not press Classic browser, set `dash.CurrentScreen.Target` to ours | This is the same single write a tab-button press makes (`RadiantDashButton.Pressed`), so it is no different from a click |
 | Classic browser | Set `CurrentScreen` to the stock screen (button stays hidden); mark "classic mode" until the user picks another tab | Gives full stock access for anything not ported |
 | Restore | Set the stock button slot `ActiveSelf = true` | On `Stop()`, attach failure after retries, controller pause (5 failed ticks), takeover setting off, or our screen removed |
 
 Order of operations: the stock button is hidden **only after** our screen is attached and its UI built, so a build failure never leaves the user without a Worlds tab. Because hiding is runtime-only, a crash or uninstall leaves the stock tab exactly as the engine builds it on the next launch (F25 test).
 
-VERIFY V32: an inactive child drops out of the dash's button `HorizontalLayout` (dumper Part B: `HorizontalLayout`, `LayoutController`), so the strip closes the gap. If it does not, fall back to collapsing the button's `LayoutElement` (min/preferred width 0) on the same runtime-only slot.
+V32 (closed): an inactive slot drops out of the dash's button `HorizontalLayout`. `RectTransform.PrepareCompute` unregisters a rect from its parent when its slot is not active, and layout controllers only walk the registered rect children, so the strip closes the gap. The buttons strip is a `HorizontalLayout` with `ForceExpandWidth` off, built in `RadiantDash.OnAttach`. Still confirm by eye in the M6 test. `UpdateScreens` re-syncs only each button's `OrderOffset`, so `ActiveSelf` survives it; a button the dash rebuilds (screen removed and re-added) comes back active, which is what the keep-hidden check is for.
 
 **Options considered** (B chosen)
 
@@ -506,15 +540,15 @@ Account files load once `Cloud.Session.CurrentUserID` is known and reload on acc
 
 | ID | Question | Method | Needed by |
 | --- | --- | --- | --- |
-| V24 | Stock Worlds tab inventory: every rail button (label, tag, sort, direction, flags), every control in the Custom panel and its `SearchParameters` field, the stock default lens | D (`WorldFilterFacetPreset`, filter state of `LegacyWorldListManager`) or P (read the live screen, read-only) | M5 audit; gates F29, F32 and the parity table |
+| V24 | Stock Worlds tab inventory: every rail button, every control in the Custom panel | D, P | **Closed Nov 3, 2026** (see the audit result and `verification.md`) |
 | V25 | How to enumerate open worlds and read name, session id, access level, user count, max users, host, authority, corresponding record, focus; is there a `WorldRemoved` event; which thread raises `WorldAdded`/`WorldRemoved` | D (`WorldManager`, `World`), P | F30 |
 | V26 | `Userspace.GetThumbnailData(world)` shape and `LocalThumbnail` | D | F30 thumbnail |
 | V27 | The engine's own "leave world" path (session control dialog / world switcher) and its rules (last world, host, unsaved changes) | D | F30 Leave |
 | V28 | `WorldStartSettings` `DefaultAccessLevel`, `UnsafeMode`, `ForcePorts` names and types; `NewWorldDialog` choices | D | F33 |
-| V29 | Stock button: `RadiantDashScreen._button` and its slot's parent chain, persistence of that slot; whether `RadiantDash.CurrentScreen` is saved | D, P (read-only) | F31 |
+| V29 | Stock button slot, its parent chain and persistence | D, P | **Closed Nov 3, 2026** |
 | V30 | Engine's cached user-by-name lookup usable for `author:` (no own HTTP) | D | F32 `author:` |
 | V31 | Can our own screen's `Label` be driven by the `Dash.Screens.Worlds` locale key with a component on our non-persistent slot | D, P | F1 label |
-| V32 | Does an inactive button slot drop out of the dash button strip's layout (`HorizontalLayout`, `LayoutController`) | D (dumper Part B), in-game | F31 |
+| V32 | Does an inactive button slot drop out of the dash button strip's layout | D | **Closed Nov 3, 2026** (yes; confirm by eye in the M6 test) |
 
 Add each to `verification.md` as it is worked on; mark code that depends on an open row `// VERIFY: Vnn`.
 
@@ -567,7 +601,7 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 
 | Milestone | Scope | Gate | Size |
 | --- | --- | --- | --- |
-| M5 Stock audit | Close V24 (and V29, V32 for M6); fill the parity table's stock column; fix the category tag strings | No † left in the parity table; V24, V29, V32 closed | Small |
+| M5 Stock audit | **Done Nov 3, 2026.** V24, V29, V32 closed; parity table filled from the decompile; the Educational tag fixed | Parity table complete; V24, V29, V32 closed | Small |
 | M6 Takeover | `TabTakeover` (hide, keep hidden, switch away, Classic browser, restore), label "Worlds" (V31), icon setting, failsafe (F25 rev), settings toggle | F1 (rev), F25 (rev), F31 pass, including the crash-and-uninstall test | Medium |
 | M7 Rail and Browse | New rail catalog (Now/Discover/Yours), Browse with recommended tags, Most Visited folded in, per-lens default sorts, direction toggle, settings migration | F3 (rev), F14 (rev), F28 (rev), F29, F34 pass | Medium |
 | M8 Current Worlds | `IOpenWorldSource`, adapter (V25, V26), lens, cards, Go there, Leave (V27) | F30, F16 pass | Medium |
