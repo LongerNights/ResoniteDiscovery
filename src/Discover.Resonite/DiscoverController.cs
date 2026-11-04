@@ -1161,6 +1161,15 @@ internal sealed class DiscoverController : IBrowseActions
     }
 
     /// <summary>Detail panel, Hide...: hide the world or everything by its author from the live, search and insight lenses (F19).</summary>
+    /// <summary>Detail panel: start a new session of the world (asks for its settings first).</summary>
+    public void StartNewSession(string key)
+    {
+        if ((_shown.TryGetValue(key, out var entry) || _index.TryGetEntry(key, out entry)) && entry.Record is not null)
+        {
+            ConfirmNewSession(entry);
+        }
+    }
+
     /// <summary>Detail panel: join one specific live session of a world.</summary>
     public void JoinSession(string key, string sessionId)
     {

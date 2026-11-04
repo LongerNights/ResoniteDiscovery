@@ -55,10 +55,14 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
     the results are that user's worlds (the server was asked, not just the loaded page). A name nobody has just
     filters what is loaded. Check the log shows no repeated lookups for the same name.
 
-16. **Detail panel parity with the stock info panel.** Each session row now shows two lines: host, people (and how many
-    are away), uptime and who can join; and below it everyone who is in, contacts first and in green. Under the
-    description a line reads "Published ... ago · Updated ... ago". Visits and tags were already there. Check a world
-    with two or three sessions still fits on screen; if the panel touches the edges tell me which row to trim.
+16. **Detail panel sessions (stock style).** A world with live sessions shows a list of them at the left (host and
+    people in each; the chosen one is cyan, the first at first) and, in a framed panel at the right, the chosen session's
+    uptime, visibility, users (with how many are away, out of the maximum) and who is in, contacts first and in green, at
+    the normal text size. Pressing another session in the list switches the panel; the main button (Join) joins the chosen
+    one, and says Full when it is full. "+ New session" at the end of the list asks for the session settings. A world with
+    no live session shows "Not live right now" and the main New session button as before. Under the description a line reads
+    "Published ... ago · Updated ... ago". Check a world with three or four sessions still fits on screen.
     Not copied on purpose: Get Session Orb and Copy Session URL.
-17. **Top bar icons.** Sort, Filters, Views, Refresh and Settings each have a small engine icon at the left edge.
-    Session Settings access names are now the stock ones (Anyone, Registered Users, ...) instead of "Public".
+17. **Top bar icons.** Views, Refresh and Settings have a small engine icon at the left with the label clear of it; Sort and
+    Filters have none (their arrow says dropdown) and are one text size smaller so long names ("Friends present") fit.
+    Session Settings access names are the stock ones (Anyone, Registered Users, ...) instead of "Public".

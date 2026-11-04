@@ -334,6 +334,12 @@ internal sealed class DiscoverUi
         icon.RectTransform.AnchorMax.Value = new float2(0f, 1f);
         icon.RectTransform.OffsetMin.Value = new float2(12f, 12f);
         icon.RectTransform.OffsetMax.Value = new float2(40f, -12f);
+
+        // Keep the label clear of the icon.
+        if (button.Slot.GetComponentInChildren<Text>()?.Slot.GetComponent<RectTransform>() is { } labelRect)
+        {
+            labelRect.OffsetMin.Value = new float2(42f, labelRect.OffsetMin.Value.y);
+        }
     }
 
     private void AddRailButton(UIBuilder ui, LensKind lens)
@@ -380,7 +386,7 @@ internal sealed class DiscoverUi
     private void BuildTopBar(UIBuilder ui, RectTransform topBar)
     {
         ui.NestInto(topBar);
-        var parts = ui.SplitHorizontally(0.32f, 0.16f, 0.14f, 0.14f, 0.12f, 0.12f);
+        var parts = ui.SplitHorizontally(0.26f, 0.19f, 0.15f, 0.14f, 0.13f, 0.13f);
         foreach (var part in parts)
         {
             part.AddFixedPadding(8f);
@@ -404,18 +410,16 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[1]);
         var sort = ui.Button((LocaleString)"");
         _sortButtonLabel = sort.Slot.GetComponentInChildren<Text>();
-        Fix(_sortButtonLabel, TypeScale.Label);
+        Fix(_sortButtonLabel, TypeScale.Body);
         _sortBtn = sort;
-        AddButtonIcon(sort, OfficialAssets.Common.Icons.Down_Arrow);
         sort.LocalPressed += (_, _) => ToggleMenu(_sortMenu);
         ui.NestOut();
 
         ui.NestInto(parts[2]);
         var filters = ui.Button((LocaleString)"");
         _filtersButtonLabel = filters.Slot.GetComponentInChildren<Text>();
-        Fix(_filtersButtonLabel, TypeScale.Label);
+        Fix(_filtersButtonLabel, TypeScale.Body);
         _filtersBtn = filters;
-        AddButtonIcon(filters, OfficialAssets.Common.Icons.Toggle);
         filters.LocalPressed += (_, _) => ToggleMenu(_filtersMenu);
         ui.NestOut();
 
@@ -1613,9 +1617,18 @@ internal sealed class DiscoverUi
     private Text _detailDescription = null!;
     private Text _detailTags = null!;
     private Text _detailSessions = null!;
-    private readonly List<(Slot Row, Text Label, Button Join, Text People)> _detailSessionRows = [];
+    private readonly List<(Button Button, Text Label)> _detailSessionRows = [];
+    private IReadOnlyList<DetailSession> _detailSessionData = [];
+    private int _detailSelected;
+    private DetailModel? _detailModel;
+    private HorizontalLayout _detailSessionArea = null!;
+    private Slot _detailSessionInfoFrame = null!;
+    private Button _detailNewSession = null!;
+    private Text _detailUptime = null!;
+    private Text _detailVisibility = null!;
+    private Text _detailUsersLine = null!;
+    private Text _detailPeople = null!;
     private static readonly string ContactColorHex = "#" + RadiantUI_Constants.Hero.GREEN.ToHexString(false).TrimStart('#');
-    private readonly string?[] _detailSessionIds = new string?[DetailBuilder.MaxSessionRows];
     private Text _detailDevices = null!;
     private Text _detailDates = null!;
     private Button _detailAction = null!;
@@ -1646,7 +1659,7 @@ internal sealed class DiscoverUi
         var slot = BeginFloating(ui, "Detail", 0.14f, 0.86f, 0.5f, 0.5f, 8f, 18f);
 
         // Top: the world's 360 preview (pans on hover, as on the card) beside its name, byline and description.
-        ui.Style.MinHeight = 180f;
+        ui.Style.MinHeight = 170f;
         var top = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
         top.ForceExpandWidth.Value = false;
         ui.Style.MinWidth = 400f;
@@ -1724,45 +1737,66 @@ internal sealed class DiscoverUi
         var sessionsHeader = ui.Text((LocaleString)UiStrings.Get("detail.sessions"), bestFit: true, alignment: Alignment.BottomLeft);
         Fix(sessionsHeader, TypeScale.Caption);
         sessionsHeader.Color.Value = Theme.TextSecondary;
-        // A row per live session, each with its own Join button.
+        // Sessions, as on the stock tab: the list at the left, and the information for the chosen one at the right.
+        ui.Style.MinHeight = 188f;
+        _detailSessionArea = ui.HorizontalLayout(12f, 0f, Alignment.TopLeft);
+        _detailSessionArea.ForceExpandWidth.Value = false;
+        ui.Style.MinWidth = 270f;
+        ui.Style.FlexibleWidth = -1f;
+        var list = ui.VerticalLayout(5f, 0f, Alignment.TopCenter);
+        list.ForceExpandHeight.Value = false;
         ui.Style.MinHeight = 40f;
         for (var i = 0; i < DetailBuilder.MaxSessionRows; i++)
         {
-            // Each live session is its own framed card: Join at the left, then who is hosting, how many are in and how old.
-            ui.Style.MinHeight = 62f;
-            var frame = ui.Panel(Theme.Card, _rounded, NineSliceSizing.FixedSize);
-            var sessionRow = ui.HorizontalLayout(12f, 8f, Alignment.MiddleLeft);
-            sessionRow.ForceExpandWidth.Value = false;
-            ui.Style.MinWidth = 110f;
-            ui.Style.FlexibleWidth = -1f;
-            var join = ui.Button((LocaleString)UiStrings.Get("card.join"), Theme.ButtonSelected);
-            Fix(join.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
-            ui.Style.MinWidth = 0f;
-            ui.Style.FlexibleWidth = 1f;
-            var details = ui.VerticalLayout(0f, 0f, Alignment.MiddleLeft);
-            details.ForceExpandHeight.Value = false;
-            ui.Style.MinHeight = 28f;
-            var text = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-            Fix(text, TypeScale.Body);
-            ui.Style.MinHeight = 24f;
-            var people = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-            Fix(people, TypeScale.Caption);
-            ui.NestOut(); // the details
-            ui.Style.FlexibleWidth = -1f;
-            var index = i;
-            join.LocalPressed += (_, _) =>
+            var pick = ui.Button((LocaleString)"");
+            var pickLabel = pick.Slot.GetComponentInChildren<Text>();
+            Fix(pickLabel, TypeScale.Body);
+            pickLabel.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (pickLabel.Slot.GetComponent<RectTransform>() is { } pickRect)
             {
-                if (_detailKey is { } key && _detailSessionIds[index] is { } id)
-                {
-                    CloseMenus();
-                    _actions.JoinSession(key, id);
-                }
-            };
-            ui.NestOut(); // the row layout
-            ui.NestOut(); // the frame
-            frame.Slot.ActiveSelf = false;
-            _detailSessionRows.Add((frame.Slot, text, join, people));
+                pickRect.OffsetMin.Value = new float2(14f, 0f);
+            }
+
+            var index = i;
+            pick.LocalPressed += (_, _) => SelectDetailSession(index);
+            pick.Slot.ActiveSelf = false;
+            _detailSessionRows.Add((pick, pickLabel));
         }
+
+        _detailNewSession = ui.Button((LocaleString)UiStrings.Get("detail.newSession"), Theme.ButtonQuiet);
+        Fix(_detailNewSession.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _detailNewSession.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key)
+            {
+                CloseMenus();
+                _actions.StartNewSession(key);
+            }
+        };
+        ui.NestOut(); // the list
+
+        ui.Style.MinWidth = 0f;
+        ui.Style.FlexibleWidth = 1f;
+        var infoFrame = ui.Panel(Theme.Card, _rounded, NineSliceSizing.FixedSize);
+        var infoLayout = ui.VerticalLayout(4f, 12f, Alignment.TopLeft);
+        infoLayout.ForceExpandHeight.Value = false;
+        ui.Style.FlexibleWidth = -1f;
+        ui.Style.MinHeight = 28f;
+        _detailUptime = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(_detailUptime, TypeScale.Body);
+        _detailVisibility = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(_detailVisibility, TypeScale.Body);
+        _detailUsersLine = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(_detailUsersLine, TypeScale.Body);
+
+        // Who is in: contacts first and in green, at the same size as the rest.
+        ui.Style.MinHeight = 76f;
+        _detailPeople = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
+        Fix(_detailPeople, TypeScale.Body);
+        ui.NestOut(); // the info layout
+        ui.NestOut(); // the info frame
+        ui.NestOut(); // the session area
+        _detailSessionInfoFrame = infoFrame.Slot;
 
         ui.Style.MinHeight = 40f;
         _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
@@ -1776,9 +1810,20 @@ internal sealed class DiscoverUi
         Fix(_detailActionLabel, TypeScale.Label);
         _detailAction.LocalPressed += (_, _) =>
         {
-            if (_detailKey is { } key)
+            if (_detailKey is not { } key)
             {
-                CloseMenus();
+                return;
+            }
+
+            CloseMenus();
+
+            // With live sessions the main button joins the one chosen in the list.
+            if (_detailModel is { Action: CardAction.Join } && _detailSessionData.Count > 0 && _detailSelected < _detailSessionData.Count)
+            {
+                _actions.JoinSession(key, _detailSessionData[_detailSelected].SessionId);
+            }
+            else
+            {
                 _actions.CardPressed(key);
             }
         };
@@ -1904,6 +1949,46 @@ internal sealed class DiscoverUi
         _detailThumbnailUri = uri;
     }
 
+    private void SelectDetailSession(int index)
+    {
+        if (index < _detailSessionData.Count)
+        {
+            _detailSelected = index;
+            RenderDetailSession();
+        }
+    }
+
+    /// <summary>Marks the chosen session in the list, shows its information, and points the main button at it.</summary>
+    private void RenderDetailSession()
+    {
+        for (var r = 0; r < _detailSessionRows.Count; r++)
+        {
+            SetColor(_detailSessionRows[r].Button, r == _detailSelected ? Theme.ButtonSelected : Theme.Button);
+        }
+
+        if (_detailSelected >= _detailSessionData.Count)
+        {
+            return;
+        }
+
+        var session = _detailSessionData[_detailSelected];
+        _detailUptime.Content.Value = "<nobr>" + Plain(session.Uptime) + "</nobr>";
+        _detailVisibility.Content.Value = "<nobr>" + Plain(session.Visibility) + "</nobr>";
+        _detailUsersLine.Content.Value = "<nobr>" + Plain(session.UsersLine) + "</nobr>";
+        var names = session.Users.Take(24).Select(u => u.IsContact
+            ? $"<color={ContactColorHex}>{Plain(CardText.Ellipsize(u.Name, 20))}</color>"
+            : Plain(CardText.Ellipsize(u.Name, 20)));
+        _detailPeople.Content.Value = string.Join(", ", names);
+
+        // A joinable session is joined by the main button; a full one says so.
+        if (_detailModel is { Action: CardAction.Join })
+        {
+            _detailActionLabel.Content.Value = UiStrings.Get(session.CanJoin ? "card.join" : "card.full");
+            _detailAction.Enabled = session.CanJoin;
+            _detailAction.ColorDrivers[0].SetColors(session.CanJoin ? Theme.ButtonSelected : Theme.ButtonQuiet);
+        }
+    }
+
     public void ShowDetails(DetailModel model)
     {
         CloseMenus();
@@ -1923,28 +2008,23 @@ internal sealed class DiscoverUi
         _detailTagsHeader.Slot.ActiveSelf = tagList.Count > 0;
         _detailTagGrid.ActiveSelf = tagList.Count > 0;
         SetDetailThumbnail(model.ThumbnailUrl);
-        var sessionRows = model.SessionRows ?? [];
+        _detailModel = model;
+        _detailSessionData = model.SessionRows ?? [];
+        _detailSelected = 0;
+        _detailSessionArea.Slot.ActiveSelf = _detailSessionData.Count > 0;
+        _detailNewSession.Slot.ActiveSelf = model.CanStartNew && _detailSessionData.Count > 0;
         for (var r = 0; r < _detailSessionRows.Count; r++)
         {
-            var show = r < sessionRows.Count;
-            _detailSessionIds[r] = show ? sessionRows[r].SessionId : null;
-            _detailSessionRows[r].Row.ActiveSelf = show;
+            var show = r < _detailSessionData.Count;
+            _detailSessionRows[r].Button.Slot.ActiveSelf = show;
             if (show)
             {
-                _detailSessionRows[r].Label.Content.Value = "<nobr>" + Plain(sessionRows[r].Text) + "</nobr>";
-                _detailSessionRows[r].Join.Enabled = sessionRows[r].CanJoin;
-                SetColor(_detailSessionRows[r].Join, sessionRows[r].CanJoin ? Theme.ButtonSelected : Theme.ButtonQuiet);
-                _detailSessionRows[r].Join.Slot.GetComponentInChildren<Text>().Content.Value = UiStrings.Get(sessionRows[r].CanJoin ? "card.join" : "card.full");
-
-                // Who is in, contacts first and in green (as on the stock tab); names are shown as plain text.
-                var names = (sessionRows[r].Users ?? []).Take(14).Select(u => u.IsContact
-                    ? $"<color={ContactColorHex}>{Plain(CardText.Ellipsize(u.Name, 18))}</color>"
-                    : Plain(CardText.Ellipsize(u.Name, 18)));
-                _detailSessionRows[r].People.Content.Value = "<nobr>" + string.Join(", ", names) + "</nobr>";
+                _detailSessionRows[r].Label.Content.Value = "<nobr>" + Plain(_detailSessionData[r].ListText) + "</nobr>";
             }
         }
 
-        _detailSessions.Slot.ActiveSelf = sessionRows.Count == 0;
+        _detailSessions.Slot.ActiveSelf = _detailSessionData.Count == 0;
+        RenderDetailSession();
         _detailSessions.Content.Value = Plain(model.Sessions);
         _detailDevices.Content.Value = Plain(model.Devices);
         _detailDates.Content.Value = "<nobr>" + Plain(model.Dates) + "</nobr>";
@@ -1969,6 +2049,7 @@ internal sealed class DiscoverUi
         var enabled = model.Action is CardAction.Join or CardAction.GoThere or CardAction.NewSession;
         _detailAction.Enabled = enabled;
         _detailAction.ColorDrivers[0].SetColors(enabled ? Theme.ButtonSelected : Theme.ButtonQuiet);
+        RenderDetailSession();
         _detailScrim.ActiveSelf = true;
         _detailPanel.ActiveSelf = true;
         AnimateOpen(_detailPanel, ModalRise);

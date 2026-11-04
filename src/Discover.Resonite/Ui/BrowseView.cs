@@ -109,6 +109,7 @@ internal interface IBrowseActions
     void MoreByAuthor(string key);
     void HideOptions(string key);
     void JoinSession(string key, string sessionId);
+    void StartNewSession(string key);
     void SavePresetPrompt();
     void ApplyPreset(int index);
     void DeletePreset(int index);
