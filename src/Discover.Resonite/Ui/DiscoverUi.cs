@@ -421,22 +421,9 @@ internal sealed class DiscoverUi
         ui.NestInto(chipBar);
         chipBar.AddFixedPadding(6f);
 
-        // The chips sit in a sideways-scrolling strip, so a long row is reached by dragging instead of being cut off.
-        var viewport = ui.Next("ChipViewport");
-        ScrollRect.CreateScrollRect(viewport, out var strip);
-        var stripRect = strip.GetComponent<RectTransform>();
-        stripRect.AnchorMin.Value = new float2(0f, 0f);
-        stripRect.AnchorMax.Value = new float2(0f, 1f);
-        stripRect.Pivot.Value = new float2(0f, 0.5f);
-        var row = strip.AttachComponent<HorizontalLayout>();
-        row.Spacing.Value = 8f;
-        row.ChildAlignment = Alignment.MiddleLeft;
+        _chipBarRect = chipBar;
+        var row = ui.HorizontalLayout(8f, 4f, Alignment.MiddleLeft);
         row.ForceExpandWidth.Value = false;
-        row.ForceExpandHeight.Value = false;
-        var stripFit = strip.AttachComponent<ContentSizeFitter>();
-        stripFit.HorizontalFit.Value = SizeFit.PreferredSize;
-        stripFit.VerticalFit.Value = SizeFit.Disabled;
-        ui.NestInto(stripRect);
         ui.Style.MinHeight = 40f;
         ui.Style.MinWidth = 96f;
         for (var i = 0; i < MaxChips; i++)
@@ -454,9 +441,11 @@ internal sealed class DiscoverUi
         _clearChips.Slot.ActiveSelf = false;
         _clearChips.LocalPressed += (_, _) => _actions.ClearChips();
         ui.Style.MinWidth = 0f;
-        ui.NestOut(); // the strip
+        ui.NestOut(); // the row
         ui.NestOut(); // the chip bar
     }
+
+    private RectTransform _chipBarRect = null!;
 
     private string?[] _chipTags = new string?[MaxChips];
 
@@ -2675,37 +2664,54 @@ internal sealed class DiscoverUi
         _next.Slot.ActiveSelf = view.HasNext;
     }
 
+    /// <summary>
+    /// Shows the chips in use first (the controller orders them), then as many of the rest as fit the bar's width, so
+    /// the row is never cut off. Chip widths are the ones set below (text length based); the bar's width comes from its
+    /// computed rect.
+    /// </summary>
     private void RenderChips(IReadOnlyList<ChipView> chips)
     {
+        var barWidth = RectField?.GetValue(_chipBarRect) is Rect bar && bar.size.x > 200f ? bar.size.x : 1000f;
+        var anyActive = chips.Any(c => c.State is not null);
+        var room = barWidth - 24f - (anyActive ? 130f : 0f); // padding, and the Clear button when it shows
+        var used = 0f;
         for (var i = 0; i < MaxChips; i++)
         {
             var (button, label) = _chips[i];
+            var fits = false;
             if (i < chips.Count)
             {
                 var chip = chips[i];
-                _chipTags[i] = chip.Tag;
                 var mark = chip.State switch { ChipState.Required => "+ ", ChipState.Excluded => "− ", _ => "" };
-                label.Content.Value = mark + chip.Label;
-                if (button.Slot.GetComponent<LayoutElement>() is { } chipLayout)
+                var width = Math.Clamp((mark.Length + chip.Label.Length) * 11f + 34f, 96f, 240f);
+                fits = chip.State is not null || used + width + 8f <= room;
+                if (fits)
                 {
-                    // Wide enough for its text, so a long tag ("Educational") is not squeezed into a smaller font.
-                    chipLayout.MinWidth.Value = Math.Clamp((mark.Length + chip.Label.Length) * 11f + 34f, 96f, 240f);
-                }
+                    used += width + 8f;
+                    _chipTags[i] = chip.Tag;
+                    label.Content.Value = mark + chip.Label;
+                    if (button.Slot.GetComponent<LayoutElement>() is { } chipLayout)
+                    {
+                        // Wide enough for its text, so a long tag ("Educational") is not squeezed into a smaller font.
+                        chipLayout.MinWidth.Value = width;
+                    }
 
-                SetColor(button, chip.State == ChipState.Excluded ? Theme.ChipExcluded
-                    : chip.Personal ? Theme.ChipPersonal
-                    : chip.State == ChipState.Required ? Theme.ChipRequired
-                    : Theme.Button);
-                button.Slot.ActiveSelf = true;
+                    SetColor(button, chip.State == ChipState.Excluded ? Theme.ChipExcluded
+                        : chip.Personal ? Theme.ChipPersonal
+                        : chip.State == ChipState.Required ? Theme.ChipRequired
+                        : Theme.Button);
+                }
             }
-            else
+
+            if (!fits)
             {
                 _chipTags[i] = null;
-                button.Slot.ActiveSelf = false;
             }
+
+            button.Slot.ActiveSelf = fits;
         }
 
-        _clearChips.Slot.ActiveSelf = chips.Any(c => c.State is not null);
+        _clearChips.Slot.ActiveSelf = anyActive;
     }
 
     private void RenderSortMenu(BrowseView view)

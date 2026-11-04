@@ -43,8 +43,8 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
     empty-state lines, tag chips, suggestions, Add); the tag box text is left-aligned and readable; tag and suggestion
     chips fit their text; the name prompt is sized to its content and slides in. The search box text is a size up.
 
-12. **Chip bar** is a sideways-scrolling strip: on Browse (many recommended tags) the row should not be cut off; grab it
-    with the laser and drag sideways (or scroll) to reach the rest. Chips still click, and Clear shows after the last chip.
-    If dragging does not move it, tell me: the fallback is to show fewer chips.
+12. **Chip bar** shows the chips you have set first (required, then excluded), then the recommended tags, and only as
+    many as fit the width, so the row is never cut off (the sideways-scrolling strip was dropped). Check on Browse
+    with a few chips set, and after resizing nothing is clipped at the right edge; Clear all sits after the last chip.
 13. **Pager.** The footer shows the status text and two square arrow buttons (‹ and ›) at the right; the right arrow is
     the cyan one. Both still page; ‹ is greyed on page 1.
