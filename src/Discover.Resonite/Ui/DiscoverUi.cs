@@ -365,6 +365,11 @@ internal sealed class DiscoverUi
 
         ui.NestInto(parts[0]);
         _search = PromptField(ui, "search.placeholder");
+        if (_search.Slot.GetComponentInChildren<Text>() is { } searchText)
+        {
+            Fix(searchText, TypeScale.Label);
+        }
+
         _search.Editor.Target.LocalEditingChanged += _ =>
         {
             var text = _search.TargetString ?? "";
@@ -1264,7 +1269,7 @@ internal sealed class DiscoverUi
     {
         _organizeScrim = Catcher(ui, "OrganizeScrim", Theme.ConfirmScrim, CloseMenus);
 
-        var slot = BeginFloating(ui, "Organize", 0.22f, 0.78f, 0.5f, 0.5f, 8f, 22f);
+        var slot = BeginFloating(ui, "Organize", 0.18f, 0.82f, 0.5f, 0.5f, 8f, 22f);
 
         ui.Style.MinHeight = 50f;
         _organizeTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
@@ -1273,7 +1278,7 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 32f;
         var lists = ui.Text((LocaleString)UiStrings.Get("organize.lists").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(lists, TypeScale.Caption);
+        Fix(lists, TypeScale.Body);
         lists.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1299,12 +1304,12 @@ internal sealed class DiscoverUi
         }
 
         var newList = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
-        Fix(newList.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        Fix(newList.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         newList.LocalPressed += (_, _) => _actions.OrganizeNewList();
 
         ui.Style.MinHeight = 32f;
         var tags = ui.Text((LocaleString)UiStrings.Get("organize.tags").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(tags, TypeScale.Caption);
+        Fix(tags, TypeScale.Body);
         tags.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 38f;
@@ -1320,7 +1325,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.ChipPersonal);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Fix(label, TypeScale.Caption);
+            Fix(label, TypeScale.Body);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1345,13 +1350,14 @@ internal sealed class DiscoverUi
         ui.Style.FlexibleWidth = -1f;
         ui.Style.MinWidth = 96f;
         var add = ui.Button((LocaleString)UiStrings.Get("organize.add"), Theme.ButtonSelected);
+        Fix(add.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         add.LocalPressed += (_, _) => SubmitTag();
         ui.Style.MinWidth = 0f;
         ui.NestOut();
 
         ui.Style.MinHeight = 32f;
         var suggested = ui.Text((LocaleString)UiStrings.Get("organize.suggested").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(suggested, TypeScale.Caption);
+        Fix(suggested, TypeScale.Body);
         suggested.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1362,7 +1368,7 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.Button);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Fix(label, TypeScale.Caption);
+            Fix(label, TypeScale.Body);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1416,6 +1422,10 @@ internal sealed class DiscoverUi
             if (show)
             {
                 label.Content.Value = "<nobr>+ " + Plain(CardText.Ellipsize(found[i], 12)) + "</nobr>";
+                if (button.Slot.GetComponent<LayoutElement>() is { } suggestLayout)
+                {
+                    suggestLayout.MinWidth.Value = Math.Clamp(Math.Min(found[i].Length, 12) * 11f + 54f, 96f, 220f);
+                }
             }
         }
     }
@@ -1484,6 +1494,16 @@ internal sealed class DiscoverUi
     private static TextField PromptField(UIBuilder ui, string promptId)
     {
         var field = ui.TextField(null!, undo: false, parseRTF: false, promptText: (LocaleString)("<alpha=#70>" + UiStrings.Get(promptId)));
+        if (field.Slot.GetComponentInChildren<Text>() is { } fieldText)
+        {
+            Fix(fieldText, TypeScale.Body);
+            fieldText.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (fieldText.Slot.GetComponent<RectTransform>() is { } fieldRect)
+            {
+                fieldRect.OffsetMin.Value = new float2(14f, 0f);
+            }
+        }
+
         field.Editor.Target.LocalEditingFinished += _ =>
         {
             if (string.IsNullOrEmpty(field.TargetString))
@@ -1524,6 +1544,10 @@ internal sealed class DiscoverUi
             if (show)
             {
                 label.Content.Value = "<nobr>× " + Plain(CardText.Ellipsize(model.Tags[i], 12)) + "</nobr>";
+                if (button.Slot.GetComponent<LayoutElement>() is { } chipLayout)
+                {
+                    chipLayout.MinWidth.Value = Math.Clamp(Math.Min(model.Tags[i].Length, 12) * 11f + 54f, 96f, 220f);
+                }
             }
         }
 
@@ -2366,14 +2390,7 @@ internal sealed class DiscoverUi
     {
         _promptScrim = Catcher(ui, "PromptScrim", Theme.ConfirmScrim, ClosePrompt);
 
-        var slot = ui.Empty("Prompt");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.28f, 0.34f);
-        rect.AnchorMax.Value = new float2(0.72f, 0.66f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(12f, 22f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "Prompt", 0.28f, 0.72f, 0.5f, 0.5f, 12f, 22f);
 
         ui.Style.MinHeight = 52f;
         _promptTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
@@ -2386,15 +2403,15 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 52f;
         var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
-        var ok = ui.Button((LocaleString)UiStrings.Get("prompt.ok"), Theme.ButtonSelected);
-        ok.LocalPressed += (_, _) => SubmitPrompt();
         var cancel = ui.Button((LocaleString)UiStrings.Get("prompt.cancel"), Theme.ButtonQuiet);
+        Fix(cancel.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         cancel.LocalPressed += (_, _) => ClosePrompt();
+        var ok = ui.Button((LocaleString)UiStrings.Get("prompt.ok"), Theme.ButtonSelected);
+        Fix(ok.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+        ok.LocalPressed += (_, _) => SubmitPrompt();
         ui.NestOut();
 
-        ui.NestOut();
-        ui.NestOut();
-        ui.NestOut();
+        ui.NestOut(); // the panel
         slot.ActiveSelf = false;
         _promptPanel = slot;
     }
@@ -2408,6 +2425,7 @@ internal sealed class DiscoverUi
         _promptAction = onOk;
         _promptScrim.ActiveSelf = true;
         _promptPanel.ActiveSelf = true;
+        AnimateOpen(_promptPanel, ModalRise);
     }
 
     private void SubmitPrompt()
