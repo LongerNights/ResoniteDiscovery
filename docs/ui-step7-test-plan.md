@@ -42,3 +42,9 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
 11. **Organize and name prompts** (Lists on a card; New list, Rename, Hide a word): text is larger (headings,
     empty-state lines, tag chips, suggestions, Add); the tag box text is left-aligned and readable; tag and suggestion
     chips fit their text; the name prompt is sized to its content and slides in. The search box text is a size up.
+
+12. **Chip bar** is a sideways-scrolling strip: on Browse (many recommended tags) the row should not be cut off; grab it
+    with the laser and drag sideways (or scroll) to reach the rest. Chips still click, and Clear shows after the last chip.
+    If dragging does not move it, tell me: the fallback is to show fewer chips.
+13. **Pager.** The footer shows the status text and two square arrow buttons (‹ and ›) at the right; the right arrow is
+    the cyan one. Both still page; ‹ is greyed on page 1.
