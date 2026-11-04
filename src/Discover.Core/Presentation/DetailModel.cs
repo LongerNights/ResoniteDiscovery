@@ -12,14 +12,26 @@ public sealed record DetailModel(
     string Sessions,
     string Devices,
     CardAction Action,
-    bool CanSave);
+    bool CanSave,
+    bool CanCopyLink,
+    LeaveKind Leave = LeaveKind.None,
+    bool CanMoreByAuthor = false,
+    bool IsFavorite = false);
+
+/// <summary>What the detail panel's leave button does: nothing, leave a world you joined, or end one you host.</summary>
+public enum LeaveKind
+{
+    None,
+    Leave,
+    End,
+}
 
 public static class DetailBuilder
 {
     public const int MaxSessions = 4;
     public const int MaxTags = 16;
 
-    public static DetailModel Build(DiscoveryEntry entry, CardModel card, DateTime nowUtc)
+    public static DetailModel Build(DiscoveryEntry entry, CardModel card, DateTime nowUtc, OpenWorldSnapshot? openWorld = null)
     {
         var record = entry.Record;
         var by = new List<string>(3);
@@ -66,6 +78,10 @@ public static class DetailBuilder
             sessions,
             devices,
             card.Action,
-            entry.CanSave);
+            entry.CanSave,
+            RecordUrls.For(entry) is not null,
+            openWorld is not { CanLeave: true } ? LeaveKind.None : openWorld.IsHost ? LeaveKind.End : LeaveKind.Leave,
+            !string.IsNullOrEmpty(record?.OwnerId),
+            card.IsFavorite);
     }
 }

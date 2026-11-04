@@ -15,6 +15,7 @@ public enum SortKey
     RecentlyUpdated,
     Name,
     Random,
+    Created,
 }
 
 public static class Sorting
@@ -22,7 +23,7 @@ public static class Sorting
     private static readonly SortKey[] Menu =
     [
         SortKey.LiveUsers, SortKey.FriendsPresent, SortKey.NewestSession, SortKey.DateAdded,
-        SortKey.Visits, SortKey.NewestPublished, SortKey.RecentlyUpdated,
+        SortKey.Visits, SortKey.NewestPublished, SortKey.RecentlyUpdated, SortKey.Created,
         SortKey.Name, SortKey.Random,
     ];
 
@@ -32,17 +33,18 @@ public static class Sorting
     public static bool IsSupported(LensKind lens, SortKey key) => LensEngine.SourceOf(lens) switch
     {
         LensSource.Sessions => key is SortKey.LiveUsers or SortKey.FriendsPresent or SortKey.NewestSession or SortKey.Name or SortKey.Random,
-        LensSource.Search => key is SortKey.Visits or SortKey.NewestPublished or SortKey.RecentlyUpdated or SortKey.Name or SortKey.Random,
+        LensSource.Search => key is SortKey.Visits or SortKey.NewestPublished or SortKey.RecentlyUpdated or SortKey.Created or SortKey.Name or SortKey.Random,
         LensSource.Local => key is SortKey.DateAdded or SortKey.Name,
-        _ => false,
+        _ => false, // open worlds keep their own order: focused first, then last focused
     };
 
     /// <summary>The lens's own order, as the spec's lens table defines it.</summary>
     public static SortKey Default(LensKind lens) => lens switch
     {
         LensKind.Friends => SortKey.FriendsPresent,
+        LensKind.CurrentWorlds => SortKey.LiveUsers,
         LensKind.New => SortKey.NewestPublished,
-        LensKind.MostVisited => SortKey.Visits,
+        LensKind.Browse => SortKey.Visits,
         LensKind.Featured => SortKey.RecentlyUpdated,
         LensKind.Random => SortKey.Random,
         LensKind.MyWorlds or LensKind.GroupWorlds => SortKey.RecentlyUpdated,
@@ -58,6 +60,7 @@ public static class Sorting
         SortKey.Visits => RecordSort.TotalVisits,
         SortKey.NewestPublished => RecordSort.FirstPublishTime,
         SortKey.RecentlyUpdated => RecordSort.LastUpdateDate,
+        SortKey.Created => RecordSort.CreationDate,
         SortKey.Name => RecordSort.Name,
         SortKey.Random => RecordSort.Random,
         _ => null,
@@ -131,18 +134,38 @@ public sealed record BrowseFilters
     public HostFilter Host { get; init; } = HostFilter.Any;
     public int MinVisits { get; init; }
 
+    /// <summary>Search lenses: only worlds the server marks featured (stock "Featured only").</summary>
+    public bool FeaturedOnly { get; init; }
+
+    /// <summary>Session lenses: only sessions that have been running at least this long (stock "Minimum uptime"); 0 is any.</summary>
+    public int MinUptimeMinutes { get; init; }
+
+    /// <summary>Live Now: also list sessions with nobody in them, such as idle headless hosts (stock Headless Sessions).</summary>
+    public bool IncludeEmpty { get; init; }
+
     public static BrowseFilters None { get; } = new();
 
     /// <summary>How many filters are set for this kind of lens (the badge on the Filters button).</summary>
     public int ActiveCount(LensSource source) => source switch
     {
-        LensSource.Search => MinVisits > 0 ? 1 : 0,
-        LensSource.Local => 0, // saved worlds are filtered by search and chips only
-        _ => (MinUsers > 0 ? 1 : 0) + (HasRoom ? 1 : 0) + (MobileFriendly ? 1 : 0) + (HasVr ? 1 : 0) + (Host != HostFilter.Any ? 1 : 0),
+        LensSource.Search => (MinVisits > 0 ? 1 : 0) + (FeaturedOnly ? 1 : 0),
+        LensSource.Local or LensSource.OpenWorlds => 0, // saved and open worlds are filtered by search and chips only
+        _ => (MinUsers > 0 ? 1 : 0) + (HasRoom ? 1 : 0) + (MobileFriendly ? 1 : 0) + (HasVr ? 1 : 0) + (Host != HostFilter.Any ? 1 : 0)
+            + (MinUptimeMinutes > 0 ? 1 : 0) + (IncludeEmpty ? 1 : 0),
     };
 
-    public bool MatchesLive(DiscoveryEntry entry)
+    public bool MatchesLive(DiscoveryEntry entry) => MatchesLive(entry, DateTime.UtcNow);
+
+    public bool MatchesLive(DiscoveryEntry entry, DateTime now)
     {
+        if (MinUptimeMinutes > 0)
+        {
+            if (!entry.Sessions.Any(s => now - s.SessionBeginTime >= TimeSpan.FromMinutes(MinUptimeMinutes)))
+            {
+                return false;
+            }
+        }
+
         if (MinUsers > 0 && entry.Sessions.Sum(s => s.ActiveUsers) < MinUsers)
         {
             return false;

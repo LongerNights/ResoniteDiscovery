@@ -11,19 +11,21 @@ public class LensCatalogTests
     [Fact]
     public void EverythingIsOnByDefault()
     {
-        Assert.All(LensCatalog.Sections.SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
-        Assert.Equal(LensKind.LiveNow, LensCatalog.FirstVisible(Defaults));
+        // Insights (history lenses) are off until switched on.
+        Assert.All(LensCatalog.Sections.Where(s => s != RailSectionId.Insights).SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
+        Assert.All(LensCatalog.LensesOf(RailSectionId.Insights), l => Assert.False(Defaults.IsVisible(l)));
+        Assert.Equal(LensKind.CurrentWorlds, LensCatalog.FirstVisible(Defaults));
     }
 
     [Fact]
     public void HidingASectionTakesItsLensesButRemembersTheirOwnSwitches()
     {
         var withoutLiveNow = LensCatalog.ToggleLens(Defaults, LensKind.LiveNow);
-        var browseOff = LensCatalog.ToggleSection(withoutLiveNow, RailSectionId.Browse);
+        var browseOff = LensCatalog.ToggleSection(withoutLiveNow, RailSectionId.Discover);
 
-        Assert.All(LensCatalog.LensesOf(RailSectionId.Browse), l => Assert.False(browseOff.IsVisible(l)));
+        Assert.All(LensCatalog.LensesOf(RailSectionId.Discover), l => Assert.False(browseOff.IsVisible(l)));
 
-        var browseOn = LensCatalog.ToggleSection(browseOff, RailSectionId.Browse);
+        var browseOn = LensCatalog.ToggleSection(browseOff, RailSectionId.Discover);
         Assert.True(browseOn.IsVisible(LensKind.New));
         Assert.False(browseOn.IsVisible(LensKind.LiveNow)); // its own switch was kept
     }
@@ -33,8 +35,8 @@ public class LensCatalogTests
     {
         var hidden = LensCatalog.ToggleLens(Defaults, LensKind.LiveNow);
 
-        Assert.Equal(LensKind.Friends, hidden.DefaultLens);
-        Assert.Equal(LensKind.Friends, LensCatalog.FirstVisible(hidden));
+        Assert.Equal(LensKind.CurrentWorlds, hidden.DefaultLens);
+        Assert.Equal(LensKind.CurrentWorlds, LensCatalog.FirstVisible(hidden));
     }
 
     [Fact]
@@ -48,7 +50,7 @@ public class LensCatalogTests
 
         Assert.Equal([LensKind.Recent], LensCatalog.Openable(settings));
         Assert.Same(settings, LensCatalog.ToggleLens(settings, LensKind.Recent)); // refused: nothing would be left
-        Assert.Same(settings, LensCatalog.ToggleSection(settings, RailSectionId.Mine));
+        Assert.Same(settings, LensCatalog.ToggleSection(settings, RailSectionId.Yours));
     }
 
     [Fact]
@@ -64,11 +66,11 @@ public class LensCatalogTests
     [Fact]
     public void TheRailFollowsTheSettings()
     {
-        var settings = LensCatalog.ToggleLens(LensCatalog.ToggleSection(Defaults, RailSectionId.Browse), LensKind.Recent);
+        var settings = LensCatalog.ToggleLens(LensCatalog.ToggleSection(Defaults, RailSectionId.Discover), LensKind.Recent);
 
         var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: settings);
 
-        Assert.Equal([RailSectionId.Live, RailSectionId.Mine], rail.Select(s => s.Id));
+        Assert.Equal([RailSectionId.Now, RailSectionId.Yours], rail.Select(s => s.Id));
         Assert.DoesNotContain(rail.SelectMany(s => s.Items), i => i.Lens == LensKind.Recent);
     }
 
@@ -78,8 +80,42 @@ public class LensCatalogTests
         var settings = LensCatalog.ToggleLens(Defaults, LensKind.NamedList);
         var lists = new[] { new ListInfo("a", "Games", 1) };
 
-        var mine = RailBuilder.Build(LensKind.Favorites, 0, 0, lists: lists, visibility: settings).Single(s => s.Id == RailSectionId.Mine);
+        var mine = RailBuilder.Build(LensKind.Favorites, 0, 0, lists: lists, visibility: settings).Single(s => s.Id == RailSectionId.Yours);
 
         Assert.DoesNotContain(mine.Items, i => i.Lens == LensKind.NamedList);
+    }
+}
+
+public class OverhaulCatalogTests
+{
+    [Fact]
+    public void DiscoverHoldsBrowseFirstAndNoMostVisited()
+    {
+        Assert.Equal([LensKind.Browse, LensKind.Featured, LensKind.New, LensKind.Random], LensCatalog.LensesOf(RailSectionId.Discover));
+        Assert.DoesNotContain("MostVisited", Enum.GetNames<LensKind>());
+        Assert.Equal(RailSectionId.Discover, LensCatalog.SectionOf(LensKind.Browse));
+    }
+
+    [Fact]
+    public void BrowseSortsByVisitsDescendingByDefault()
+    {
+        Assert.Equal(SortKey.Visits, Sorting.Default(LensKind.Browse));
+        Assert.Equal(Discover.Core.Model.RecordSort.TotalVisits, RecordLenses.Browse().SortBy);
+    }
+
+    [Fact]
+    public void SettingsFilesFromBeforeTheOverhaulStillLoad()
+    {
+        using var dir = new TempDir();
+        File.WriteAllText(Path.Combine(dir.Path, "settings.json"),
+            """{"version":1,"defaultLens":"MostVisited","hiddenSections":["Mine","Live"],"hiddenLenses":["MostVisited","Recent"],"listView":true}""");
+
+        var loaded = new Discover.Core.Persistence.UserLibraryStore(dir.Path).LoadSettings();
+
+        Assert.Equal(LensKind.Browse, loaded.DefaultLens);
+        Assert.Equal([RailSectionId.Yours, RailSectionId.Now], loaded.HiddenSections);
+        Assert.Equal([LensKind.Browse, LensKind.Recent], loaded.HiddenLenses);
+        Assert.True(loaded.ListView);
+        Assert.Equal(6, loaded.BrowseCategories.Count); // new fields take their defaults
     }
 }

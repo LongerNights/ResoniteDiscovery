@@ -1,3 +1,4 @@
+using Discover.Core.History;
 using Discover.Core.Settings;
 
 namespace Discover.Core.Persistence;
@@ -35,6 +36,12 @@ public sealed class UserLibraryStore
             _files.Load(RecentFileName, () => new RecentFile()));
         return library;
     }
+
+    public const string HistoryFileName = "history.json";
+
+    public HistoryLog LoadHistory() => HistoryLog.FromFile(_files.Load(HistoryFileName, () => new HistoryFile()));
+
+    public void SaveHistory(HistoryLog log) => _files.Save(HistoryFileName, log.ToFile());
 
     public DiscoverSettings LoadSettings() => _files.Load(SettingsFileName, () => new DiscoverSettings());
 

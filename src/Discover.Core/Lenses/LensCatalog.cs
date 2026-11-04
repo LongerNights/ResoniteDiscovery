@@ -1,12 +1,21 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Discover.Core.Settings;
 
 namespace Discover.Core.Lenses;
 
+/// <summary>
+/// Rail sections (spec "The rail"). Older settings files used Live, Browse and Mine; <see cref="LegacyNames"/> reads those.
+/// </summary>
+[JsonConverter(typeof(LegacyNames.SectionConverter))]
 public enum RailSectionId
 {
-    Live,
-    Browse,
-    Mine,
+    Now,
+    Discover,
+    Yours,
+
+    /// <summary>Trending, Rising and Hidden Gems, from this client's local history (v1.1). Off until switched on in Settings.</summary>
+    Insights,
 }
 
 /// <summary>
@@ -15,17 +24,18 @@ public enum RailSectionId
 /// </summary>
 public static class LensCatalog
 {
-    public static IReadOnlyList<RailSectionId> Sections { get; } = [RailSectionId.Live, RailSectionId.Browse, RailSectionId.Mine];
+    public static IReadOnlyList<RailSectionId> Sections { get; } = [RailSectionId.Now, RailSectionId.Discover, RailSectionId.Yours, RailSectionId.Insights];
 
     public static IReadOnlyList<LensKind> LensesOf(RailSectionId section) => section switch
     {
-        RailSectionId.Live => [LensKind.LiveNow, LensKind.Friends],
-        RailSectionId.Browse => [LensKind.New, LensKind.MostVisited, LensKind.Featured, LensKind.Random],
+        RailSectionId.Now => [LensKind.CurrentWorlds, LensKind.LiveNow, LensKind.Friends],
+        RailSectionId.Discover => [LensKind.Browse, LensKind.Featured, LensKind.New, LensKind.Random],
+        RailSectionId.Insights => [LensKind.Trending, LensKind.Rising, LensKind.HiddenGems],
         _ => [LensKind.Favorites, LensKind.NamedList, LensKind.Recent, LensKind.MyWorlds, LensKind.GroupWorlds],
     };
 
     public static RailSectionId SectionOf(LensKind lens) =>
-        Sections.FirstOrDefault(s => LensesOf(s).Contains(lens), RailSectionId.Browse);
+        Sections.FirstOrDefault(s => LensesOf(s).Contains(lens), RailSectionId.Discover);
 
     /// <summary>Whether the section's own switch is on (its lenses may still be off one by one).</summary>
     public static bool IsSectionOn(this DiscoverSettings settings, RailSectionId section) =>
@@ -33,7 +43,7 @@ public static class LensCatalog
 
     /// <summary>
     /// On when the lens's switch and its section's switch are on, and "Live lenses only" is not hiding it (search lenses).
-    /// Lenses that are not in the rail (Trending and the other history lenses) follow their section's default, Browse.
+    /// Insights lenses are in their own section, which is off by default.
     /// </summary>
     public static bool IsVisible(this DiscoverSettings settings, LensKind lens) =>
         settings.IsSectionOn(SectionOf(lens))
@@ -84,4 +94,37 @@ public static class LensCatalog
 
     private static DiscoverSettings Guard(DiscoverSettings before, DiscoverSettings after) =>
         Openable(after).Count == 0 ? before : Normalize(after);
+}
+
+/// <summary>
+/// Reads the names settings files used before the Worlds tab overhaul (spec F34): the MostVisited lens is now Browse, and
+/// the Live, Browse and Mine sections are now Now, Discover and Yours. Writing always uses the new names.
+/// </summary>
+public static class LegacyNames
+{
+    internal static string MapLens(string name) => name == "MostVisited" ? nameof(LensKind.Browse) : name;
+
+    internal static string MapSection(string name) => name switch
+    {
+        "Live" => nameof(RailSectionId.Now),
+        "Browse" => nameof(RailSectionId.Discover),
+        "Mine" => nameof(RailSectionId.Yours),
+        _ => name,
+    };
+
+    public sealed class LensConverter : JsonConverter<LensKind>
+    {
+        public override LensKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            Enum.TryParse<LensKind>(MapLens(reader.GetString() ?? ""), ignoreCase: true, out var lens) ? lens : LensKind.LiveNow;
+
+        public override void Write(Utf8JsonWriter writer, LensKind value, JsonSerializerOptions options) => writer.WriteStringValue(value.ToString());
+    }
+
+    public sealed class SectionConverter : JsonConverter<RailSectionId>
+    {
+        public override RailSectionId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            Enum.TryParse<RailSectionId>(MapSection(reader.GetString() ?? ""), ignoreCase: true, out var section) ? section : RailSectionId.Discover;
+
+        public override void Write(Utf8JsonWriter writer, RailSectionId value, JsonSerializerOptions options) => writer.WriteStringValue(value.ToString());
+    }
 }

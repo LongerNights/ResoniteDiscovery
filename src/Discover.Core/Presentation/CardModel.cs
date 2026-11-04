@@ -27,6 +27,12 @@ public enum CardAction
 
 public enum BadgeKind
 {
+    /// <summary>"You are here": the focused open world.</summary>
+    Here,
+
+    /// <summary>Host or guest, and the access level, on Current Worlds cards.</summary>
+    Info,
+
     Friends,
     Mobile,
     Full,
@@ -129,6 +135,30 @@ public static class CardBuilder
             isFavorite);
     }
 
+    /// <summary>
+    /// A Current Worlds card: the normal card for the world's entry (its one session is the open one, so the action is Go
+    /// there), with "You are here" for the focused world and the user's role and the access level as badges.
+    /// </summary>
+    public static CardModel BuildOpenWorld(OpenWorldItem item, DateTime nowUtc, bool isFavorite = false)
+    {
+        var card = Build(item.Entry, item.Entry.Sessions[0], nowUtc, isFavorite);
+        var badges = new List<Badge>(card.Badges.Count + 3);
+        if (item.World.IsFocused)
+        {
+            badges.Add(new Badge(UiStrings.Get("card.here"), BadgeKind.Here));
+        }
+
+        badges.Add(new Badge(UiStrings.Get(item.World.IsHost ? "card.host" : "card.guest"), BadgeKind.Info));
+        badges.Add(new Badge(UiStrings.Get("access." + item.World.AccessLevel), BadgeKind.Info));
+        badges.AddRange(card.Badges);
+        return card with
+        {
+            Users = item.World.MaxUsers > 0 || item.World.Users > 0 ? CardText.Users(item.World.Users, item.World.MaxUsers) : null,
+            Badges = badges,
+            IsOpen = !item.World.IsFocused, // the focused world shows "You are here" instead of the Open pill
+        };
+    }
+
     private static string Meta(DiscoveryEntry entry, SessionSnapshot? best, DateTime nowUtc)
     {
         string meta;
@@ -162,7 +192,7 @@ public sealed record RailItem(LensKind Lens, string Label, string? Count, bool S
 /// <summary>A named list as the rail sees it.</summary>
 public sealed record ListInfo(string Id, string Name, int Count);
 
-public sealed record RailSection(string Label, IReadOnlyList<RailItem> Items, RailSectionId Id = RailSectionId.Live);
+public sealed record RailSection(string Label, IReadOnlyList<RailItem> Items, RailSectionId Id = RailSectionId.Now);
 
 /// <summary>One row of the sort menu: enabled only when the lens can honour it (spec F14).</summary>
 public sealed record SortItem(SortKey Key, string Label, string Hint, bool Enabled, bool Selected);
@@ -170,7 +200,7 @@ public sealed record SortItem(SortKey Key, string Label, string Hint, bool Enabl
 public static class RailBuilder
 {
     /// <summary>
-    /// The rail: Live, Browse and Mine (Favorites, each named list, Recent). The "+ New list" button is the UI's.
+    /// The rail: Now, Discover and Yours (Favorites, each named list, Recent). The "+ New list" button is the UI's.
     /// <paramref name="selectedListId"/> picks which list is lit when <paramref name="selected"/> is a named list.
     /// </summary>
     public static IReadOnlyList<RailSection> Build(
@@ -181,27 +211,35 @@ public static class RailBuilder
         IReadOnlyList<ListInfo>? lists = null,
         int recentCount = 0,
         string? selectedListId = null,
-        DiscoverSettings? visibility = null) => Filter(
+        DiscoverSettings? visibility = null,
+        int currentWorldsCount = 0) => Filter(
     [
-        new RailSection(UiStrings.Get("rail.live"), Id: RailSectionId.Live, Items:
+        new RailSection(UiStrings.Get("rail.now"), Id: RailSectionId.Now, Items:
         [
+            new RailItem(LensKind.CurrentWorlds, UiStrings.Get("lens.currentWorlds"), currentWorldsCount > 0 ? currentWorldsCount.ToString() : null, selected == LensKind.CurrentWorlds),
             new RailItem(LensKind.LiveNow, UiStrings.Get("lens.liveNow"), liveNowCount > 0 ? liveNowCount.ToString() : null, selected == LensKind.LiveNow),
             new RailItem(LensKind.Friends, UiStrings.Get("lens.friends"), friendsCount > 0 ? friendsCount.ToString() : null, selected == LensKind.Friends),
         ]),
-        new RailSection(UiStrings.Get("rail.browse"), Id: RailSectionId.Browse, Items:
+        new RailSection(UiStrings.Get("rail.discover"), Id: RailSectionId.Discover, Items:
         [
-            new RailItem(LensKind.New, UiStrings.Get("lens.new"), null, selected == LensKind.New),
-            new RailItem(LensKind.MostVisited, UiStrings.Get("lens.mostVisited"), null, selected == LensKind.MostVisited),
+            new RailItem(LensKind.Browse, UiStrings.Get("lens.browse"), null, selected == LensKind.Browse),
             new RailItem(LensKind.Featured, UiStrings.Get("lens.featured"), null, selected == LensKind.Featured),
+            new RailItem(LensKind.New, UiStrings.Get("lens.new"), null, selected == LensKind.New),
             new RailItem(LensKind.Random, UiStrings.Get("lens.random"), null, selected == LensKind.Random),
         ]),
-        new RailSection(UiStrings.Get("rail.mine"), Id: RailSectionId.Mine, Items:
+        new RailSection(UiStrings.Get("rail.yours"), Id: RailSectionId.Yours, Items:
         [
             new RailItem(LensKind.Favorites, UiStrings.Get("lens.favorites"), favoritesCount > 0 ? favoritesCount.ToString() : null, selected == LensKind.Favorites),
             .. (lists ?? []).Select(l => new RailItem(LensKind.NamedList, l.Name, l.Count > 0 ? l.Count.ToString() : null, selected == LensKind.NamedList && l.Id == selectedListId, l.Id)),
             new RailItem(LensKind.Recent, UiStrings.Get("lens.recent"), recentCount > 0 ? recentCount.ToString() : null, selected == LensKind.Recent),
             new RailItem(LensKind.MyWorlds, UiStrings.Get("lens.myWorlds"), null, selected == LensKind.MyWorlds),
             new RailItem(LensKind.GroupWorlds, UiStrings.Get("lens.groupWorlds"), null, selected == LensKind.GroupWorlds),
+        ]),
+        new RailSection(UiStrings.Get("rail.insights"), Id: RailSectionId.Insights, Items:
+        [
+            new RailItem(LensKind.Trending, UiStrings.Get("lens.trending"), null, selected == LensKind.Trending),
+            new RailItem(LensKind.Rising, UiStrings.Get("lens.rising"), null, selected == LensKind.Rising),
+            new RailItem(LensKind.HiddenGems, UiStrings.Get("lens.hiddenGems"), null, selected == LensKind.HiddenGems),
         ]),
     ], visibility);
 
@@ -216,10 +254,11 @@ public static class RailBuilder
 
     public static string Title(LensKind lens) => lens switch
     {
+        LensKind.CurrentWorlds => UiStrings.Get("lens.currentWorlds"),
         LensKind.LiveNow => UiStrings.Get("lens.liveNow"),
         LensKind.Friends => UiStrings.Get("lens.friends"),
         LensKind.New => UiStrings.Get("lens.new"),
-        LensKind.MostVisited => UiStrings.Get("lens.mostVisited"),
+        LensKind.Browse => UiStrings.Get("lens.browse"),
         LensKind.Featured => UiStrings.Get("lens.featured"),
         LensKind.Random => UiStrings.Get("lens.random"),
         LensKind.Favorites => UiStrings.Get("lens.favorites"),
@@ -227,15 +266,19 @@ public static class RailBuilder
         LensKind.NamedList => UiStrings.Get("lens.list"),
         LensKind.MyWorlds => UiStrings.Get("lens.myWorlds"),
         LensKind.GroupWorlds => UiStrings.Get("lens.groupWorlds"),
+        LensKind.Trending => UiStrings.Get("lens.trending"),
+        LensKind.Rising => UiStrings.Get("lens.rising"),
+        LensKind.HiddenGems => UiStrings.Get("lens.hiddenGems"),
         _ => lens.ToString(),
     };
 
     public static string Subtitle(LensKind lens) => lens switch
     {
+        LensKind.CurrentWorlds => UiStrings.Get("lens.currentWorlds.sub"),
         LensKind.LiveNow => UiStrings.Get("lens.liveNow.sub"),
         LensKind.Friends => UiStrings.Get("lens.friends.sub"),
         LensKind.New => UiStrings.Get("lens.new.sub"),
-        LensKind.MostVisited => UiStrings.Get("lens.mostVisited.sub"),
+        LensKind.Browse => UiStrings.Get("lens.browse.sub"),
         LensKind.Featured => UiStrings.Get("lens.featured.sub"),
         LensKind.Random => UiStrings.Get("lens.random.sub"),
         LensKind.Favorites => UiStrings.Get("lens.favorites.sub"),
@@ -243,6 +286,9 @@ public static class RailBuilder
         LensKind.NamedList => UiStrings.Get("lens.list.sub"),
         LensKind.MyWorlds => UiStrings.Get("lens.myWorlds.sub"),
         LensKind.GroupWorlds => UiStrings.Get("lens.groupWorlds.sub"),
+        LensKind.Trending => UiStrings.Get("lens.trending.sub"),
+        LensKind.Rising => UiStrings.Get("lens.rising.sub"),
+        LensKind.HiddenGems => UiStrings.Get("lens.hiddenGems.sub"),
         _ => "",
     };
 
@@ -262,6 +308,7 @@ public static class RailBuilder
     {
         LensSource.Search => UiStrings.Format("status.worlds", worlds),
         LensSource.Local => UiStrings.Format("status.worldsOnly", worlds),
+        LensSource.OpenWorlds => UiStrings.Format("status.openWorlds", worlds),
         _ => UiStrings.Format("status.summary", worlds, people),
     };
 }

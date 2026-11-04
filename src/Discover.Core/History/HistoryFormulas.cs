@@ -166,6 +166,57 @@ public sealed class HistoryLog
         }
     }
 
+    /// <summary>Copies the log into its file form.</summary>
+    public HistoryFile ToFile() => new()
+    {
+        Live = _live.ToDictionary(p => p.Key, p => p.Value.Select(s => new HistoryRow { Utc = s.Utc, Value = s.LiveUsers }).ToList()),
+        Visits = _visits.ToDictionary(p => p.Key, p => p.Value.Select(s => new HistoryRow { Utc = s.Utc, Value = s.Visits }).ToList()),
+    };
+
+    /// <summary>Rebuilds a log from its file; keys that are not world keys and non-positive counts are dropped.</summary>
+    public static HistoryLog FromFile(HistoryFile file)
+    {
+        var log = new HistoryLog();
+        foreach (var (key, rows) in file.Live)
+        {
+            foreach (var row in rows.OrderBy(r => r.Utc))
+            {
+                log.RecordLive(key, DateTime.SpecifyKind(row.Utc, DateTimeKind.Utc), row.Value);
+            }
+        }
+
+        foreach (var (key, rows) in file.Visits)
+        {
+            foreach (var row in rows.OrderBy(r => r.Utc))
+            {
+                log.RecordVisits(key, DateTime.SpecifyKind(row.Utc, DateTimeKind.Utc), row.Value);
+            }
+        }
+
+        return log;
+    }
+
+    /// <summary>
+    /// Takes one snapshot of what the index holds: the live-user count of each world seen live, and the visit count of
+    /// each world whose record is known (spec "Local history": keys, counts and timestamps only).
+    /// </summary>
+    public void Snapshot(IEnumerable<DiscoveryEntry> entries, DateTime nowUtc)
+    {
+        foreach (var entry in entries)
+        {
+            if (!DiscoveryKeys.IsWorldKey(entry.Key))
+            {
+                continue;
+            }
+
+            RecordLive(entry.Key, nowUtc, entry.LiveUsers);
+            if (entry.Record is { } record)
+            {
+                RecordVisits(entry.Key, nowUtc, record.Visits);
+            }
+        }
+    }
+
     private static List<T> Get<T>(Dictionary<string, List<T>> map, string key)
     {
         if (!map.TryGetValue(key, out var list))

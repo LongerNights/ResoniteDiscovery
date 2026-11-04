@@ -3,8 +3,11 @@ using Discover.Core.Sources;
 
 namespace Discover.Core.Search;
 
-/// <summary>One search term. Tag terms (<c>tag:name</c>) match a tag exactly; plain terms match as a substring.</summary>
-public sealed record SearchTerm(string Text, bool IsTag);
+/// <summary>
+/// One search term. Tag terms (<c>tag:name</c>) match a tag exactly; author terms (<c>author:name</c>) match the world's
+/// owner or host name as a substring; plain terms match as a substring.
+/// </summary>
+public sealed record SearchTerm(string Text, bool IsTag, bool IsAuthor = false);
 
 /// <summary>
 /// The spec's search syntax (F4): plain terms are optional (at least one must match), <c>+term</c> is required,
@@ -17,6 +20,7 @@ public sealed class SearchQuery
     public const int MaxLength = 512;
     public const int MaxTerms = 24;
     private const string TagPrefix = "tag:";
+    private const string AuthorPrefix = "author:";
 
     public static SearchQuery Empty { get; } = new([], [], []);
 
@@ -75,10 +79,16 @@ public sealed class SearchQuery
             }
 
             var isTag = false;
+            var isAuthor = false;
             if (input.AsSpan(pos).StartsWith(TagPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 isTag = true;
                 pos += TagPrefix.Length;
+            }
+            else if (input.AsSpan(pos).StartsWith(AuthorPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                isAuthor = true;
+                pos += AuthorPrefix.Length;
             }
 
             string text;
@@ -103,7 +113,7 @@ public sealed class SearchQuery
             text = text.Trim();
             if (text.Length > 0)
             {
-                target.Add(new SearchTerm(text, isTag));
+                target.Add(new SearchTerm(text, isTag, isAuthor));
             }
         }
 
@@ -160,6 +170,13 @@ public sealed class SearchQuery
 
     private static bool TermMatches(DiscoveryEntry entry, SearchTerm term)
     {
+        if (term.IsAuthor)
+        {
+            // Client-side only (V30 is open: no engine name lookup yet), so it narrows the loaded results by owner or host name.
+            return Contains(entry.Record?.OwnerName, term.Text)
+                || entry.Sessions.Any(s => Contains(s.HostUsername, term.Text));
+        }
+
         if (term.IsTag)
         {
             return AnyTagEquals(entry.Record?.Tags, term.Text)

@@ -114,12 +114,12 @@ public class CardModelTests
     [Fact]
     public void RailMarksTheSelectedLensAndShowsLiveCounts()
     {
-        var rail = RailBuilder.Build(LensKind.MostVisited, 128, 0);
+        var rail = RailBuilder.Build(LensKind.Browse, 128, 0);
 
-        Assert.Equal(["LIVE", "BROWSE", "MINE"], rail.Select(s => s.Label));
-        Assert.Equal("128", rail[0].Items[0].Count);
-        Assert.Null(rail[0].Items[1].Count); // zero friends shows no number
-        Assert.Equal(LensKind.MostVisited, Assert.Single(rail.SelectMany(s => s.Items), i => i.Selected).Lens);
+        Assert.Equal(["NOW", "DISCOVER", "YOURS", "INSIGHTS"], rail.Select(s => s.Label));
+        Assert.Equal("128", rail[0].Items[1].Count); // Current Worlds leads the section
+        Assert.Null(rail[0].Items[2].Count); // zero friends shows no number
+        Assert.Equal(LensKind.Browse, Assert.Single(rail.SelectMany(s => s.Items), i => i.Selected).Lens);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class CardModelTests
         Assert.DoesNotContain(LensKind.New, lenses);
         Assert.DoesNotContain(LensKind.MyWorlds, lenses);
         Assert.Contains(LensKind.Favorites, lenses);
-        Assert.DoesNotContain(rail, s => s.Items.Count == 0 && s.Id == RailSectionId.Browse); // Browse goes with its lenses
+        Assert.DoesNotContain(rail, s => s.Items.Count == 0 && s.Id == RailSectionId.Discover); // Browse goes with its lenses
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class CardModelTests
         Assert.False(live.Single(i => i.Key == SortKey.Visits).Enabled);
         Assert.Equal("Not for this lens", live.Single(i => i.Key == SortKey.Visits).Hint);
 
-        var search = RailBuilder.SortMenu(LensKind.MostVisited, SortKey.Visits);
+        var search = RailBuilder.SortMenu(LensKind.Browse, SortKey.Visits);
         Assert.True(search.Single(i => i.Key == SortKey.Visits).Enabled);
         Assert.False(search.Single(i => i.Key == SortKey.LiveUsers).Enabled);
     }
@@ -202,7 +202,7 @@ public class CardModelTests
             Assert.NotEqual("sort." + key + ".hint", UiStrings.Get("sort." + key + ".hint"));
         }
 
-        foreach (var lens in new[] { LensKind.LiveNow, LensKind.Friends, LensKind.New, LensKind.MostVisited, LensKind.Featured, LensKind.Random })
+        foreach (var lens in new[] { LensKind.LiveNow, LensKind.Friends, LensKind.New, LensKind.Browse, LensKind.Featured, LensKind.Random })
         {
             Assert.NotEmpty(RailBuilder.Title(lens));
             Assert.NotEmpty(RailBuilder.Subtitle(lens));

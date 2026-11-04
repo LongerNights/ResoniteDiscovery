@@ -93,7 +93,7 @@ internal sealed class JoinService
     /// Starts a new session of a published world (spec Integration §4, "Open New Instance"), by its record URI;
     /// equivalent to the stock open path (verification V4, V5).
     /// </summary>
-    public async Task<JoinOutcome> StartNewSessionAsync(RecordSnapshot record)
+    public async Task<JoinOutcome> StartNewSessionAsync(RecordSnapshot record, SkyFrost.Base.SessionAccessLevel? accessLevel = null, bool mobileFriendly = false)
     {
         try
         {
@@ -104,6 +104,8 @@ internal sealed class JoinService
                 GetExisting = false,
                 AutoFocus = true,
                 CreateLoadIndicator = true,
+                MobileFriendly = mobileFriendly ? true : null,
+                DefaultAccessLevel = accessLevel, // null keeps the engine's own default (verification V28)
             };
 
             var world = await Userspace.OpenWorld(settings);
@@ -135,4 +137,49 @@ internal sealed class JoinService
         var message = outcome == JoinOutcome.Failed ? UiStrings.Format(id, "see the log") : UiStrings.Get(id);
         NotificationPanel.ShowNotification(null!, message, null!, RadiantUI_Constants.Neutrals.DARK, NotificationType.ToastOnly);
     }
+
+    /// <summary>Brings an open world to the front, as the stock Worlds tab does for a world already open (V4). Update thread.</summary>
+    public bool Focus(string sessionId)
+    {
+        try
+        {
+            if (Userspace.GetExistingWorld(new WorldStartSettings { SessionID = sessionId }) is not { } world || world.IsDestroyed)
+            {
+                return false;
+            }
+
+            _engine.WorldManager.FocusWorld(world);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Focus failed: {ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Leaves a world you are a guest in, or ends one you host, through the engine's own path (V27:
+    /// <c>Userspace.ExitWorld</c> picks <c>EndSession</c> or <c>LeaveSession</c> by authority and refuses the local home).
+    /// Update thread entry; returns false when the world is gone, refused or threw.
+    /// </summary>
+    public async Task<bool> LeaveAsync(string sessionId)
+    {
+        try
+        {
+            if (Userspace.GetExistingWorld(new WorldStartSettings { SessionID = sessionId }) is not { } world || world.IsDestroyed)
+            {
+                return false;
+            }
+
+            await Userspace.ExitWorld(world);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Leave failed: {ex.GetType().Name}");
+            return false;
+        }
+    }
 }
+

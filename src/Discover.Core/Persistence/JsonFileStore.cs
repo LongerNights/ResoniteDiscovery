@@ -14,7 +14,7 @@ public sealed class JsonFileStore
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new Lenses.LegacyNames.LensConverter(), new Lenses.LegacyNames.SectionConverter(), new JsonStringEnumConverter() },
     };
 
     private readonly Action<string>? _log;
