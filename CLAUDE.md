@@ -38,7 +38,11 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 **Overhaul spec written 2026-11-03** (`docs/spec.md`): next milestones are M5 stock-tab audit
 (V24, V29, V32), M6 takeover, M7 rail and Browse, M8 Current Worlds, M9 parity, M10 v1.1.
-The M0–M4b entries below describe the Galaxy Sieve build the overhaul starts from.
+**M7 core + chip bar built 2026-11-03 (not yet run in game; `docs/m7-test-plan.md`), 361 tests:** Most Visited is now Browse
+(`LensKind.Browse`), sections are Now/Discover/Yours (legacy names still load, F34), `BrowseTags` builds the
+recommended-tags row (categories from `settings.BrowseCategories`, popular-here, personal) shown in the chip bar on Browse.
+**M8 Current Worlds built 2026-11-03** (`docs/m8-test-plan.md`, 368 tests, not yet run in game). **M5 stock audit done 2026-11-03** (V24, V29, V32 closed; the parity table in the spec is filled in; Educational tag fixed). **M6 takeover built 2026-11-03, not yet run in game** (`TabTakeover`, Classic browser, restore on pause/stop; `docs/m6-test-plan.md`). M9 partly built: More by author, Featured only / Include empty / Up for N+ filters, card redesign (stock look). M9 done except server-side `author:` resolution (V30; client-side `author:` works); Created sort, Cards per row setting and New-session access levels built, not yet run in game. M6 confirmed working in game 2026-11-03. M10 first slice built (history.json, Insights section off by default); hide lists built and working in game; saved views (Presets menu) built, not yet run; favorite notifications built, not yet run (M10 complete). The M0–M4b entries below describe the build the
+overhaul starts from.
 
 **Milestone M4b — My Worlds, Group Worlds, detail panel, settings with a customizable rail (F28), export/import: installed 2026-11-02; grid/list toggle and copy-URL deferred** (`docs/m4b-test-plan.md`). 348 tests.
 

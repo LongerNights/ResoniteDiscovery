@@ -13,4 +13,7 @@ Install, restart Resonite, open the Galaxy Sieve tab.
 | 7 | Export, then Import | `exports\galaxy-sieve-export.json` appears under `%APPDATA%\GalaxySieve\<account>\`; Import reports what it added (nothing new when re-importing) |
 | 8 | Change "Start on", restart | The screen opens on that lens |
 
-Not in M4b yet (deferred): grid/list toggle, copy world URL in the detail panel, user names per session. The "paused" banner (F25) was built in M2; the attach failsafe was verified then.
+| 9 | Settings > "Results: Grid" (press to switch to List) | Results become one row per world: thumbnail left, title/host/tags in the middle, Info, Lists, star, and the action button on the right. The choice is saved (`listView` in `settings.json`) |
+| 10 | Info > Copy link on a published world, then paste in a text field | `resrec:///<owner>/<record>` (the record link the inventory's own copy gives). Not shown for sessions with no record |
+
+Not in M4b (deferred): user names per session in the detail panel. The "paused" banner (F25) was built in M2; the attach failsafe was verified then.
