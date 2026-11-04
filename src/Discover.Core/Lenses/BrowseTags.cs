@@ -99,7 +99,8 @@ public static class BrowseTags
             row.RemoveAt(drop);
         }
 
-        return row;
+        // The chips in use come first: required ones, then excluded ones; the rest keep their order.
+        return row.OrderBy(r => r.State switch { ChipState.Required => 0, ChipState.Excluded => 1, _ => 2 }).ToList();
     }
 
     private static IEnumerable<string> PublishedTags(DiscoveryEntry entry) =>

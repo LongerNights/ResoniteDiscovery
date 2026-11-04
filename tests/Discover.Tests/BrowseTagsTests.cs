@@ -71,8 +71,20 @@ public class BrowseTagsTests
 
         Assert.Equal(ChipState.Required, row.Single(r => r.Label == "Games").State);
         Assert.Null(row.Single(r => r.Label == "Social").State);
-        Assert.Equal(ChipState.Excluded, row[^1].State);
-        Assert.Equal("zzz", row[^1].Tag);
+        Assert.Equal("zzz", row.Single(r => r.State == ChipState.Excluded).Tag);
+    }
+
+    [Fact]
+    public void RowPutsChipsInUseFirstRequiredThenExcluded()
+    {
+        var recommended = BrowseTags.Build(Defaults, [], [], []);
+        var active = new[] { new TagChip("art", ChipState.Excluded, false), new TagChip("game", ChipState.Required, false), new TagChip("zzz", ChipState.Required, false) };
+
+        var row = BrowseTags.Row(recommended, active, 12);
+
+        Assert.Equal([ChipState.Required, ChipState.Required, ChipState.Excluded], row.Take(3).Select(r => r.State));
+        Assert.All(row.Skip(3), r => Assert.Null(r.State));
+        Assert.Equal("art", row[2].Tag);
     }
 
     [Fact]
