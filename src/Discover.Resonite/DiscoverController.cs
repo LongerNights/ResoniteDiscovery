@@ -317,7 +317,7 @@ internal sealed class DiscoverController : IBrowseActions
         _ui.PumpCards();
 
         var now = DateTime.UtcNow;
-        if (_revealPending && (!_ui.CardsPending || now >= _revealDeadlineUtc))
+        if (_revealPending && ((!_ui.CardsPending && !AwaitingResults) || now >= _revealDeadlineUtc))
         {
             _revealPending = false;
             _ui.Reveal(UiMotion.Seconds(0.45f), 0f);
@@ -1422,6 +1422,7 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _dirty = true;
+        StartTransition();
     }
 
     public void NextPage()
@@ -1439,6 +1440,7 @@ internal sealed class DiscoverController : IBrowseActions
         }
 
         _dirty = true;
+        StartTransition();
     }
 
     public void CardTagPressed(string tag, bool personal)
@@ -2106,6 +2108,9 @@ internal sealed class DiscoverController : IBrowseActions
     /// Lifts the curtain once the queued cards are filled in (or after <see cref="DiscoverSettings.CardFillTimeout"/>), so the
     /// cards appearing one by one, and the old tab's images still on them, stay out of sight.
     /// </summary>
+    /// <summary>A search tab whose page is still on its way: the scan holds until it has arrived (or the timeout).</summary>
+    private bool AwaitingResults => LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly && _pager.Loading;
+
     private void RevealWhenFilled()
     {
         _revealPending = true;
