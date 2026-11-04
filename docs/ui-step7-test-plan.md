@@ -30,3 +30,11 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
 8. **Settings > Hidden.** Below the counts and the two buttons, each hidden author, world and word is listed by name
    with a button to bring back just that one (up to six shown, then "and N more"). Hide a world from its detail
    panel and check its name appears.
+
+## Text alignment pass 2 and the Organize panel (2026-11-04)
+
+9. **Text height.** The lift is now 0.25 of the font size (measured: caps were about 1 px low, lower-case about 2 px).
+   Compare "Refresh", "Settings", "Visits", the tag chips, the rail rows and the Previous / Next buttons (now a fixed
+   size, previously default-sized and low). Report which way and how far any text is still off.
+10. **Organize panel** (Lists on a card or in the detail panel): centred, as tall as its content; each list is a
+    switch row (membership), the world's own tags are removable chips, then the tag box with suggestions and Done.

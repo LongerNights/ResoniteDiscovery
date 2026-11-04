@@ -130,16 +130,18 @@ internal sealed class DiscoverUi
             }
 
             Lifted.Add(text, new object());
-            var size = text.AutoSizeMax.Value > 0f && text.AutoSizeMax.Value >= text.AutoSizeMin.Value
+            // Fixed and narrowly clamped texts have a known size; a text with a wide auto-size range was never given one.
+            var range = text.AutoSizeMax.Value - text.AutoSizeMin.Value;
+            var size = text.AutoSizeMax.Value > 0f && range is >= 0f and <= 14f
                 ? (text.AutoSizeMin.Value + text.AutoSizeMax.Value) * 0.5f
-                : text.Size.Value;
+                : TypeScale.Label;
             var lift = new float2(0f, TextLift * size);
             rect.OffsetMin.Value += lift;
             rect.OffsetMax.Value += lift;
         }
     }
 
-    private const float TextLift = 0.17f;
+    private const float TextLift = 0.25f;
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Text, object> Lifted = new();
 
     private void BuildRail(UIBuilder ui, RectTransform rail)
@@ -492,11 +494,13 @@ internal sealed class DiscoverUi
 
         ui.NestInto(parts[1]);
         _previous = ui.Button((LocaleString)UiStrings.Get("nav.previous"));
+        Fix(_previous.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _previous.LocalPressed += (_, _) => _actions.PreviousPage();
         ui.NestOut();
 
         ui.NestInto(parts[2]);
         _next = ui.Button((LocaleString)UiStrings.Get("nav.next"), Theme.ButtonSelected);
+        Fix(_next.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _next.LocalPressed += (_, _) => _actions.NextPage();
         ui.NestOut();
         ui.NestOut();
@@ -1251,6 +1255,7 @@ internal sealed class DiscoverUi
     private Text _organizeNoTags = null!;
     private TextField _tagField = null!;
     private readonly List<(Button Button, Text Label)> _organizeLists = [];
+    private readonly List<(Image Track, RectTransform Knob)> _organizeListSwitches = [];
     private readonly string?[] _organizeListIds = new string?[MaxOrganizeLists];
     private readonly List<(Button Button, Text Label)> _organizeTags = [];
     private readonly string?[] _organizeTagNames = new string?[MaxOrganizeTags];
@@ -1259,23 +1264,16 @@ internal sealed class DiscoverUi
     {
         _organizeScrim = Catcher(ui, "OrganizeScrim", Theme.ConfirmScrim, CloseMenus);
 
-        var slot = ui.Empty("Organize");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.20f, 0.06f);
-        rect.AnchorMax.Value = new float2(0.80f, 0.94f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(8f, 20f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "Organize", 0.22f, 0.78f, 0.5f, 0.5f, 8f, 22f);
 
         ui.Style.MinHeight = 50f;
         _organizeTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
         Fix(_organizeTitle, TypeScale.Title);
         _organizeTitle.Color.Value = Theme.Heading;
 
-        ui.Style.MinHeight = 28f;
-        var lists = ui.Text((LocaleString)UiStrings.Get("organize.lists"), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(lists, TypeScale.Body);
+        ui.Style.MinHeight = 32f;
+        var lists = ui.Text((LocaleString)UiStrings.Get("organize.lists").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(lists, TypeScale.Caption);
         lists.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1286,9 +1284,7 @@ internal sealed class DiscoverUi
         ui.Style.MinHeight = 42f;
         for (var i = 0; i < MaxOrganizeLists; i++)
         {
-            var button = ui.Button((LocaleString)"");
-            var label = button.Slot.GetComponentInChildren<Text>();
-            Fix(label, TypeScale.Body);
+            var button = SwitchButton(ui, "", out var label, out var track, out var knob);
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -1299,15 +1295,16 @@ internal sealed class DiscoverUi
             };
             button.Slot.ActiveSelf = false;
             _organizeLists.Add((button, label));
+            _organizeListSwitches.Add((track, knob));
         }
 
         var newList = ui.Button((LocaleString)UiStrings.Get("rail.newList"), Theme.ButtonQuiet);
         Fix(newList.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         newList.LocalPressed += (_, _) => _actions.OrganizeNewList();
 
-        ui.Style.MinHeight = 28f;
-        var tags = ui.Text((LocaleString)UiStrings.Get("organize.tags"), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(tags, TypeScale.Body);
+        ui.Style.MinHeight = 32f;
+        var tags = ui.Text((LocaleString)UiStrings.Get("organize.tags").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(tags, TypeScale.Caption);
         tags.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 38f;
@@ -1352,9 +1349,9 @@ internal sealed class DiscoverUi
         ui.Style.MinWidth = 0f;
         ui.NestOut();
 
-        ui.Style.MinHeight = 28f;
-        var suggested = ui.Text((LocaleString)UiStrings.Get("organize.suggested"), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(suggested, TypeScale.Body);
+        ui.Style.MinHeight = 32f;
+        var suggested = ui.Text((LocaleString)UiStrings.Get("organize.suggested").ToUpperInvariant(), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(suggested, TypeScale.Caption);
         suggested.Color.Value = Theme.TextSecondary;
 
         ui.Style.MinHeight = 40f;
@@ -1384,11 +1381,10 @@ internal sealed class DiscoverUi
 
         ui.Style.MinHeight = 50f;
         var done = ui.Button((LocaleString)UiStrings.Get("organize.done"), Theme.ButtonSelected);
+        Fix(done.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         done.LocalPressed += (_, _) => CloseMenus();
 
-        ui.NestOut();
-        ui.NestOut();
-        ui.NestOut();
+        ui.NestOut(); // the panel
         slot.ActiveSelf = false;
         _organizePanel = slot;
     }
@@ -1513,8 +1509,8 @@ internal sealed class DiscoverUi
             if (show)
             {
                 var list = model.Lists[i];
-                label.Content.Value = "<nobr>" + (list.Member ? "✓  " : "") + Plain(CardText.Ellipsize(list.Name, 28)) + "</nobr>";
-                SetColor(button, list.Member ? Theme.ButtonSelected : Theme.Button);
+                label.Content.Value = "<nobr>" + Plain(CardText.Ellipsize(list.Name, 28)) + "</nobr>";
+                ApplySwitch(_organizeListSwitches[i].Track, _organizeListSwitches[i].Knob, list.Member);
             }
         }
 
@@ -1532,8 +1528,13 @@ internal sealed class DiscoverUi
         }
 
         RefreshTagSuggestions();
+        var wasOpen = _organizePanel.ActiveSelf;
         _organizeScrim.ActiveSelf = true;
         _organizePanel.ActiveSelf = true;
+        if (!wasOpen)
+        {
+            AnimateOpen(_organizePanel, ModalRise);
+        }
     }
 
     // ---- detail panel (spec F18): everything known about one world, with Join and Lists
