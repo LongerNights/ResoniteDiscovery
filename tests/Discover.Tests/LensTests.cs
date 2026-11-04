@@ -116,7 +116,7 @@ public class LensTests
 
         var featured = RecordLenses.Featured();
         Assert.True(featured.OnlyFeatured);
-        Assert.Equal(RecordSort.LastUpdateDate, featured.SortBy);
+        Assert.Equal(RecordSort.TotalVisits, featured.SortBy);
 
         var mine = RecordLenses.MyWorlds("U-me");
         Assert.True(mine.Private);

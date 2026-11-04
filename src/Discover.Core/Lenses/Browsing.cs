@@ -45,7 +45,7 @@ public static class Sorting
         LensKind.CurrentWorlds => SortKey.LiveUsers,
         LensKind.New => SortKey.NewestPublished,
         LensKind.Browse => SortKey.Visits,
-        LensKind.Featured => SortKey.RecentlyUpdated,
+        LensKind.Featured => SortKey.Visits,
         LensKind.Random => SortKey.Random,
         LensKind.MyWorlds or LensKind.GroupWorlds => SortKey.RecentlyUpdated,
         LensKind.Favorites or LensKind.NamedList or LensKind.Recent => SortKey.DateAdded,

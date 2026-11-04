@@ -61,6 +61,9 @@ public sealed class RecentFile
 {
     public int Version { get; set; } = 1;
     public List<RecentEntry> Items { get; set; } = [];
+
+    /// <summary>Keys of every world seen open (oldest first), so cards can say "visited". Capped at UserLibrary.MaxVisited.</summary>
+    public List<string> Visited { get; set; } = [];
 }
 
 /// <summary>One versioned file holding favorites, lists and tags (spec F23).</summary>
@@ -315,12 +318,44 @@ public sealed class UserLibrary
 
     public IReadOnlyList<RecentEntry> Recent => _recent.Items;
 
+    public const int MaxVisited = 5000;
+    private HashSet<string>? _visitedSet;
+
+    private HashSet<string> VisitedSet => _visitedSet ??= new HashSet<string>(
+        _recent.Visited.Concat(_recent.Items.Select(r => r.Key)), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True for a world the user has been in (open while this mod ran) or opened from here.</summary>
+    public bool IsVisited(string key) => VisitedSet.Contains(key);
+
+    /// <summary>Notes that the user has been in this world. Saves only when it is new.</summary>
+    public void MarkVisited(string key)
+    {
+        if (!DiscoveryKeys.IsSavable(key) || !VisitedSet.Add(key))
+        {
+            return;
+        }
+
+        _recent.Visited.Add(key);
+        if (_recent.Visited.Count > MaxVisited)
+        {
+            _recent.Visited.RemoveRange(0, _recent.Visited.Count - MaxVisited);
+        }
+
+        Changed?.Invoke(LibraryFile.Recent);
+    }
+
     /// <summary>Notes a world opened through the screen: newest first, no duplicates, capped at <see cref="MaxRecent"/>.</summary>
     public void RecordOpened(string key, string name)
     {
         if (!DiscoveryKeys.IsSavable(key))
         {
             return;
+        }
+
+        VisitedSet.Add(key);
+        if (!_recent.Visited.Any(v => KeyEquals(v, key)))
+        {
+            _recent.Visited.Add(key);
         }
 
         _recent.Items.RemoveAll(r => KeyEquals(r.Key, key));

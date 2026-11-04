@@ -129,7 +129,7 @@ internal sealed class DiscoverController : IBrowseActions
         _openWorlds = new EngineOpenWorldAdapter(engine);
         _records = new EngineRecordSource(engine);
         _cache = new SearchCache(settings.SearchCacheFirstPageTtl, settings.SearchCacheLaterPageTtl);
-        _pager = new SearchPager(Math.Min(settings.SearchPageSize, settings.MaxCardSlots));
+        _pager = new SearchPager(settings.PageSizeFor());
         _showOtherVersions = settings.ShowIncompatibleSessions;
         _adapter = new EngineSessionAdapter(engine) { HideIncompatible = !_showOtherVersions };
         _adapter.Changed += _queue.Enqueue;
@@ -264,6 +264,11 @@ internal sealed class DiscoverController : IBrowseActions
         if (_accountFrame++ % 60 == 0)
         {
             CheckAccount();
+        }
+
+        if (_accountFrame % 120 == 1)
+        {
+            TrackVisits();
         }
 
         _saver?.Tick();
@@ -477,7 +482,7 @@ internal sealed class DiscoverController : IBrowseActions
 
     private DiscoverUi? BuildUi()
     {
-        var ui = new DiscoverUi(_screen!, _settings.MaxCardSlots, this)
+        var ui = new DiscoverUi(_screen!, DiscoverSettings.CardSlotLimit, this)
         {
             CardBindsPerTick = Math.Max(1, _settings.CardBindsPerTick),
             CardCreatesPerTick = Math.Max(1, _settings.CardCreatesPerTick),
@@ -498,6 +503,50 @@ internal sealed class DiscoverController : IBrowseActions
             UniLog.Warning($"[Discover] UI build failed: {ex.GetType().Name}: {ex.Message} at {FirstFrame(ex)}");
             return null;
         }
+    }
+
+    /// <summary>Every world the user has open counts as visited (the Visited mark on cards).</summary>
+    private void TrackVisits()
+    {
+        if (_library is null)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var open in _openWorlds.GetOpenWorlds())
+            {
+                if (!string.IsNullOrWhiteSpace(open.RecordKey))
+                {
+                    _library.MarkVisited(open.RecordKey);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Visit tracking failed: {ex.GetType().Name}");
+        }
+    }
+
+    /// <summary>The page size changed (rows, columns or layout): the search restarts at the first page.</summary>
+    private void ApplyPageSize()
+    {
+        var size = _settings.PageSizeFor();
+        if (_pager.PageSize == size)
+        {
+            return;
+        }
+
+        _pager.PageSize = size;
+        _pager.Reset();
+        _livePage = 0;
+        if (LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly)
+        {
+            RequestPage(0, force: false);
+        }
+
+        _dirty = true;
     }
 
     private static string FirstFrame(Exception ex) =>
@@ -746,7 +795,7 @@ internal sealed class DiscoverController : IBrowseActions
         var searchLens = source == LensSource.Search;
         IReadOnlyList<DiscoveryEntry> all;
         IReadOnlyList<DiscoveryEntry> shown;
-        var maxCards = _ui!.MaxCards;
+        var maxCards = Math.Min(_ui!.MaxCards, _settings.PageSizeFor());
         bool hasPrevious, hasNext;
 
         if (searchLens)
@@ -786,7 +835,9 @@ internal sealed class DiscoverController : IBrowseActions
         var cards = shown
             .Select(e => source == LensSource.OpenWorlds && _openItems.TryGetValue(e.Key, out var open)
                 ? CardBuilder.BuildOpenWorld(open with { Entry = e }, now, _library?.IsStarred(e.Key) ?? false)
-                : CardBuilder.Build(e, _join.OpenSession(e), now, _library?.IsStarred(e.Key) ?? false))
+                    with { Visited = true, CanLeave = open.World.CanLeave }
+                : CardBuilder.Build(e, _join.OpenSession(e), now, _library?.IsStarred(e.Key) ?? false)
+                    with { Visited = _library?.IsVisited(e.Key) ?? false })
             .ToList();
         var people = source == LensSource.Local ? 0 : all.Sum(e => _lens == LensKind.Friends ? e.Sessions.Sum(s => s.ActiveUsers) : e.LiveUsers);
 
@@ -1673,6 +1724,7 @@ internal sealed class DiscoverController : IBrowseActions
             case SettingKey.ListView:
                 _settings = _settings with { ListView = !_settings.ListView };
                 _dirty = true;
+                ApplyPageSize();
                 break;
             case SettingKey.NotifyLive:
                 _settings = _settings with { NotifyFavoriteLive = !_settings.NotifyFavoriteLive };
@@ -1701,6 +1753,7 @@ internal sealed class DiscoverController : IBrowseActions
                     _ui.CardsPerRow = _settings.CardsPerRow;
                 }
 
+                ApplyPageSize();
                 break;
             case SettingKey.StartLens:
                 var openable = LensCatalog.Openable(_settings);
@@ -1750,6 +1803,19 @@ internal sealed class DiscoverController : IBrowseActions
         _ui?.ShowSettings(SettingsView());
     }
 
+    public void SetRowsPerPage(int rows)
+    {
+        if (!DiscoverSettings.RowsPerPageChoices.Contains(rows) || _settings.RowsPerPage == rows)
+        {
+            return;
+        }
+
+        _settings = _settings with { RowsPerPage = rows };
+        ApplyPageSize();
+        _store?.SaveSettings(_settings);
+        _ui?.ShowSettings(SettingsView());
+    }
+
     public void SetCardsPerRow(int count)
     {
         if (!DiscoverSettings.CardsPerRowChoices.Contains(count) || _settings.CardsPerRow == count)
@@ -1762,6 +1828,8 @@ internal sealed class DiscoverController : IBrowseActions
         {
             _ui.CardsPerRow = count;
         }
+
+        ApplyPageSize();
 
         _store?.SaveSettings(_settings);
         _ui?.ShowSettings(SettingsView());
@@ -1776,6 +1844,7 @@ internal sealed class DiscoverController : IBrowseActions
 
         _settings = _settings with { ListView = list };
         _dirty = true;
+        ApplyPageSize();
         _store?.SaveSettings(_settings);
         _ui?.ShowSettings(SettingsView());
     }

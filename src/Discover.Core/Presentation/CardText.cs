@@ -197,6 +197,7 @@ public static class UiStrings
         ["notice.imported"] = "Imported {0} favorites, {1} lists, {2} tags.",
         ["notice.signIn"] = "Sign in to use this.",
         ["chips.clear"] = "Clear all",
+        ["chips.title"] = "Tags",
 
         // sort menu
         ["sort.title"] = "SORT BY",
@@ -388,6 +389,9 @@ public static class UiStrings
         ["settings.speed.normal"] = "Normal",
         ["settings.speed.fast"] = "Fast",
         ["settings.cardsPerRow"] = "Cards per row",
+        ["settings.rowsPerPage"] = "Rows per page",
+        ["card.visited"] = "Visited",
+        ["card.leave"] = "Leave",
         ["banner.searchFailed"] = "Couldn't reach world search ({0}). Showing the last results. Next try in {1} s.",
         ["banner.retry"] = "Retry",
         ["empty.liveNow"] = "Nobody is online right now.",

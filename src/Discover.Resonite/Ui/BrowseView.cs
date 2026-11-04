@@ -116,6 +116,7 @@ internal interface IBrowseActions
     void CopyLink(string key);
     void ToggleSetting(SettingKey key);
     void SetCardsPerRow(int count);
+    void SetRowsPerPage(int rows);
     void SetAnimationSpeed(float speed);
     void SetStartLens(LensKind lens);
     void RestoreHidden(HiddenKind kind, string id);

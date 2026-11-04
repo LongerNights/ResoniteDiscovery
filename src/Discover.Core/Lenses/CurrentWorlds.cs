@@ -33,6 +33,7 @@ public static class CurrentWorlds
             ActiveUsers = world.Users,
             JoinedUsers = world.Users,
             MaximumUsers = world.MaxUsers,
+            Users = world.UserList,
             AccessLevel = world.AccessLevel,
             SessionBeginTime = world.OpenedAt,
             LastUpdate = world.LastFocusedAt,

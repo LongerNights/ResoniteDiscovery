@@ -58,7 +58,9 @@ public sealed record CardModel(
     bool Featured,
     bool IsOpen,
     bool Dimmed,
-    bool IsFavorite = false)
+    bool IsFavorite = false,
+    bool Visited = false,
+    bool CanLeave = false)
 {
     public const int MaxTitleChars = 34;
     public const int MaxMetaChars = 40;
