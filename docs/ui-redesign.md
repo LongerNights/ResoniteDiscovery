@@ -4,6 +4,27 @@
 Nothing here is built yet. Spec rules still hold: colours by `RadiantUI_Constants` name, strings in the string
 table, numbers in settings, no world writes.*
 
+## Direction change (2026-11-04): match the stock Worlds tab
+
+Winter's direction after the first rounds: drop the purple Galaxy Sieve theming and match the stock Worlds tab, keep the
+screen see-through like the stock one, and give the rail tabs icons.
+
+- **Background.** The stock tab draws a tiled texture (`resdb:///d54b9c04...`, 768 px tiles) under a Dark tint
+  (#11151d) at alpha 0.965; ours is now the same, replacing the opaque black from step 1.
+- **Palette.** The stock tab's neutrals: Dark #11151d for panels, Mid #2b2f35 for buttons and cards (the stock
+  category buttons are exactly this grey), light text. The accent is the dash's own cyan (selected tab), used for the
+  selected row, primary buttons and required chips. Every purple is gone; the red, orange and yellow chips and the
+  favourite star keep their meaning.
+- **Name.** The rail title reads "Worlds", not "Galaxy Sieve" (the tab is already labelled Worlds).
+- **Icons.** Rail entries use the engine's own icons, read at runtime from the install by `OfficialAssets` (the stock
+  category icons for Live Now, Friends, Browse, Featured, New, Random, My Worlds and Group Worlds; the engine's general icons
+  for Current Worlds, Favorites, Recent, Trending, Rising, Hidden Gems, and lists). Nothing is copied into the repo.
+- **Press kit not used.** The Resonite wiki's branding page says the icon files made by the team are protected IP that
+  cannot be shared, and gives no licence for third-party use, so the press kit zip is not downloaded and no Resonite
+  artwork is bundled. If custom icons are wanted for the gaps, Winter's own art or a clearly licensed set can be dropped
+  into the mod as embedded resources, like the existing tab icon.
+- **Typeface.** Resonite's brand font is Poppins; the game's default UI font already is it, so nothing to change.
+
 ## What is wrong today
 
 These problems repeat across every screen, so fixing them once fixes most of the UI.
