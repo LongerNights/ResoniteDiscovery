@@ -386,7 +386,7 @@ internal sealed class DiscoverUi
     private void BuildTopBar(UIBuilder ui, RectTransform topBar)
     {
         ui.NestInto(topBar);
-        var parts = ui.SplitHorizontally(0.26f, 0.19f, 0.15f, 0.14f, 0.13f, 0.13f);
+        var parts = ui.SplitHorizontally(0.25f, 0.20f, 0.15f, 0.14f, 0.13f, 0.13f);
         foreach (var part in parts)
         {
             part.AddFixedPadding(8f);
@@ -394,7 +394,7 @@ internal sealed class DiscoverUi
 
         ui.NestInto(parts[0]);
         _search = PromptField(ui, "search.placeholder");
-        if (_search.Slot.GetComponentInChildren<Text>() is { } searchText)
+        foreach (var searchText in _search.Slot.GetComponentsInChildren<Text>())
         {
             Fix(searchText, TypeScale.Label);
         }
@@ -410,7 +410,7 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[1]);
         var sort = ui.Button((LocaleString)"");
         _sortButtonLabel = sort.Slot.GetComponentInChildren<Text>();
-        Fix(_sortButtonLabel, TypeScale.Body);
+        Clamp(_sortButtonLabel, TypeScale.Body, TypeScale.Label); // long names ("Newest published") shrink a little, short ones stay full size
         _sortBtn = sort;
         sort.LocalPressed += (_, _) => ToggleMenu(_sortMenu);
         ui.NestOut();
@@ -418,7 +418,7 @@ internal sealed class DiscoverUi
         ui.NestInto(parts[2]);
         var filters = ui.Button((LocaleString)"");
         _filtersButtonLabel = filters.Slot.GetComponentInChildren<Text>();
-        Fix(_filtersButtonLabel, TypeScale.Body);
+        Clamp(_filtersButtonLabel, TypeScale.Body, TypeScale.Label);
         _filtersBtn = filters;
         filters.LocalPressed += (_, _) => ToggleMenu(_filtersMenu);
         ui.NestOut();
@@ -539,20 +539,20 @@ internal sealed class DiscoverUi
     {
         footer.AddFixedPadding(6f);
         ui.NestInto(footer);
-        var parts = ui.SplitHorizontally(0.76f, 0.12f, 0.12f);
+        var parts = ui.SplitHorizontally(0.60f, 0.20f, 0.20f);
         _status = TextIn(ui, parts[0], Alignment.MiddleLeft, Theme.TextSecondary, 14f, 20f);
         parts[1].AddFixedPadding(4f);
         parts[2].AddFixedPadding(4f);
 
         ui.NestInto(parts[1]);
         _previous = ui.Button((LocaleString)UiStrings.Get("nav.previous"));
-        Fix(_previous.Slot.GetComponentInChildren<Text>(), TypeScale.Hero);
+        Fix(_previous.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _previous.LocalPressed += (_, _) => _actions.PreviousPage();
         ui.NestOut();
 
         ui.NestInto(parts[2]);
         _next = ui.Button((LocaleString)UiStrings.Get("nav.next"), Theme.ButtonSelected);
-        Fix(_next.Slot.GetComponentInChildren<Text>(), TypeScale.Hero);
+        Fix(_next.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         _next.LocalPressed += (_, _) => _actions.NextPage();
         ui.NestOut();
         ui.NestOut();
@@ -1541,7 +1541,7 @@ internal sealed class DiscoverUi
     private static TextField PromptField(UIBuilder ui, string promptId)
     {
         var field = ui.TextField(null!, undo: false, parseRTF: false, promptText: (LocaleString)("<alpha=#70>" + UiStrings.Get(promptId)));
-        if (field.Slot.GetComponentInChildren<Text>() is { } fieldText)
+        foreach (var fieldText in field.Slot.GetComponentsInChildren<Text>())
         {
             Fix(fieldText, TypeScale.Body);
             fieldText.HorizontalAlign.Value = TextHorizontalAlignment.Left;

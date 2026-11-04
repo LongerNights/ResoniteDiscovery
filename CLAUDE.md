@@ -36,45 +36,17 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 ## Current status
 
-**Overhaul spec written 2026-11-03** (`docs/spec.md`): next milestones are M5 stock-tab audit
-(V24, V29, V32), M6 takeover, M7 rail and Browse, M8 Current Worlds, M9 parity, M10 v1.1.
-**M7 core + chip bar built 2026-11-03 (not yet run in game; `docs/m7-test-plan.md`), 361 tests:** Most Visited is now Browse
-(`LensKind.Browse`), sections are Now/Discover/Yours (legacy names still load, F34), `BrowseTags` builds the
-recommended-tags row (categories from `settings.BrowseCategories`, popular-here, personal) shown in the chip bar on Browse.
-**M8 Current Worlds built 2026-11-03** (`docs/m8-test-plan.md`, 368 tests, not yet run in game). **M5 stock audit done 2026-11-03** (V24, V29, V32 closed; the parity table in the spec is filled in; Educational tag fixed). **M6 takeover built 2026-11-03, not yet run in game** (`TabTakeover`, Classic browser, restore on pause/stop; `docs/m6-test-plan.md`). M9 partly built: More by author, Featured only / Include empty / Up for N+ filters, card redesign (stock look). M9 done except server-side `author:` resolution (V30; client-side `author:` works); Created sort, Cards per row setting and New-session access levels built, not yet run in game. M6 confirmed working in game 2026-11-03. M10 first slice built (history.json, Insights section off by default); hide lists built and working in game; saved views (Presets menu) built, not yet run; favorite notifications built, not yet run (M10 complete). The M0–M4b entries below describe the build the
-overhaul starts from.
+**Overhaul milestones M5 to M10 are built and running in game (2026-11-04), 392 tests.** The UI redesign
+(`docs/ui-redesign.md`, with its status section) is complete apart from optional extras: stock look and palette, engine icons,
+fixed type scale, size-to-content panels, switch rows, tabbed Settings, detail panel with a selectable session list,
+chip bar, list mode, open animations (on by default). Features beyond the original plan: `author:` resolves through the
+engine user lookup (V30), hide lists, saved views, favorite alerts, history with Trending/Rising/Hidden Gems, per-account
+data in `%APPDATA%\ResoniteDiscovery`. The mod was renamed from Galaxy Sieve to ResoniteDiscovery on 2026-11-04.
 
-**Milestone M4b — My Worlds, Group Worlds, detail panel, settings with a customizable rail (F28), export/import: installed 2026-11-02; grid/list toggle and copy-URL deferred** (`docs/m4b-test-plan.md`). 348 tests.
-
-**Milestone M4a — Your stuff: working in game 2026-11-02** (favorites, lists, tags with typed entry and prediction, Recent; custom-id sessions are saveable, random-id ones are not). Favorites (star on cards), named lists (rail, rename/move/delete, organize panel), personal tags (orange chips and card tags), Recent, per-account files loaded once the account is known. 315 tests. In-game steps: `docs/m4a-test-plan.md`. Next: M4b (My Worlds, Group Worlds, detail drawer, settings screen, export/import buttons, grid/list toggle).
-
-**Milestone M3 — Record lenses: working in game 2026-11-03 (F27 and the 30-minute network trace not yet confirmed).** Search lenses (New,
-Most Visited, Featured, Random) over `Engine.Cloud.Records.FindRecords` with a cache, paging, backoff and a
-failure banner; search box with term syntax; sort menu; filters popover; tag chips; the join confirmation
-menu (the engine's choice dialog) and "New session" for published worlds; the full purple/black screen per
-`docs/m3-design.md`. 304 tests pass. The gate (F3, F4, F5, F11, F12, F14, F27 and the network budget) needs
-Winter to install and restart: see `docs/m3-test-plan.md`. Next after the gate: M4 (favorites, lists, tags,
-export/import, Recent, My Worlds, Group Worlds, detail drawer, settings).
-
-**Milestone M2 — Live screen: passed in game 2026-11-02 (F8's Open press not exercised).** `Discover.Resonite` has the
-session adapter, join service, controller (tick via `World.RunInUpdates`), dash attach (non-persistent
-slot, after the workspace loads), the purple/black card-grid UI for Live Now and Friends with lens
-transitions, the galaxy tab icon (embedded, imported into the local asset DB), and the RML shim
-(`Loader/ResoniteModLoaderEntry.cs`). Gate: F1, F2, F6, F7 pass; F8 partial (Open badge shown, the
-Open-press focus not yet exercised). Results in `docs/m2-test-plan.md`. Next: design the M3 screen
-(search, chips, sort, paging) and build the record lenses.
-
-**Milestone M1 — Core logic: done 2026-11-02.** `Discover.Core`
-now has the merge index (`DiscoveryIndex`), visibility rule (`SessionRules`), change queue,
-join planner, search syntax (`SearchQuery`), lenses (`LensEngine`, `RecordLenses`), Trending/
-Rising/Gem formulas and history log, settings, and persistence (`UserLibrary`, `UserLibraryStore`,
-`LibrarySaver`, export/import). 215 tests pass; `CoreIsolationTests` confirms no engine reference.
-No adapters or UI yet (M2). M0 is not formally closed: V6/V7/V8 and V23 remain (below).
-
-**M0 — Verification.** The solution builds and tests pass (2026-11-02). M0's gate: every row in
-`docs/verification.md` answered and no `VERIFY` left in the spec's Integration section (none
-left). Q1 is decided (sit beside). Still open: V6/V7/V8 (need McpLink `eval`) and V23 (in-game
-test). Next: M2 (live screen) once Winter says go. See spec "Milestones".
+Each UI step has an in-game checklist (`docs/ui-step*-test-plan.md`, items 1-17 in `ui-step7-test-plan.md`); the older
+milestone plans are `docs/m*-test-plan.md`. Not done: the GitHub push (waiting on Winter's details; `gh` is not installed),
+V31 (locale-driven tab label), close animations and a few optional UI extras. Redeploy for testing with
+`tools/redeploy-resonite.ps1` (it closes the game; ask Winter first).
 
 ## Build & test (Windows, from the repo root)
 
