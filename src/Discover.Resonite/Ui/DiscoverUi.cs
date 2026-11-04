@@ -879,7 +879,19 @@ internal sealed class DiscoverUi
         Fix(title, TypeScale.Body);
         title.Color.Value = Theme.TextSecondary;
 
-        ui.Style.MinHeight = 40f; // ten sorts have to fit the panel
+        // The direction is a two-way control at the top (hidden for Random, which has none).
+        ui.Style.MinHeight = 46f;
+        var row = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+        _sortDirectionRow = row.Slot;
+        _descending = ui.Button((LocaleString)UiStrings.Get("sort.descending"));
+        Fix(_descending.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _descending.LocalPressed += (_, _) => _actions.SetDescending(true);
+        _ascending = ui.Button((LocaleString)UiStrings.Get("sort.ascending"));
+        Fix(_ascending.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _ascending.LocalPressed += (_, _) => _actions.SetDescending(false);
+        ui.NestOut();
+
+        ui.Style.MinHeight = 42f;
         foreach (var key in Sorting.All)
         {
             var button = ui.Button((LocaleString)"");
@@ -887,83 +899,139 @@ internal sealed class DiscoverUi
             button.LocalPressed += (_, _) => { _actions.ChooseSort(captured); CloseMenus(); };
             _sortItems[key] = (button, button.Slot.GetComponentInChildren<Text>());
         }
-
-        ui.Style.MinHeight = 50f;
-        var row = ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
-        _descending = ui.Button((LocaleString)UiStrings.Get("sort.descending"));
-        _descending.LocalPressed += (_, _) => _actions.SetDescending(true);
-        _ascending = ui.Button((LocaleString)UiStrings.Get("sort.ascending"));
-        _ascending.LocalPressed += (_, _) => _actions.SetDescending(false);
-        ui.NestOut();
     }
+
+    private Slot _sortDirectionRow = null!;
+
+    // Filter rows are grouped by the kind of tab they apply to; RenderFiltersMenu shows only the group that fits.
+    private readonly List<Slot> _filtersForSessions = [];
+    private readonly List<Slot> _filtersForSearch = [];
+    private Text _filtersNone = null!;
+    private readonly Dictionary<FilterOp, (Image Track, RectTransform Knob)> _switches = [];
 
     private void BuildFiltersMenu(UIBuilder ui)
     {
-        var head = ui.HorizontalLayout(8f, 0f, Alignment.MiddleLeft);
         var title = ui.Text((LocaleString)UiStrings.Get("filters.title"), bestFit: true, alignment: Alignment.MiddleLeft);
         Fix(title, TypeScale.Title);
         title.Color.Value = Theme.Heading;
-        var reset = ui.Button((LocaleString)UiStrings.Get("filters.reset"), Theme.ButtonQuiet);
-        reset.LocalPressed += (_, _) => _actions.Filter(FilterOp.Reset);
-        ui.NestOut();
 
-        Stepper(ui, FilterOp.MinUsersDown, FilterOp.MinUsersUp);
-        Stepper(ui, FilterOp.MinVisitsDown, FilterOp.MinVisitsUp);
-        Stepper(ui, FilterOp.MinUptimeDown, FilterOp.MinUptimeUp);
+        ui.Style.MinHeight = 60f;
+        _filtersNone = ui.Text((LocaleString)UiStrings.Get("filters.none"), bestFit: true, alignment: Alignment.TopLeft);
+        Fix(_filtersNone, TypeScale.Body);
+        _filtersNone.Color.Value = Theme.TextSecondary;
+        ui.Style.MinHeight = 46f;
 
-        // Two toggles to a row keeps the popover inside its fixed height.
-        var pairs = new[]
-        {
-            (FilterOp.ToggleHasRoom, FilterOp.ToggleMobile),
-            (FilterOp.ToggleVr, FilterOp.ToggleOtherVersions),
-            (FilterOp.ToggleFeatured, FilterOp.ToggleIncludeEmpty),
-        };
-        foreach (var (first, second) in pairs)
-        {
-            ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
-            foreach (var op in new[] { first, second })
-            {
-                var button = ui.Button((LocaleString)"");
-                Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Caption);
-                var captured = op;
-                button.LocalPressed += (_, _) => _actions.Filter(captured);
-                _filterItems[op] = (button, button.Slot.GetComponentInChildren<Text>());
-            }
+        // Session tabs (Live Now, Friends)
+        FilterHeading(ui, "filters.section.people", _filtersForSessions);
+        _filtersForSessions.Add(Stepper(ui, FilterOp.MinUsersDown, FilterOp.MinUsersUp));
+        _filtersForSessions.Add(SwitchRow(ui, FilterOp.ToggleHasRoom, "filters.hasRoom"));
+        _filtersForSessions.Add(SwitchRow(ui, FilterOp.ToggleVr, "filters.vr"));
+        _filtersForSessions.Add(SwitchRow(ui, FilterOp.ToggleMobile, "filters.mobile"));
+        FilterHeading(ui, "filters.section.session", _filtersForSessions);
+        _filtersForSessions.Add(Stepper(ui, FilterOp.MinUptimeDown, FilterOp.MinUptimeUp));
 
-            ui.NestOut();
-        }
-
-        var host = ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
+        var host = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+        _filtersForSessions.Add(host.Slot);
         foreach (var (op, id) in new[] { (FilterOp.HostAny, "filters.host.any"), (FilterOp.HostPerson, "filters.host.person"), (FilterOp.HostHeadless, "filters.host.headless") })
         {
             var button = ui.Button((LocaleString)UiStrings.Get(id));
+            Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
             var captured = op;
             button.LocalPressed += (_, _) => _actions.Filter(captured);
             _filterItems[op] = (button, button.Slot.GetComponentInChildren<Text>());
         }
 
         ui.NestOut();
+        _filtersForSessions.Add(SwitchRow(ui, FilterOp.ToggleIncludeEmpty, "filters.includeEmpty"));
+        _filtersForSessions.Add(SwitchRow(ui, FilterOp.ToggleOtherVersions, "filters.otherVersions"));
+
+        // Search tabs (Browse, Featured, New, Random, My Worlds, Group Worlds)
+        FilterHeading(ui, "filters.section.world", _filtersForSearch);
+        _filtersForSearch.Add(Stepper(ui, FilterOp.MinVisitsDown, FilterOp.MinVisitsUp));
+        _filtersForSearch.Add(SwitchRow(ui, FilterOp.ToggleFeatured, "filters.featured"));
+
+        ui.Style.MinHeight = 50f;
+        var footer = ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
+        var reset = ui.Button((LocaleString)UiStrings.Get("filters.reset"), Theme.ButtonQuiet);
+        Fix(reset.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        reset.LocalPressed += (_, _) => _actions.Filter(FilterOp.Reset);
         var done = ui.Button((LocaleString)UiStrings.Get("filters.done"), Theme.ButtonSelected);
+        Fix(done.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         done.LocalPressed += (_, _) => CloseMenus();
+        ui.NestOut();
     }
 
-    /// <summary>A "− label +" row: the middle button shows the value and does nothing.</summary>
-    private void Stepper(UIBuilder ui, FilterOp down, FilterOp up)
+    private void FilterHeading(UIBuilder ui, string stringId, List<Slot> group)
+    {
+        ui.Style.MinHeight = 32f;
+        var heading = ui.Text((LocaleString)UiStrings.Get(stringId), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(heading, TypeScale.Caption);
+        heading.Color.Value = Theme.TextSecondary;
+        group.Add(heading.Slot);
+        ui.Style.MinHeight = 46f;
+    }
+
+    /// <summary>A "label ... switch" row: the whole row is the button, and the track shows on or off.</summary>
+    private Slot SwitchRow(UIBuilder ui, FilterOp op, string stringId)
+    {
+        var button = ui.Button((LocaleString)UiStrings.Get(stringId));
+        var label = button.Slot.GetComponentInChildren<Text>();
+        Fix(label, TypeScale.Body);
+        label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+        if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
+        {
+            labelRect.OffsetMin.Value = new float2(16f, 0f);
+            labelRect.OffsetMax.Value = new float2(-80f, 0f);
+        }
+
+        var inner = new UIBuilder(button.Slot.GetComponent<RectTransform>());
+        RadiantUI_Constants.SetupDefaultStyle(inner);
+        var track = inner.Image(Theme.Rail);
+        track.Slot.Name = "Track";
+        track.Sprite.Target = _rounded;
+        track.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+        track.InteractionTarget.Value = false;
+        track.RectTransform.AnchorMin.Value = new float2(1f, 0.5f);
+        track.RectTransform.AnchorMax.Value = new float2(1f, 0.5f);
+        track.RectTransform.OffsetMin.Value = new float2(-66f, -14f);
+        track.RectTransform.OffsetMax.Value = new float2(-14f, 14f);
+
+        var knobBuilder = new UIBuilder(track.RectTransform);
+        RadiantUI_Constants.SetupDefaultStyle(knobBuilder);
+        var knob = knobBuilder.Image(Theme.Text);
+        knob.Slot.Name = "Knob";
+        knob.Sprite.Target = _rounded;
+        knob.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+        knob.InteractionTarget.Value = false;
+
+        var captured = op;
+        button.LocalPressed += (_, _) => _actions.Filter(captured);
+        _filterItems[op] = (button, label);
+        _switches[op] = (track, knob.RectTransform);
+        return button.Slot;
+    }
+
+    /// <summary>A "- value +" row: the middle button shows the value and does nothing.</summary>
+    private Slot Stepper(UIBuilder ui, FilterOp down, FilterOp up)
     {
         var row = ui.HorizontalLayout(8f, 0f, Alignment.MiddleCenter);
         ui.Style.MinWidth = 56f;
         var minus = ui.Button((LocaleString)"−");
+        Fix(minus.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         minus.LocalPressed += (_, _) => _actions.Filter(down);
         ui.Style.MinWidth = 0f;
         ui.Style.FlexibleWidth = 1f;
         var label = ui.Button((LocaleString)"", Theme.ButtonQuiet);
+        Fix(label.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         ui.Style.FlexibleWidth = -1f;
         ui.Style.MinWidth = 56f;
         var plus = ui.Button((LocaleString)"+");
+        Fix(plus.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
         plus.LocalPressed += (_, _) => _actions.Filter(up);
         ui.Style.MinWidth = 0f;
         ui.NestOut();
         _filterItems[up] = (label, label.Slot.GetComponentInChildren<Text>());
+        return row.Slot;
     }
 
     private Button _sortBtn = null!;
@@ -2022,8 +2090,11 @@ internal sealed class DiscoverUi
             var (button, label) = _sortItems[item.Key];
             label.Content.Value = "<nobr>" + (item.Selected ? "✓  " : "") + item.Label + "   <size=65%>" + item.Hint + "</size></nobr>";
             button.Enabled = item.Enabled;
-            SetColor(button, item.Selected ? Theme.ButtonSelected : item.Enabled ? Theme.Button : Theme.ButtonQuiet);
+            button.Slot.ActiveSelf = item.Enabled; // sorts this tab cannot use are left out, not greyed
+            SetColor(button, item.Selected ? Theme.ButtonSelected : Theme.Button);
         }
+
+        _sortDirectionRow.ActiveSelf = !view.SortMenu.Any(i => i.Selected && i.Key == SortKey.Random);
 
         SetColor(_descending, view.Descending ? Theme.ButtonSelected : Theme.Button);
         SetColor(_ascending, view.Descending ? Theme.Button : Theme.ButtonSelected);
@@ -2032,12 +2103,28 @@ internal sealed class DiscoverUi
     private void RenderFiltersMenu(BrowseView view)
     {
         var f = view.Filters;
-        Toggle(FilterOp.ToggleHasRoom, "filters.hasRoom", f.HasRoom, view.SessionLens);
-        Toggle(FilterOp.ToggleMobile, "filters.mobile", f.MobileFriendly, view.SessionLens);
-        Toggle(FilterOp.ToggleVr, "filters.vr", f.HasVr, view.SessionLens);
-        Toggle(FilterOp.ToggleOtherVersions, "filters.otherVersions", view.ShowOtherVersions, true);
-        Toggle(FilterOp.ToggleFeatured, "filters.featured", f.FeaturedOnly, !view.SessionLens);
-        Toggle(FilterOp.ToggleIncludeEmpty, "filters.includeEmpty", f.IncludeEmpty, view.SessionLens);
+        var source = LensEngine.SourceOf(view.Lens);
+        var sessions = source == LensSource.Sessions;
+        var search = source == LensSource.Search;
+        foreach (var slot in _filtersForSessions)
+        {
+            slot.ActiveSelf = sessions;
+        }
+
+        foreach (var slot in _filtersForSearch)
+        {
+            slot.ActiveSelf = search;
+        }
+
+        _filtersNone.Slot.ActiveSelf = !sessions && !search;
+
+        Toggle(FilterOp.ToggleHasRoom, f.HasRoom);
+        Toggle(FilterOp.ToggleMobile, f.MobileFriendly);
+        Toggle(FilterOp.ToggleVr, f.HasVr);
+        Toggle(FilterOp.ToggleOtherVersions, view.ShowOtherVersions);
+        Toggle(FilterOp.ToggleFeatured, f.FeaturedOnly);
+        Toggle(FilterOp.ToggleIncludeEmpty, f.IncludeEmpty);
+
         _filterItems[FilterOp.MinUptimeUp].Label.Content.Value = f.MinUptimeMinutes > 0
             ? UiStrings.Format("filters.minUptime", f.MinUptimeMinutes < 60 ? f.MinUptimeMinutes + " min" : f.MinUptimeMinutes / 60 + " h")
             : UiStrings.Get("filters.minUptime.any");
@@ -2051,16 +2138,18 @@ internal sealed class DiscoverUi
         foreach (var (op, host) in new[] { (FilterOp.HostAny, HostFilter.Any), (FilterOp.HostPerson, HostFilter.Person), (FilterOp.HostHeadless, HostFilter.Headless) })
         {
             SetColor(_filterItems[op].Button, f.Host == host ? Theme.ButtonSelected : Theme.Button);
-            _filterItems[op].Button.Enabled = view.SessionLens;
         }
     }
 
-    private void Toggle(FilterOp op, string stringId, bool on, bool enabled)
+    /// <summary>Slides a switch's knob to the on or off end and colours its track.</summary>
+    private void Toggle(FilterOp op, bool on)
     {
-        var (button, label) = _filterItems[op];
-        label.Content.Value = $"<nobr>{UiStrings.Get(stringId)}   <size=65%>{UiStrings.Get(on ? "filters.on" : "filters.off")}</size></nobr>";
-        SetColor(button, on ? Theme.ButtonSelected : enabled ? Theme.Button : Theme.ButtonQuiet);
-        button.Enabled = enabled;
+        var (track, knob) = _switches[op];
+        track.Tint.Value = on ? Theme.ButtonSelected : Theme.Rail;
+        knob.AnchorMin.Value = on ? new float2(1f, 0f) : new float2(0f, 0f);
+        knob.AnchorMax.Value = on ? new float2(1f, 1f) : new float2(0f, 1f);
+        knob.OffsetMin.Value = on ? new float2(-25f, 3f) : new float2(3f, 3f);
+        knob.OffsetMax.Value = on ? new float2(-3f, -3f) : new float2(25f, -3f);
     }
 
     private void SetBanner(string? text)

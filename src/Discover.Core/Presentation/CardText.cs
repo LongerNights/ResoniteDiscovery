@@ -211,12 +211,16 @@ public static class UiStrings
         ["sort.Name.hint"] = "A to Z",
         ["sort.Random.hint"] = "Shuffle",
         ["sort.unavailable"] = "Not for this lens",
-        ["sort.descending"] = "High to low",
-        ["sort.ascending"] = "Low to high",
+        ["sort.descending"] = "↓  High to low",
+        ["sort.ascending"] = "↑  Low to high",
 
         // filters popover
         ["filters.title"] = "Filters",
         ["filters.reset"] = "Reset",
+        ["filters.section.people"] = "PEOPLE",
+        ["filters.section.session"] = "SESSION",
+        ["filters.section.world"] = "WORLD",
+        ["filters.none"] = "This tab has no filters. Use the search box or the tag chips.",
         ["filters.done"] = "Done",
         ["filters.minUsers"] = "At least {0} people",
         ["filters.minUsers.any"] = "Any number of people",
