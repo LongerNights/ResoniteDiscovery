@@ -420,8 +420,23 @@ internal sealed class DiscoverUi
     {
         ui.NestInto(chipBar);
         chipBar.AddFixedPadding(6f);
-        var row = ui.HorizontalLayout(8f, 4f, Alignment.MiddleLeft);
+
+        // The chips sit in a sideways-scrolling strip, so a long row is reached by dragging instead of being cut off.
+        var viewport = ui.Next("ChipViewport");
+        ScrollRect.CreateScrollRect(viewport, out var strip);
+        var stripRect = strip.GetComponent<RectTransform>();
+        stripRect.AnchorMin.Value = new float2(0f, 0f);
+        stripRect.AnchorMax.Value = new float2(0f, 1f);
+        stripRect.Pivot.Value = new float2(0f, 0.5f);
+        var row = strip.AttachComponent<HorizontalLayout>();
+        row.Spacing.Value = 8f;
+        row.ChildAlignment = Alignment.MiddleLeft;
         row.ForceExpandWidth.Value = false;
+        row.ForceExpandHeight.Value = false;
+        var stripFit = strip.AttachComponent<ContentSizeFitter>();
+        stripFit.HorizontalFit.Value = SizeFit.PreferredSize;
+        stripFit.VerticalFit.Value = SizeFit.Disabled;
+        ui.NestInto(stripRect);
         ui.Style.MinHeight = 40f;
         ui.Style.MinWidth = 96f;
         for (var i = 0; i < MaxChips; i++)
@@ -439,8 +454,8 @@ internal sealed class DiscoverUi
         _clearChips.Slot.ActiveSelf = false;
         _clearChips.LocalPressed += (_, _) => _actions.ClearChips();
         ui.Style.MinWidth = 0f;
-        ui.NestOut();
-        ui.NestOut();
+        ui.NestOut(); // the strip
+        ui.NestOut(); // the chip bar
     }
 
     private string?[] _chipTags = new string?[MaxChips];
@@ -492,20 +507,20 @@ internal sealed class DiscoverUi
     {
         footer.AddFixedPadding(6f);
         ui.NestInto(footer);
-        var parts = ui.SplitHorizontally(0.60f, 0.20f, 0.20f);
+        var parts = ui.SplitHorizontally(0.76f, 0.12f, 0.12f);
         _status = TextIn(ui, parts[0], Alignment.MiddleLeft, Theme.TextSecondary, 14f, 20f);
         parts[1].AddFixedPadding(4f);
         parts[2].AddFixedPadding(4f);
 
         ui.NestInto(parts[1]);
         _previous = ui.Button((LocaleString)UiStrings.Get("nav.previous"));
-        Fix(_previous.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+        Fix(_previous.Slot.GetComponentInChildren<Text>(), TypeScale.Hero);
         _previous.LocalPressed += (_, _) => _actions.PreviousPage();
         ui.NestOut();
 
         ui.NestInto(parts[2]);
         _next = ui.Button((LocaleString)UiStrings.Get("nav.next"), Theme.ButtonSelected);
-        Fix(_next.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
+        Fix(_next.Slot.GetComponentInChildren<Text>(), TypeScale.Hero);
         _next.LocalPressed += (_, _) => _actions.NextPage();
         ui.NestOut();
         ui.NestOut();
