@@ -36,7 +36,8 @@ internal static class SessionMapper
         PresentContacts = engine.Cloud.Contacts.CountPresentContacts(info),
         IsCompatible = info.IsCompatible(),
         Users = info.SessionUsers?
-            .Select(u => new SessionUserSnapshot(u.UserID ?? "", Plain(u.Username), u.IsPresent, AccessLevelNames.DeviceFromName(u.OutputDevice?.ToString())))
+            .Select(u => new SessionUserSnapshot(u.UserID ?? "", Plain(u.Username), u.IsPresent, AccessLevelNames.DeviceFromName(u.OutputDevice?.ToString()),
+                !string.IsNullOrEmpty(u.UserID) && engine.Cloud.Contacts.IsContact(u.UserID, true)))
             .ToArray() ?? [],
     };
 

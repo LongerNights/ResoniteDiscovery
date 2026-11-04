@@ -19,10 +19,14 @@ public sealed record DetailModel(
     bool IsFavorite = false,
     string? ThumbnailUrl = null,
     IReadOnlyList<string>? TagList = null,
-    IReadOnlyList<DetailSession>? SessionRows = null);
+    IReadOnlyList<DetailSession>? SessionRows = null,
+    string Dates = "");
 
 /// <summary>One live session in the detail panel: its line of text and whether it can be joined (not full, same build).</summary>
-public sealed record DetailSession(string SessionId, string Text, bool CanJoin);
+public sealed record DetailSession(string SessionId, string Text, bool CanJoin, IReadOnlyList<DetailUser>? Users = null);
+
+/// <summary>A person in a session, for the detail panel's user list; contacts are marked, as on the stock tab.</summary>
+public sealed record DetailUser(string Name, bool IsContact);
 
 /// <summary>What the detail panel's leave button does: nothing, leave a world you joined, or end one you host.</summary>
 public enum LeaveKind
@@ -37,6 +41,17 @@ public static class DetailBuilder
     public const int MaxSessions = 4;
     public const int MaxSessionRows = 3;
     public const int MaxTags = 16;
+
+    /// <summary>The stock tab's session information on one line: host, who is in (and away), how long it has run, who can join.</summary>
+    private static string SessionInfoLine(SessionSnapshot s, DateTime nowUtc)
+    {
+        var away = Math.Max(0, s.JoinedUsers - s.ActiveUsers);
+        var count = CardText.Users(s.ActiveUsers, s.MaximumUsers);
+        var users = away > 0
+            ? UiStrings.Format("detail.users.away", count, away)
+            : UiStrings.Format("detail.users.count", count);
+        return UiStrings.Format("detail.sessionInfo", CardText.Ellipsize(s.HostUsername, 20), users, CardText.Age(s.SessionBeginTime, nowUtc), UiStrings.Get("stock.access." + s.AccessLevel));
+    }
 
     public static DetailModel Build(DiscoveryEntry entry, CardModel card, DateTime nowUtc, OpenWorldSnapshot? openWorld = null)
     {
@@ -77,8 +92,18 @@ public static class DetailBuilder
         var joinable = JoinPlanner.JoinableSessions(entry).Select(j => j.SessionId).ToHashSet(StringComparer.Ordinal);
         var rows = entry.Sessions.Take(MaxSessionRows).Select(s => new DetailSession(
             s.SessionId,
-            UiStrings.Format("detail.session", CardText.Ellipsize(s.HostUsername, 22), CardText.Users(s.ActiveUsers, s.MaximumUsers), CardText.Age(s.SessionBeginTime, nowUtc)),
-            joinable.Contains(s.SessionId))).ToList();
+            SessionInfoLine(s, nowUtc),
+            joinable.Contains(s.SessionId),
+            s.Users
+                .OrderByDescending(u => u.IsContact)
+                .ThenBy(u => u.Username, StringComparer.OrdinalIgnoreCase)
+                .Where(u => u.Username.Length > 0)
+                .Select(u => new DetailUser(u.Username, u.IsContact))
+                .ToList())).ToList();
+
+        var dates = record?.FirstPublishTime is { } first && record.LastUpdate is { } last
+            ? UiStrings.Format("detail.dates", CardText.Age(first, nowUtc), CardText.Age(last, nowUtc))
+            : record?.FirstPublishTime is { } only ? UiStrings.Format("detail.datesPublished", CardText.Age(only, nowUtc)) : "";
 
         var mix = entry.DeviceMix;
         var devices = mix.Total == 0 ? "" : UiStrings.Format("detail.devices", mix.Vr, mix.Screen, mix.Camera);
@@ -99,6 +124,7 @@ public static class DetailBuilder
             card.IsFavorite,
             card.ThumbnailUrl,
             tags,
-            rows);
+            rows,
+            dates);
     }
 }
