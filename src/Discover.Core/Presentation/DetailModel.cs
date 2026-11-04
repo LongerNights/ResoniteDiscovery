@@ -16,7 +16,9 @@ public sealed record DetailModel(
     bool CanCopyLink,
     LeaveKind Leave = LeaveKind.None,
     bool CanMoreByAuthor = false,
-    bool IsFavorite = false);
+    bool IsFavorite = false,
+    string? ThumbnailUrl = null,
+    IReadOnlyList<string>? TagList = null);
 
 /// <summary>What the detail panel's leave button does: nothing, leave a world you joined, or end one you host.</summary>
 public enum LeaveKind
@@ -59,7 +61,8 @@ public static class DetailBuilder
             .Concat(entry.PersonalTags)
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(MaxTags);
+            .Take(MaxTags)
+            .ToList();
 
         var sessions = entry.Sessions.Count == 0
             ? UiStrings.Get("detail.noSessions")
@@ -82,6 +85,8 @@ public static class DetailBuilder
             RecordUrls.For(entry) is not null,
             openWorld is not { CanLeave: true } ? LeaveKind.None : openWorld.IsHost ? LeaveKind.End : LeaveKind.Leave,
             !string.IsNullOrEmpty(record?.OwnerId),
-            card.IsFavorite);
+            card.IsFavorite,
+            card.ThumbnailUrl,
+            tags);
     }
 }

@@ -190,6 +190,20 @@ internal sealed class DiscoverUi
         ui.NestOut();
         ui.NestOut();
         ui.NestOut();
+
+        // Classic browser: pinned to the bottom of the rail, outside the list so it stays put however long the list is.
+        var pin = new UIBuilder(rail);
+        RadiantUI_Constants.SetupDefaultStyle(pin);
+        pin.Style.ButtonColor = Theme.Button;
+        var classic = pin.Button((LocaleString)UiStrings.Get("bar.classic"), Theme.ButtonQuiet);
+        Fix(classic.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        classic.LocalPressed += (_, _) => _actions.OpenClassicBrowser();
+        classic.Slot.Name = "ClassicBrowser";
+        var classicRect = classic.Slot.GetComponent<RectTransform>();
+        classicRect.AnchorMin.Value = new float2(0f, 0f);
+        classicRect.AnchorMax.Value = new float2(1f, 0f);
+        classicRect.OffsetMin.Value = new float2(14f, 10f);
+        classicRect.OffsetMax.Value = new float2(-14f, 54f);
     }
 
     private readonly Dictionary<string, Slot> _railHeaders = [];
@@ -441,24 +455,17 @@ internal sealed class DiscoverUi
     {
         footer.AddFixedPadding(6f);
         ui.NestInto(footer);
-        var parts = ui.SplitHorizontally(0.44f, 0.16f, 0.20f, 0.20f);
+        var parts = ui.SplitHorizontally(0.60f, 0.20f, 0.20f);
         _status = TextIn(ui, parts[0], Alignment.MiddleLeft, Theme.TextSecondary, 14f, 20f);
         parts[1].AddFixedPadding(4f);
         parts[2].AddFixedPadding(4f);
-        parts[3].AddFixedPadding(4f);
 
         ui.NestInto(parts[1]);
-        var classic = ui.Button((LocaleString)UiStrings.Get("bar.classic"), Theme.ButtonQuiet);
-        Fix(classic.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
-        classic.LocalPressed += (_, _) => _actions.OpenClassicBrowser();
-        ui.NestOut();
-
-        ui.NestInto(parts[2]);
         _previous = ui.Button((LocaleString)UiStrings.Get("nav.previous"));
         _previous.LocalPressed += (_, _) => _actions.PreviousPage();
         ui.NestOut();
 
-        ui.NestInto(parts[3]);
+        ui.NestInto(parts[2]);
         _next = ui.Button((LocaleString)UiStrings.Get("nav.next"), Theme.ButtonSelected);
         _next.LocalPressed += (_, _) => _actions.NextPage();
         ui.NestOut();
@@ -1433,20 +1440,36 @@ internal sealed class DiscoverUi
     private Text _detailLeaveLabel = null!;
     private string? _detailKey;
 
+    private const int MaxDetailTags = 10;
+    private readonly List<(Button Button, Text Label)> _detailTagButtons = [];
+    private readonly string?[] _detailTagNames = new string?[MaxDetailTags];
+    private Text _detailTagsHeader = null!;
+    private Slot _detailTagGrid = null!;
+    private StaticTexture2D _detailThumbnail = null!;
+    private Uri? _detailThumbnailUri;
+
     private void BuildDetails(UIBuilder ui)
     {
         _detailScrim = Catcher(ui, "DetailScrim", Theme.ConfirmScrim, CloseMenus);
 
-        var slot = ui.Empty("Detail");
-        var rect = slot.GetComponent<RectTransform>();
-        rect.AnchorMin.Value = new float2(0.18f, 0.06f);
-        rect.AnchorMax.Value = new float2(0.82f, 0.94f);
-        ui.NestInto(rect);
-        Absorb(ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize));
-        var layout = ui.VerticalLayout(8f, 22f, Alignment.TopCenter);
-        layout.ForceExpandHeight.Value = false;
+        var slot = BeginFloating(ui, "Detail", 0.14f, 0.86f, 0.5f, 0.5f, 10f, 22f);
 
-        ui.Style.MinHeight = 56f;
+        // Top: the world's 360 preview (pans on hover, as on the card) beside its name, byline and description.
+        ui.Style.MinHeight = 210f;
+        var top = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
+        top.ForceExpandWidth.Value = false;
+        ui.Style.MinWidth = 400f;
+        ui.Style.FlexibleWidth = -1f;
+        var previewRect = ui.Next("Preview").GetComponent<RectTransform>();
+        BuildDetailPreview(ui, previewRect);
+
+        ui.Style.MinWidth = 0f;
+        ui.Style.FlexibleWidth = 1f;
+        var info = ui.VerticalLayout(6f, 0f, Alignment.TopLeft);
+        info.ForceExpandHeight.Value = false;
+        ui.Style.FlexibleWidth = -1f;
+
+        ui.Style.MinHeight = 48f;
         _detailTitle = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
         Fix(_detailTitle, TypeScale.Title);
         _detailTitle.Color.Value = Theme.Heading;
@@ -1456,34 +1479,65 @@ internal sealed class DiscoverUi
         Fix(_detailBy, TypeScale.Body);
         _detailBy.Color.Value = Theme.TextSecondary;
 
-        ui.Style.MinHeight = 110f;
+        ui.Style.MinHeight = 84f;
         _detailDescription = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
         Fix(_detailDescription, TypeScale.Body);
 
         ui.Style.MinHeight = 26f;
-        var tagsHeader = ui.Text((LocaleString)UiStrings.Get("detail.tags"), bestFit: true, alignment: Alignment.BottomLeft);
-        Fix(tagsHeader, TypeScale.Caption);
-        tagsHeader.Color.Value = Theme.TextSecondary;
-        ui.Style.MinHeight = 52f;
-        _detailTags = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
-        Fix(_detailTags, TypeScale.Body);
+        _detailDevices = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(_detailDevices, TypeScale.Caption);
+        _detailDevices.Color.Value = Theme.TextSecondary;
+        ui.NestOut(); // info
+        ui.NestOut(); // top
+
+        // Tags: chips; pressing one adds it to the tag chips on the results and closes the panel.
+        ui.Style.MinHeight = 26f;
+        _detailTagsHeader = ui.Text((LocaleString)UiStrings.Get("detail.tags"), bestFit: true, alignment: Alignment.BottomLeft);
+        Fix(_detailTagsHeader, TypeScale.Caption);
+        _detailTagsHeader.Color.Value = Theme.TextSecondary;
+
+        ui.Style.MinHeight = 88f;
+        var tagArea = ui.Empty("Tags");
+        var grid = tagArea.AttachComponent<GridLayout>();
+        grid.ChildAlignment = Alignment.TopLeft;
+        grid.CellSize.Value = new float2(150f, 38f);
+        grid.Spacing.Value = new float2(8f, 8f);
+        _detailTagGrid = tagArea;
+        ui.NestInto(tagArea.GetComponent<RectTransform>());
+        for (var i = 0; i < MaxDetailTags; i++)
+        {
+            var chip = ui.Button((LocaleString)"");
+            var label = chip.Slot.GetComponentInChildren<Text>();
+            Fix(label, TypeScale.Body);
+            var index = i;
+            chip.LocalPressed += (_, _) =>
+            {
+                if (_detailTagNames[index] is { } tag)
+                {
+                    CloseMenus();
+                    _actions.CycleChip(tag);
+                }
+            };
+            chip.Slot.ActiveSelf = false;
+            _detailTagButtons.Add((chip, label));
+        }
+
+        ui.NestOut();
 
         ui.Style.MinHeight = 26f;
         var sessionsHeader = ui.Text((LocaleString)UiStrings.Get("detail.sessions"), bestFit: true, alignment: Alignment.BottomLeft);
         Fix(sessionsHeader, TypeScale.Caption);
         sessionsHeader.Color.Value = Theme.TextSecondary;
-        ui.Style.MinHeight = 96f;
+        ui.Style.MinHeight = 74f;
         _detailSessions = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
         Fix(_detailSessions, TypeScale.Body);
-        ui.Style.MinHeight = 26f;
-        _detailDevices = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
-        Fix(_detailDevices, TypeScale.Caption);
-        _detailDevices.Color.Value = Theme.TextSecondary;
 
+        // Actions: the main one with the everyday ones beside it, then the quieter ones.
         ui.Style.MinHeight = 50f;
         var row = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
         _detailAction = ui.Button((LocaleString)"", Theme.ButtonSelected);
         _detailActionLabel = _detailAction.Slot.GetComponentInChildren<Text>();
+        Fix(_detailActionLabel, TypeScale.Label);
         _detailAction.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1494,6 +1548,7 @@ internal sealed class DiscoverUi
         };
         _detailFavorite = ui.Button((LocaleString)UiStrings.Get("detail.favorite"));
         _detailFavoriteLabel = _detailFavorite.Slot.GetComponentInChildren<Text>();
+        Fix(_detailFavoriteLabel, TypeScale.Body);
         _detailFavorite.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1503,15 +1558,8 @@ internal sealed class DiscoverUi
                 _detailFavoriteLabel.Content.Value = UiStrings.Get(_detailFavorited ? "detail.unfavorite" : "detail.favorite");
             }
         };
-        _detailCopy = ui.Button((LocaleString)UiStrings.Get("detail.copyLink"));
-        _detailCopy.LocalPressed += (_, _) =>
-        {
-            if (_detailKey is { } key)
-            {
-                _actions.CopyLink(key);
-            }
-        };
         _detailLists = ui.Button((LocaleString)UiStrings.Get("card.organize"));
+        Fix(_detailLists.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         _detailLists.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1520,7 +1568,21 @@ internal sealed class DiscoverUi
                 _actions.OpenOrganize(key);
             }
         };
-        _detailAuthor = ui.Button((LocaleString)UiStrings.Get("detail.moreByAuthor"));
+        _detailCopy = ui.Button((LocaleString)UiStrings.Get("detail.copyLink"));
+        Fix(_detailCopy.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _detailCopy.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key)
+            {
+                _actions.CopyLink(key);
+            }
+        };
+        ui.NestOut();
+
+        ui.Style.MinHeight = 44f;
+        var quiet = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        _detailAuthor = ui.Button((LocaleString)UiStrings.Get("detail.moreByAuthor"), Theme.ButtonQuiet);
+        Fix(_detailAuthor.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         _detailAuthor.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1530,6 +1592,7 @@ internal sealed class DiscoverUi
             }
         };
         _detailHide = ui.Button((LocaleString)UiStrings.Get("detail.hide"), Theme.ButtonQuiet);
+        Fix(_detailHide.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         _detailHide.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1540,6 +1603,7 @@ internal sealed class DiscoverUi
         };
         _detailLeave = ui.Button((LocaleString)UiStrings.Get("detail.leave"), Theme.ButtonQuiet);
         _detailLeaveLabel = _detailLeave.Slot.GetComponentInChildren<Text>();
+        Fix(_detailLeaveLabel, TypeScale.Body);
         _detailLeave.LocalPressed += (_, _) =>
         {
             if (_detailKey is { } key)
@@ -1550,14 +1614,58 @@ internal sealed class DiscoverUi
         };
         _detailLeave.Slot.ActiveSelf = false;
         var close = ui.Button((LocaleString)UiStrings.Get("detail.close"), Theme.ButtonQuiet);
+        Fix(close.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
         close.LocalPressed += (_, _) => CloseMenus();
         ui.NestOut();
 
-        ui.NestOut();
-        ui.NestOut();
-        ui.NestOut();
+        ui.NestOut(); // the panel
         slot.ActiveSelf = false;
         _detailPanel = slot;
+    }
+
+    /// <summary>The detail panel's 360 preview: drawn like the card's, and panned by hovering it.</summary>
+    private void BuildDetailPreview(UIBuilder ui, RectTransform previewRect)
+    {
+        var texture = previewRect.Slot.AttachComponent<StaticTexture2D>();
+        var block = previewRect.Slot.AttachComponent<Projection360PropertyBlock>();
+        block.Texture.Target = texture;
+        block.PerspectiveFieldOfView.Value = float2.One * 110f;
+        _detailThumbnail = texture;
+
+        ui.NestInto(previewRect);
+        ui.RawGraphic(LegacyWorldThumbnailItem.GetWorldPreviewMaterial(_screen.World), block);
+        var catcher = ui.Image(colorX.Black.SetA(0.02f));
+        catcher.Slot.Name = "Hover";
+        var hover = catcher.Slot.AttachComponent<Button>();
+        var driver = hover.ColorDrivers[0];
+        driver.TintColorMode.Value = InteractionElement.ColorMode.Direct;
+        driver.NormalColor.Value = colorX.Black.SetA(0.02f);
+        driver.HighlightColor.Value = colorX.Black.SetA(0.02f);
+        driver.PressColor.Value = colorX.Black.SetA(0.02f);
+        driver.DisabledColor.Value = colorX.Black.SetA(0.02f);
+        var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
+        block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
+        block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
+        ui.NestOut();
+    }
+
+    private void SetDetailThumbnail(string? raw)
+    {
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            uri = OfficialAssets.Skyboxes.Thumbnails.NoThumbnail;
+        }
+
+        if (uri == _detailThumbnailUri)
+        {
+            return;
+        }
+
+        var direct = uri.Scheme != _screen.Engine.Cloud.Assets.DBScheme;
+        _detailThumbnail.Uncompressed.Value = direct;
+        _detailThumbnail.DirectLoad.Value = direct;
+        _detailThumbnail.URL.Value = uri;
+        _detailThumbnailUri = uri;
     }
 
     public void ShowDetails(DetailModel model)
@@ -1567,7 +1675,18 @@ internal sealed class DiscoverUi
         _detailTitle.Content.Value = "<nobr>" + Plain(model.Title) + "</nobr>";
         _detailBy.Content.Value = "<nobr>" + Plain(model.ByLine) + "</nobr>";
         _detailDescription.Content.Value = Plain(model.Description);
-        _detailTags.Content.Value = Plain(model.Tags);
+        var tagList = model.TagList ?? [];
+        for (var t = 0; t < MaxDetailTags; t++)
+        {
+            var show = t < tagList.Count;
+            _detailTagNames[t] = show ? tagList[t] : null;
+            _detailTagButtons[t].Button.Slot.ActiveSelf = show;
+            _detailTagButtons[t].Label.Content.Value = show ? "<nobr>" + Plain(CardText.Ellipsize(tagList[t], 14)) + "</nobr>" : "";
+        }
+
+        _detailTagsHeader.Slot.ActiveSelf = tagList.Count > 0;
+        _detailTagGrid.ActiveSelf = tagList.Count > 0;
+        SetDetailThumbnail(model.ThumbnailUrl);
         _detailSessions.Content.Value = Plain(model.Sessions);
         _detailDevices.Content.Value = Plain(model.Devices);
         _detailLists.Slot.ActiveSelf = model.CanSave;
