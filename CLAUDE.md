@@ -36,7 +36,7 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 
 ## Current status
 
-**Overhaul milestones M5 to M10 are built and running in game (2026-11-04), 392 tests.** The UI redesign
+**Overhaul milestones M5 to M10 are built and running in game (2026-11-04), 401 tests.** The UI redesign
 (`docs/ui-redesign.md`, with its status section) is complete apart from optional extras: stock look and palette, engine icons,
 fixed type scale, size-to-content panels, switch rows, tabbed Settings, detail panel with a selectable session list,
 chip bar, list mode, open animations (on by default). Features beyond the original plan: `author:` resolves through the

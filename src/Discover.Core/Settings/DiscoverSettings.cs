@@ -119,6 +119,24 @@ public sealed record DiscoverSettings
     public int MaxCachedEntries { get; init; } = 500;
     public int MaxCardSlots { get; init; } = 40;
 
+    /// <summary>Card slots the screen can hold; the page size is rows times columns, capped here. (<see cref="MaxCardSlots"/> and <see cref="SearchPageSize"/> are the old fixed values and are no longer read.)</summary>
+    public const int CardSlotLimit = 100;
+
+    /// <summary>Rows of worlds on a page (Settings > Display). A list view row counts as a quarter of a grid row.</summary>
+    public int RowsPerPage { get; init; } = 10;
+
+    public static readonly int[] RowsPerPageChoices = [3, 4, 5, 6, 8, 10, 12, 15, 20];
+
+    public const int ListRowsPerGridRow = 4;
+
+    /// <summary>Worlds per page: whole rows of the chosen layout, never more than <see cref="CardSlotLimit"/>.</summary>
+    public int PageSizeFor()
+    {
+        var perRow = ListView ? ListRowsPerGridRow : Math.Max(1, CardsPerRow);
+        var rows = Math.Max(1, Math.Min(RowsPerPage, CardSlotLimit / perRow));
+        return rows * perRow;
+    }
+
     /// <summary>Cards filled in per tick when a lens is shown (the rest follow on later ticks, so no one frame does all 40).</summary>
     public int CardBindsPerTick { get; init; } = 2;
 

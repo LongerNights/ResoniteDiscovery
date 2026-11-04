@@ -19,6 +19,9 @@ public sealed record OpenWorldSnapshot
     public AccessLevel AccessLevel { get; init; }
     public int Users { get; init; }
     public int MaxUsers { get; init; }
+
+    /// <summary>Who is in the world (names and contact marks), for the detail panel's user list. In memory only.</summary>
+    public IReadOnlyList<SessionUserSnapshot> UserList { get; init; } = [];
     public bool IsFocused { get; init; }
     public string? ThumbnailUrl { get; init; }
 

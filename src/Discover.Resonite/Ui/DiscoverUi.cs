@@ -470,6 +470,26 @@ internal sealed class DiscoverUi
         chipBar.AddFixedPadding(6f);
 
         _chipBarRect = chipBar;
+
+        // "Tags" at the left, then the chips inside an outlined box, so the row reads as a tag selection.
+        var title = ui.Text((LocaleString)UiStrings.Get("chips.title"), bestFit: true, alignment: Alignment.MiddleLeft);
+        Fix(title, TypeScale.Label);
+        title.Color.Value = Theme.TextSecondary;
+        title.RectTransform.AnchorMin.Value = float2.Zero;
+        title.RectTransform.AnchorMax.Value = new float2(0f, 1f);
+        title.RectTransform.OffsetMin.Value = new float2(10f, 0f);
+        title.RectTransform.OffsetMax.Value = new float2(ChipTitleWidth, 0f);
+
+        var outline = ui.Panel(RadiantUI_Constants.Neutrals.MIDLIGHT, _rounded, NineSliceSizing.FixedSize);
+        outline.Slot.Name = "TagBox";
+        outline.RectTransform.AnchorMin.Value = float2.Zero;
+        outline.RectTransform.AnchorMax.Value = float2.One;
+        outline.RectTransform.OffsetMin.Value = new float2(ChipTitleWidth + 4f, 0f);
+        outline.RectTransform.OffsetMax.Value = float2.Zero;
+        var inner = ui.Panel(Theme.Rail, _rounded, NineSliceSizing.FixedSize);
+        inner.RectTransform.OffsetMin.Value = new float2(2f, 2f);
+        inner.RectTransform.OffsetMax.Value = new float2(-2f, -2f);
+
         var row = ui.HorizontalLayout(8f, 4f, Alignment.MiddleLeft);
         row.ForceExpandWidth.Value = false;
         ui.Style.MinHeight = 40f;
@@ -487,6 +507,8 @@ internal sealed class DiscoverUi
 
         ui.Style.MinWidth = 0f;
         ui.NestOut(); // the row
+        ui.NestOut(); // the inner panel
+        ui.NestOut(); // the outline
         ui.NestOut(); // the chip bar
 
         // Clear all is not a tag, so it is not in the row: a red button pinned to the bar's right edge.
@@ -505,6 +527,7 @@ internal sealed class DiscoverUi
     }
 
     private RectTransform _chipBarRect = null!;
+    private const float ChipTitleWidth = 80f;
 
     private string?[] _chipTags = new string?[MaxChips];
 
@@ -1613,7 +1636,14 @@ internal sealed class DiscoverUi
         {
             var button = ui.Button((LocaleString)"", Theme.Button);
             var label = button.Slot.GetComponentInChildren<Text>();
-            Fix(label, TypeScale.Body);
+            Fix(label, TypeScale.Label);
+            label.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+            if (label.Slot.GetComponent<RectTransform>() is { } labelRect)
+            {
+                labelRect.OffsetMin.Value = new float2(16f, 0f);
+                labelRect.OffsetMax.Value = new float2(-8f, 0f);
+            }
+
             var index = i;
             button.LocalPressed += (_, _) =>
             {
@@ -2051,6 +2081,9 @@ internal sealed class DiscoverUi
         driver.PressColor.Value = colorX.Black.SetA(0.02f);
         driver.DisabledColor.Value = colorX.Black.SetA(0.02f);
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
+        // Gentler than the engine's default: the full-speed pan makes the picture whirl as the pointer enters.
+        panner.HorizontalPanningAcceleration.Value *= 0.35f;
+        panner.HorizontalPanningSpeed.Value *= 0.6f;
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
         ui.NestOut();
@@ -2135,6 +2168,14 @@ internal sealed class DiscoverUi
     /// Once the panel has grown into place, a dark sheet over it (the panel's own colour, with a cyan leading edge)
     /// retracts from the top down, so the contents are scanned in instead of appearing at once.
     /// </summary>
+    private void CoverDetail(float2 min, float2 max)
+    {
+        _scanGeneration++;
+        _detailSheet.ActiveSelf = true;
+        _detailSheetRect.AnchorMin.Value = min;
+        _detailSheetRect.AnchorMax.Value = max;
+    }
+
     private void ScanDetail(float2 min, float2 max)
     {
         try
@@ -2142,6 +2183,7 @@ internal sealed class DiscoverUi
             var generation = ++_scanGeneration;
             _detailSheet.ActiveSelf = true;
             _detailSheetRect.AnchorMin.Value = min;
+            _detailSheetRect.AnchorMax.Value = max;
             _detailSheetRect.AnchorMax.TweenFromTo(max, new float2(max.x, min.y), UiMotion.Seconds(0.42f), CurvePreset.QuarticOut, onDoneLocal: () =>
             {
                 if (generation == _scanGeneration)
@@ -2176,11 +2218,22 @@ internal sealed class DiscoverUi
             fitter.Enabled = true;
         }
 
-        foreach (var child in _detailPanel.Children)
+        // The children go back to what they were before the expansion hid them (not all on: some are off on purpose for
+        // this world, e.g. the session area of a world nobody is in).
+        if (_expansionHidden is { } hidden)
         {
-            child.ActiveSelf = true;
+            _expansionHidden = null;
+            foreach (var (child, wasActive) in hidden)
+            {
+                if (!child.IsDestroyed)
+                {
+                    child.ActiveSelf = wasActive;
+                }
+            }
         }
     }
+
+    private List<(Slot Child, bool WasActive)>? _expansionHidden;
 
     /// <summary>
     /// The panel grows out of the card (or list row) that was pressed: its own background is stretched over the card's
@@ -2224,6 +2277,7 @@ internal sealed class DiscoverUi
             rect.OffsetMax.Value = float2.Zero;
             rect.AnchorMin.Value = start0;
             rect.AnchorMax.Value = start1;
+            _expansionHidden = _detailPanel.Children.Select(c => (c, c.ActiveSelf)).ToList();
             foreach (var child in _detailPanel.Children)
             {
                 child.ActiveSelf = false;
@@ -2239,15 +2293,33 @@ internal sealed class DiscoverUi
                 }
 
                 RestoreDetailGeometry();
-                ScanDetail(end0, end1);
+
+                // The sheet first covers the predicted rectangle at once (no flash of the contents), then, when the layout
+                // has settled, it is fitted to the panel's real size and starts to retract.
+                CoverDetail(end0, end1);
                 _screen.World.RunInUpdates(3, () =>
                 {
-                    // Remember how tall the laid-out panel really is, so the next expansion ends where it will settle.
-                    var measured = rect.ComputeGlobalComputeRect().size.y / MathF.Max(1f, host.ComputeGlobalComputeRect().size.y);
-                    if (measured is > 0.3f and < 1f)
+                    if (generation != _expandGeneration)
                     {
-                        _detailHeight = measured;
+                        return;
                     }
+
+                    var panel = rect.ComputeGlobalComputeRect();
+                    var hostNow = host.ComputeGlobalComputeRect();
+                    if (hostNow.size.x < 1f || hostNow.size.y < 1f)
+                    {
+                        ScanDetail(end0, end1);
+                        return;
+                    }
+
+                    var min = (panel.position - hostNow.position) / hostNow.size;
+                    var max = min + panel.size / hostNow.size;
+                    if (panel.size.y / hostNow.size.y is > 0.3f and < 1f)
+                    {
+                        _detailHeight = panel.size.y / hostNow.size.y;
+                    }
+
+                    ScanDetail(min, max);
                 });
             });
             return true;
@@ -2364,6 +2436,7 @@ internal sealed class DiscoverUi
     private Button _viewGrid = null!;
     private Button _viewList = null!;
     private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
+    private readonly Dictionary<int, Button> _rowsPerPageButtons = [];
     private Text _hiddenCounts = null!;
     private const int MaxHiddenRows = 6;
     private readonly List<(Slot Row, Text Label)> _hiddenRows = [];
@@ -2462,6 +2535,20 @@ internal sealed class DiscoverUi
                 var captured = count;
                 button.LocalPressed += (_, _) => _actions.SetCardsPerRow(captured);
                 _cardsPerRowButtons[count] = button;
+            }
+
+            ui.NestOut();
+
+            SettingsLabel(ui, UiStrings.Get("settings.rowsPerPage"));
+            ui.Style.MinHeight = 46f;
+            var rowsRow = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
+            foreach (var count in DiscoverSettings.RowsPerPageChoices)
+            {
+                var button = ui.Button((LocaleString)count.ToString());
+                Fix(button.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+                var captured = count;
+                button.LocalPressed += (_, _) => _actions.SetRowsPerPage(captured);
+                _rowsPerPageButtons[count] = button;
             }
 
             ui.NestOut();
@@ -2774,6 +2861,11 @@ internal sealed class DiscoverUi
             SetColor(button, count == perRow ? Theme.ButtonSelected : Theme.Button);
         }
 
+        foreach (var (count, button) in _rowsPerPageButtons)
+        {
+            SetColor(button, count == settings.RowsPerPage ? Theme.ButtonSelected : Theme.Button);
+        }
+
         _hiddenItems = model.HiddenItems ?? [];
         for (var h = 0; h < _hiddenRows.Count; h++)
         {
@@ -2996,7 +3088,17 @@ internal sealed class DiscoverUi
                 creates++;
             }
 
-            _cards[_pendingIndex].Bind(_pendingCards[_pendingIndex], _screen.Engine);
+            try
+            {
+                _cards[_pendingIndex].Bind(_pendingCards[_pendingIndex], _screen.Engine);
+            }
+            catch (Exception ex)
+            {
+                // One bad card must not stop the ones after it from being filled in (they would stay grey and dead).
+                UniLog.Warning($"[Discover] Card bind failed: {ex.GetType().Name}: {ex.Message}");
+                _cards[_pendingIndex].Release();
+            }
+
             _pendingIndex++;
             binds++;
         }
@@ -3061,7 +3163,7 @@ internal sealed class DiscoverUi
         }
         _subtitle.Content.Value = "<nobr>" + Plain(view.Subtitle) + "</nobr>";
         _count.Content.Value = view.Count;
-        _sortButtonLabel.Content.Value = $"<nobr>{view.SortLabel} ▾</nobr>";
+        _sortButtonLabel.Content.Value = $"<nobr>{UiStrings.Get("bar.sort")}: {view.SortLabel} ▾</nobr>";
         _filtersButtonLabel.Content.Value = "<nobr>" + (view.FilterCount > 0 ? $"{UiStrings.Get("bar.filters")} ({view.FilterCount}) ▾" : UiStrings.Get("bar.filters") + " ▾") + "</nobr>";
 
         RenderChips(view.Chips);
@@ -3096,6 +3198,7 @@ internal sealed class DiscoverUi
             if (_cards[i].Key != _pendingCards[i].Key)
             {
                 _cards[i].HoldThumbnail();
+                _cards[i].Stale = true; // shows the old world until it is rebound; a press on it must not open that world
             }
         }
 
@@ -3124,7 +3227,7 @@ internal sealed class DiscoverUi
     {
         var barWidth = RectField?.GetValue(_chipBarRect) is Rect bar && bar.size.x > 200f ? bar.size.x : 1000f;
         var anyActive = chips.Any(c => c.State is not null);
-        var room = barWidth - 24f - (anyActive ? 130f : 0f); // padding, and the Clear button when it shows
+        var room = barWidth - 24f - ChipTitleWidth - (anyActive ? 130f : 0f); // padding, and the Clear button when it shows
         var used = 0f;
         for (var i = 0; i < MaxChips; i++)
         {
@@ -3395,6 +3498,8 @@ internal sealed class CardView
     private Button _star = null!;
     private Text _starLabel = null!;
     private Button _organize = null!;
+    private Button _leave = null!;
+    private Text _leaveLabel = null!;
     private Button _info = null!;
     private Slot _body = null!;
     private RectTransform[] _parts = [];
@@ -3417,6 +3522,9 @@ internal sealed class CardView
     }
 
     public string? Key { get; private set; }
+
+    /// <summary>True from the moment a new lens is queued until this card is rebound; presses are ignored meanwhile.</summary>
+    public bool Stale { get; set; }
 
     public static CardView Create(Slot parent, World world, IAssetProvider<Sprite> rounded, IBrowseActions actions)
     {
@@ -3463,7 +3571,7 @@ internal sealed class CardView
         DiscoverUi.Clamp(card._starLabel, 16f, 28f);
         card._star.LocalPressed += (_, _) =>
         {
-            if (card.Key is not null)
+            if (card.Key is not null && !card.Stale)
             {
                 actions.ToggleFavorite(card.Key);
             }
@@ -3473,7 +3581,7 @@ internal sealed class CardView
         DiscoverUi.Clamp(infoLabel, 12f, 18f);
         info.LocalPressed += (_, _) =>
         {
-            if (card.Key is not null)
+            if (card.Key is not null && !card.Stale)
             {
                 DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
@@ -3489,7 +3597,7 @@ internal sealed class CardView
         ];
         card._organize.LocalPressed += (_, _) =>
         {
-            if (card.Key is not null)
+            if (card.Key is not null && !card.Stale)
             {
                 actions.OpenOrganize(card.Key);
             }
@@ -3534,7 +3642,7 @@ internal sealed class CardView
         DiscoverUi.Clamp(card._buttonLabel, 13f, 17f);
         card._button.LocalPressed += (_, _) =>
         {
-            if (card.Key is not null)
+            if (card.Key is not null && !card.Stale)
             {
                 actions.CardPressed(card.Key);
             }
@@ -3555,13 +3663,31 @@ internal sealed class CardView
         driver.DisabledColor.Value = colorX.Black.SetA(0.02f);
         press.LocalPressed += (_, _) =>
         {
-            if (card.Key is not null)
+            if (card.Key is not null && !card.Stale)
             {
                 DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
             }
         };
         card._catcher = catcher.Slot;
+
+        // Quick leave for Current Worlds (a red x, top right), made after the catcher so it sits above it.
+        var overlay = new UIBuilder(slot.GetComponent<RectTransform>());
+        RadiantUI_Constants.SetupDefaultStyle(overlay);
+        card._leave = overlay.Button((LocaleString)"✕", Theme.ClearButton);
+        var leaveRect = card._leave.Slot.GetComponent<RectTransform>();
+        leaveRect.AnchorMin.Value = new float2(0.88f, 0.82f);
+        leaveRect.AnchorMax.Value = new float2(0.98f, 0.97f);
+        card._leaveLabel = card._leave.Slot.GetComponentInChildren<Text>();
+        DiscoverUi.Clamp(card._leaveLabel, 14f, 24f);
+        card._leave.Slot.ActiveSelf = false;
+        card._leave.LocalPressed += (_, _) =>
+        {
+            if (card.Key is not null && !card.Stale)
+            {
+                actions.LeaveWorld(card.Key);
+            }
+        };
 
         // Hovering pans the 360 preview, exactly as on the stock card: its panner reads hover events from this button.
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
@@ -3661,6 +3787,10 @@ internal sealed class CardView
             _parts[i].AnchorMax.Value = max;
         }
 
+        var leaveRect = _leave.Slot.GetComponent<RectTransform>();
+        leaveRect.AnchorMin.Value = list ? new float2(0.91f, 0.08f) : new float2(0.88f, 0.82f);
+        leaveRect.AnchorMax.Value = list ? new float2(0.99f, 0.50f) : new float2(0.98f, 0.97f);
+
         var thumbnail = _parts[0].Slot;
         var buttons = new[] { _star, _info, _organize };
         for (var i = 0; i < buttons.Length; i++)
@@ -3701,11 +3831,13 @@ internal sealed class CardView
     public void Bind(CardModel card, Engine engine)
     {
         Key = card.Key;
+        Stale = false;
         _root.ActiveSelf = true;
 
         _title.Content.Value = Safe(card.Title);
         _title.Color.Value = card.Dimmed ? Theme.TextSecondary : Theme.Text;
-        _meta.Content.Value = "<nobr>" + Safe(card.Meta) + "</nobr>";
+        _meta.Content.Value = "<nobr>" + (card.Visited ? $"<color={RadiantUI_Constants.Hero.CYAN_HEX}>✓ {UiStrings.Get("card.visited")}</color>  " : "") + Safe(card.Meta) + "</nobr>";
+        _leave.Slot.ActiveSelf = card.CanLeave;
 
         _usersPill.ActiveSelf = card.Users is not null;
         _users.Content.Value = card.Users ?? "";

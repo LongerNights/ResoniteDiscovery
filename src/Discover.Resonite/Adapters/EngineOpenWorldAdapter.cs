@@ -15,6 +15,8 @@ internal sealed class EngineOpenWorldAdapter : IOpenWorldSource
     private readonly Dictionary<string, DateTime> _openedAt = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<World> _scratch = [];
 
+    private const int MaxListedUsers = 64;
+
     public EngineOpenWorldAdapter(Engine engine) => _engine = engine;
 
     public IReadOnlyList<OpenWorldSnapshot> GetOpenWorlds()
@@ -46,7 +48,7 @@ internal sealed class EngineOpenWorldAdapter : IOpenWorldSource
                 _openedAt[sessionId] = opened;
             }
 
-            result.Add(Snapshot(world, sessionId, opened));
+            result.Add(Snapshot(world, sessionId, opened, UsersOf(world)));
         }
 
         foreach (var gone in _openedAt.Keys.Where(k => !seen.Contains(k)).ToList())
@@ -57,7 +59,37 @@ internal sealed class EngineOpenWorldAdapter : IOpenWorldSource
         return result;
     }
 
-    private static OpenWorldSnapshot Snapshot(World world, string sessionId, DateTime opened)
+    /// <summary>The people in a world, for the detail panel; a failure to read them leaves the list empty.</summary>
+    private IReadOnlyList<SessionUserSnapshot> UsersOf(World world)
+    {
+        try
+        {
+            var users = new List<SessionUserSnapshot>();
+            foreach (var user in world.AllUsers)
+            {
+                if (user is null || user.IsDestroyed || string.IsNullOrWhiteSpace(user.UserName))
+                {
+                    continue;
+                }
+
+                var id = user.UserID ?? "";
+                var contact = id.Length > 0 && _engine.Cloud.Contacts.IsContact(id, true);
+                users.Add(new SessionUserSnapshot(id, SessionMapper.Plain(user.UserName), true, OutputDevice.Unknown, contact));
+                if (users.Count >= MaxListedUsers)
+                {
+                    break;
+                }
+            }
+
+            return users;
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+    }
+
+    private static OpenWorldSnapshot Snapshot(World world, string sessionId, DateTime opened, IReadOnlyList<SessionUserSnapshot> users)
     {
         string? recordKey = null;
         if (world.CorrespondingRecord is { } record)
@@ -97,6 +129,7 @@ internal sealed class EngineOpenWorldAdapter : IOpenWorldSource
             AccessLevel = AccessLevelNames.FromName(world.AccessLevel.ToString()),
             Users = world.UserCount,
             MaxUsers = world.MaxUsers,
+            UserList = users,
             IsFocused = focused,
             ThumbnailUrl = thumbnail,
             OpenedAt = opened,

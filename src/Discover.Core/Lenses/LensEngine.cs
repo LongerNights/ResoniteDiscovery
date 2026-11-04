@@ -104,7 +104,7 @@ public static class RecordLenses
 
     public static RecordQuery Browse() => new() { SortBy = RecordSort.TotalVisits, Direction = SortDirection.Descending };
 
-    public static RecordQuery Featured() => new() { SortBy = RecordSort.LastUpdateDate, Direction = SortDirection.Descending, OnlyFeatured = true };
+    public static RecordQuery Featured() => new() { SortBy = RecordSort.TotalVisits, Direction = SortDirection.Descending, OnlyFeatured = true };
 
     public static RecordQuery Random() => new() { SortBy = RecordSort.Random };
 

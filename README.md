@@ -14,7 +14,7 @@ Targets Resonite **2026.10.29.1239**. MIT licensed.
 | **Now** | Current Worlds (the worlds you have open, with Go there and Leave), Live Now, Friends |
 | **Discover** | Browse (recommended tags), Featured, New, Random |
 | **Yours** | Favorites, your own lists, Recent, My Worlds, Group Worlds |
-| **Insights** (off by default) | Trending, Rising, Hidden Gems, from a local history the mod keeps |
+| **Insights** (off by default) | Trending, Rising, Hidden Gems, from a local history the mod builds over time (see below) |
 
 - Search with `+required -excluded tag:name author:name "quoted phrases"`, tag chips (required, then excluded), sort and
   filters that change with the tab, and saved views (the Views menu).
@@ -23,8 +23,37 @@ Targets Resonite **2026.10.29.1239**. MIT licensed.
   favorite, lists, copy link, more by author, hide.
 - Starting a new session asks who can join (and mobile friendly), like the stock settings dialog.
 - Favorites, named lists, personal tags, hide lists (worlds, authors, words), favorite alerts, export and import.
-- Settings: start tab, live-only mode (no search requests), animations, layout (grid or list, cards per row), the
-  sidebar, alerts, what is hidden, data.
+- Cards say when you have been in a world (Visited), and Current Worlds cards have a red x to leave quickly.
+- Settings: start tab, live-only mode (no search requests), animations and their speed, layout (grid or list, cards per
+  row, rows per page), the sidebar, alerts, what is hidden, data.
+
+## Trending, Rising and Hidden Gems: read this first
+
+These three tabs (the **Insights** section, switched off by default; turn it on in Settings > Sidebar) are **not** fed by
+a Resonite server list. Resonite has no "trending" data to ask for. The mod builds it itself, **on your PC, from what
+it sees while the game is running**.
+
+- **History starts empty.** The first time you open Trending you will see "Nothing ranked yet". That is normal. Leave
+  the game running for an hour or two (or several play sessions) and the tabs fill in.
+- **It only sees what you see.** While Resonite runs the mod notes how many people are in each public session it can
+  see (every minute with the Worlds screen open, every five minutes with it closed). Nothing is recorded while the game
+  is closed, so a long break leaves a gap.
+- **It is your history, not everyone's.** Two people running the mod will get slightly different rankings, depending on
+  when they were online and which sessions their account can see.
+- **Old data expires.** Samples older than 14 days are dropped. History is stored in
+  `%APPDATA%\ResoniteDiscovery\<account>\history.json` (world keys, counts and timestamps only; never session
+  addresses or user names). Delete the file to start over.
+
+What each tab means:
+
+| Tab | Meaning | Needs |
+| --- | --- | --- |
+| **Trending** | Worlds with the most people in them over the **last 6 hours**, slightly favouring worlds that were busy at many checks, not just once | At least 2 checks with people in them inside the window |
+| **Rising** | Worlds whose attendance over the last 6 hours is **higher than their own average over the 24 hours before** | A busy enough recent average, and earlier history to compare against (so it takes about a day to become useful) |
+| **Hidden Gems** | Newer, smaller worlds that are **gaining visits** relative to their size | Published within 180 days, between 50 and 5,000 visits, seen with people in it within 7 days, and visit counts you have seen on more than one day |
+
+So: Trending works after an hour or two, Rising after about a day, Hidden Gems after a few days of play. A world that
+only shows up on one check, or that nobody was in, is never ranked.
 
 ## Install
 

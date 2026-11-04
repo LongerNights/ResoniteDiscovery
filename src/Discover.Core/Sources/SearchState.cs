@@ -57,7 +57,7 @@ public sealed class SearchPager(int pageSize)
 {
     private int _generation;
 
-    public int PageSize { get; } = pageSize;
+    public int PageSize { get; set; } = pageSize;
     public RecordQuery? BaseQuery { get; private set; }
     public int PageIndex { get; private set; }
     public IReadOnlyList<RecordSnapshot> Records { get; private set; } = [];
