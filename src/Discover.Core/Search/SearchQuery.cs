@@ -178,7 +178,7 @@ public sealed class SearchQuery
     {
         if (term.IsAuthor)
         {
-            // Client-side only (V30 is open: no engine name lookup yet), so it narrows the loaded results by owner or host name.
+            // Client-side narrowing by owner or host name; the controller also resolves the name to a user id (V30) for the server search.
             return Contains(entry.Record?.OwnerName, term.Text)
                 || entry.Sessions.Any(s => Contains(s.HostUsername, term.Text));
         }

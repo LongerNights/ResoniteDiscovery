@@ -166,6 +166,50 @@ public sealed class HistoryLog
         }
     }
 
+    /// <summary>
+    /// Thins live samples older than <paramref name="olderThan"/> to one per hour (the busiest), which keeps the file small.
+    /// Trending and Rising only read recent windows, and Hidden Gems only asks whether a world was seen live, so pass an age
+    /// beyond every formula window (the controller passes the Rising windows plus a margin).
+    /// </summary>
+    public void Downsample(DateTime nowUtc, TimeSpan olderThan)
+    {
+        var cutoff = nowUtc - olderThan;
+        foreach (var key in _live.Keys.ToList())
+        {
+            var list = _live[key];
+            if (list.Count < 2)
+            {
+                continue;
+            }
+
+            var kept = new List<HistorySample>(list.Count);
+            var busiestPerHour = new Dictionary<DateTime, HistorySample>();
+            foreach (var sample in list)
+            {
+                if (sample.Utc >= cutoff)
+                {
+                    kept.Add(sample);
+                    continue;
+                }
+
+                var hour = new DateTime(sample.Utc.Year, sample.Utc.Month, sample.Utc.Day, sample.Utc.Hour, 0, 0, DateTimeKind.Utc);
+                if (!busiestPerHour.TryGetValue(hour, out var best) || sample.LiveUsers > best.LiveUsers)
+                {
+                    busiestPerHour[hour] = sample;
+                }
+            }
+
+            if (busiestPerHour.Count == 0)
+            {
+                continue;
+            }
+
+            kept.AddRange(busiestPerHour.Values);
+            kept.Sort((a, b) => a.Utc.CompareTo(b.Utc));
+            _live[key] = kept;
+        }
+    }
+
     /// <summary>Copies the log into its file form.</summary>
     public HistoryFile ToFile() => new()
     {

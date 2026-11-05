@@ -16,6 +16,11 @@ internal sealed class AuthorResolver
     private readonly ConcurrentDictionary<string, string?> _resolved = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, bool> _requested = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Names shorter than this are not looked up (each typed prefix would otherwise be its own request), and a session asks for at most <see cref="MaxLookups"/>.</summary>
+    public const int MinNameLength = 3;
+
+    public const int MaxLookups = 20;
+
     public AuthorResolver(Engine engine)
     {
         _engine = engine;
@@ -27,7 +32,7 @@ internal sealed class AuthorResolver
     /// <summary>Starts the lookup if this name has not been asked for; <paramref name="done"/> runs when it finishes (any thread).</summary>
     public void Request(string name, Action done)
     {
-        if (string.IsNullOrWhiteSpace(name) || !_requested.TryAdd(name, true))
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length < MinNameLength || _requested.Count >= MaxLookups || !_requested.TryAdd(name, true))
         {
             return;
         }

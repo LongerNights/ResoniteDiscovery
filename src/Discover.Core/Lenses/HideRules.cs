@@ -25,6 +25,15 @@ public static class HideRules
     public static bool IsEmpty(DiscoverSettings settings) =>
         settings.HiddenWorlds.Count == 0 && settings.HiddenAuthors.Count == 0 && settings.HiddenWords.Count == 0;
 
+    private sealed record Sets(HashSet<string> Worlds, HashSet<string> Authors);
+
+    // One lookup set per settings instance. Settings are replaced (with), never edited in place, so a set cannot go stale.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DiscoverSettings, Sets> Cache = new();
+
+    private static Sets SetsOf(DiscoverSettings settings) => Cache.GetValue(settings, s => new Sets(
+        new HashSet<string>(s.HiddenWorlds, StringComparer.OrdinalIgnoreCase),
+        new HashSet<string>(s.HiddenAuthors, StringComparer.OrdinalIgnoreCase)));
+
     public static bool IsHidden(DiscoveryEntry entry, DiscoverSettings settings)
     {
         if (IsEmpty(settings))
@@ -32,19 +41,20 @@ public static class HideRules
             return false;
         }
 
-        if (settings.HiddenWorlds.Contains(entry.Key, StringComparer.OrdinalIgnoreCase))
+        var sets = SetsOf(settings);
+        if (sets.Worlds.Contains(entry.Key))
         {
             return true;
         }
 
-        if (settings.HiddenAuthors.Count > 0)
+        if (sets.Authors.Count > 0)
         {
-            if (entry.Record is { OwnerId.Length: > 0 } record && settings.HiddenAuthors.Contains(record.OwnerId, StringComparer.OrdinalIgnoreCase))
+            if (entry.Record is { OwnerId.Length: > 0 } record && sets.Authors.Contains(record.OwnerId))
             {
                 return true;
             }
 
-            if (entry.Sessions.Any(s => s.HostUserId.Length > 0 && settings.HiddenAuthors.Contains(s.HostUserId, StringComparer.OrdinalIgnoreCase)))
+            if (entry.Sessions.Any(s => s.HostUserId.Length > 0 && sets.Authors.Contains(s.HostUserId)))
             {
                 return true;
             }

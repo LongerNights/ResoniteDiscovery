@@ -17,6 +17,12 @@ public sealed class JsonFileStore
         Converters = { new Lenses.LegacyNames.LensConverter(), new Lenses.LegacyNames.SectionConverter(), new JsonStringEnumConverter() },
     };
 
+    /// <summary>The same options without indentation, for large machine-written files (history).</summary>
+    public static readonly JsonSerializerOptions CompactOptions = new(Options) { WriteIndented = false };
+
+    /// <summary>Larger files are treated as corrupt rather than parsed on the update thread.</summary>
+    public const long MaxFileBytes = 32L * 1024 * 1024;
+
     private readonly Action<string>? _log;
 
     public JsonFileStore(string directory, Action<string>? log = null)
@@ -43,6 +49,11 @@ public sealed class JsonFileStore
 
         try
         {
+            if (new FileInfo(path).Length > MaxFileBytes)
+            {
+                throw new JsonException("File too large.");
+            }
+
             using var stream = File.OpenRead(path);
             var value = JsonSerializer.Deserialize<T>(stream, Options);
             if (value is not null)
@@ -60,24 +71,32 @@ public sealed class JsonFileStore
     }
 
     /// <summary>Writes to a temp file in the same folder, then replaces the target, so a crash never leaves half a file.</summary>
-    public void Save<T>(string fileName, T value) where T : class
+    public void Save<T>(string fileName, T value, bool indented = true) where T : class
     {
         System.IO.Directory.CreateDirectory(Directory);
         var path = PathOf(fileName);
         var temp = path + ".tmp";
-        using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+        try
         {
-            JsonSerializer.Serialize(stream, value, Options);
-            stream.Flush(true);
-        }
+            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, value, indented ? Options : CompactOptions);
+                stream.Flush(true);
+            }
 
-        if (File.Exists(path))
-        {
-            File.Replace(temp, path, destinationBackupFileName: null);
+            if (File.Exists(path))
+            {
+                File.Replace(temp, path, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(temp, path);
+            }
         }
-        else
+        catch
         {
-            File.Move(temp, path);
+            try { File.Delete(temp); } catch (Exception) { /* leave it; the next save overwrites it */ }
+            throw;
         }
     }
 

@@ -2,6 +2,13 @@ using FrooxEngine;
 
 namespace Discover.Resonite;
 
+/// <summary>Finds the stock Worlds screen: the grid screen built from the Worlds preset. Read-only.</summary>
+internal static class StockWorlds
+{
+    public static GridContainerScreen? Find(RadiantDash dash) =>
+        dash.GetScreen<GridContainerScreen>(g => g.HasPreset(typeof(WorldsScreenInitializer)));
+}
+
 /// <summary>
 /// Replaces the stock Worlds tab with ours at runtime only (spec Integration §2, Option B). The one write it makes to
 /// anything it did not create is the stock tab button's <c>ActiveSelf</c> (a slot the dash builds at runtime, outside the
@@ -15,6 +22,7 @@ internal sealed class TabTakeover
     private RadiantDashScreen? _stock;
     private Slot? _hidden;
     private bool _classic;
+    private DateTime _nextButtonSearchUtc = DateTime.MinValue;
 
     public TabTakeover(RadiantDash dash)
     {
@@ -97,7 +105,7 @@ internal sealed class TabTakeover
             return _stock;
         }
 
-        _stock = _dash.GetScreen<GridContainerScreen>(g => g.HasPreset(typeof(WorldsScreenInitializer)));
+        _stock = StockWorlds.Find(_dash);
         return _stock;
     }
 
@@ -109,7 +117,15 @@ internal sealed class TabTakeover
         }
 
         // Not dash.ButtonsRoot: that is the overlay's Buttons slot, not the dash tab strip (found in the first in-game test).
+        // The search walks the whole dash, so a miss is not repeated every tick.
+        if (DateTime.UtcNow < _nextButtonSearchUtc)
+        {
+            return null;
+        }
+
         var buttons = _dash.Slot.GetComponentsInChildren<RadiantDashButton>(b => b.Screen.Target == stock);
-        return buttons.FirstOrDefault()?.Slot;
+        var found = buttons.FirstOrDefault()?.Slot;
+        _nextButtonSearchUtc = found is null ? DateTime.UtcNow.AddSeconds(2) : DateTime.MinValue;
+        return found;
     }
 }

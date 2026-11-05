@@ -1,9 +1,13 @@
 using Discover.Core.Model;
 using Discover.Core.Presentation;
+using Discover.Resonite.Ui;
 using Elements.Core;
 using FrooxEngine;
 
 namespace Discover.Resonite.Services;
+
+/// <summary>The save choices a world offers on close: Save needs a record the user can modify, Save as only the right to save worlds.</summary>
+internal readonly record struct SavePrompt(bool CanSave, bool CanSaveAs);
 
 internal enum JoinOutcome
 {
@@ -135,7 +139,7 @@ internal sealed class JoinService
         }
 
         var message = outcome == JoinOutcome.Failed ? UiStrings.Format(id, "see the log") : UiStrings.Get(id);
-        NotificationPanel.ShowNotification(null!, message, null!, RadiantUI_Constants.Neutrals.DARK, NotificationType.ToastOnly);
+        Toasts.Show(message);
     }
 
     /// <summary>Brings an open world to the front, as the stock Worlds tab does for a world already open (V4). Update thread.</summary>
@@ -154,6 +158,51 @@ internal sealed class JoinService
         catch (Exception ex)
         {
             UniLog.Warning($"[Discover] Focus failed: {ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// What closing this world offers, as the stock close dialog decides it (<c>WorldCloseAction</c>, V34): the save menu
+    /// when <c>Userspace.ShouldSave</c>, with Save only if the world has a record the user may modify and Save as only if
+    /// they may save worlds at all. Null when the world is gone or closes without the menu. Update thread.
+    /// </summary>
+    public SavePrompt? SavePromptFor(string sessionId)
+    {
+        try
+        {
+            if (Userspace.GetExistingWorld(new WorldStartSettings { SessionID = sessionId }) is not { } world || world.IsDestroyed
+                || world == Userspace.LocalHome || !Userspace.ShouldSave(world))
+            {
+                return null;
+            }
+
+            var allowed = world.IsAllowedToSaveWorld();
+            return new SavePrompt(allowed && Userspace.CanSave(world), allowed);
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Save check failed: {ex.GetType().Name}");
+            return null;
+        }
+    }
+
+    /// <summary>Saves the world through the engine's own path and closes it afterwards (<c>exitOnSave</c>), as the stock Save and Save as buttons do.</summary>
+    public async Task<bool> SaveAndCloseAsync(string sessionId, SaveType saveType)
+    {
+        try
+        {
+            if (Userspace.GetExistingWorld(new WorldStartSettings { SessionID = sessionId }) is not { } world || world.IsDestroyed)
+            {
+                return false;
+            }
+
+            await Userspace.SaveWorldAuto(world, saveType, exitOnSave: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Save failed: {ex.GetType().Name}");
             return false;
         }
     }

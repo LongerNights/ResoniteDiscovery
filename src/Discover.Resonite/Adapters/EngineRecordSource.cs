@@ -1,5 +1,6 @@
 using Discover.Core.Model;
 using Discover.Core.Sources;
+using Discover.Resonite.Ui;
 using FrooxEngine;
 using SkyFrost.Base;
 
@@ -15,7 +16,7 @@ internal sealed class EngineRecordSource(Engine engine) : IRecordSource
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(20);
 
-    public async Task<RecordPage> SearchAsync(RecordQuery query, CancellationToken cancellationToken = default)
+    public async Task<RecordPage> SearchAsync(RecordQuery query)
     {
         try
         {
@@ -62,7 +63,7 @@ internal sealed class EngineRecordSource(Engine engine) : IRecordSource
     /// One record by owner and record id through the engine's <c>RecordCache</c>, which memoizes and batches misses
     /// (32 ids per request, 0.25 s window; spec "Networking budget"). Null when missing, deleted or on any error.
     /// </summary>
-    public async Task<RecordSnapshot?> GetAsync(string ownerId, string recordId, CancellationToken cancellationToken = default)
+    public async Task<RecordSnapshot?> GetAsync(string ownerId, string recordId)
     {
         try
         {
@@ -81,10 +82,10 @@ internal sealed class EngineRecordSource(Engine engine) : IRecordSource
         Key = record.CombinedRecordId?.ToString() ?? record.OwnerId + ":" + record.RecordId,
         OwnerId = record.OwnerId ?? "",
         RecordId = record.RecordId ?? "",
-        Name = SessionMapper.Plain(record.Name),
-        Description = SessionMapper.Plain(record.Description),
-        OwnerName = SessionMapper.Plain(record.OwnerName),
-        Tags = record.Tags?.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray() ?? [],
+        Name = RichText.Strip(record.Name),
+        Description = RichText.Strip(record.Description),
+        OwnerName = RichText.Strip(record.OwnerName),
+        Tags = record.Tags?.Select(RichText.Strip).Where(t => !string.IsNullOrWhiteSpace(t)).ToArray() ?? [],
         ThumbnailUri = record.ThumbnailURI,
         Visits = record.Visits,
         FirstPublishTime = record.FirstPublishTime,

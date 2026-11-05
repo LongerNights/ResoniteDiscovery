@@ -34,7 +34,14 @@ internal static class IconLoader
                 await resource.CopyToAsync(file);
             }
 
-            return await engine.LocalDB.ImportLocalAssetAsync(path, LocalDB.ImportLocation.Copy);
+            try
+            {
+                return await engine.LocalDB.ImportLocalAssetAsync(path, LocalDB.ImportLocation.Copy);
+            }
+            finally
+            {
+                try { File.Delete(path); } catch (Exception) { /* a leftover temp file is harmless; the next launch overwrites it */ }
+            }
         }
         catch (Exception ex)
         {

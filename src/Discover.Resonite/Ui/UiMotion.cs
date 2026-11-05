@@ -30,7 +30,7 @@ internal static class UiMotion
         }
         catch (Exception ex)
         {
-            UniLog.Warning($"[Discover] Fade failed: {ex.GetType().Name}: {ex.Message}");
+            UniLog.Warning($"[Discover] Fade failed: {ex.GetType().Name}");
         }
     }
 }

@@ -1,4 +1,5 @@
 using Discover.Core.Model;
+using Discover.Resonite.Ui;
 using Elements.Assets;
 using FrooxEngine;
 using SkyFrost.Base;
@@ -15,11 +16,11 @@ internal static class SessionMapper
     public static SessionSnapshot Map(SessionInfo info, Engine engine) => new()
     {
         SessionId = info.SessionId,
-        Name = Plain(info.Name),
-        Description = Plain(info.Description),
-        Tags = info.Tags?.ToArray() ?? [],
+        Name = RichText.Strip(info.Name),
+        Description = RichText.Strip(info.Description),
+        Tags = info.Tags?.Select(RichText.Strip).Where(t => t.Length > 0).ToArray() ?? [],
         HostUserId = info.HostUserId ?? "",
-        HostUsername = Plain(info.HostUsername),
+        HostUsername = RichText.Strip(info.HostUsername),
         HeadlessHost = info.HeadlessHost,
         ThumbnailUrl = info.ThumbnailUrl,
         WorldKey = WorldKeyOf(info),
@@ -36,7 +37,7 @@ internal static class SessionMapper
         PresentContacts = engine.Cloud.Contacts.CountPresentContacts(info),
         IsCompatible = info.IsCompatible(),
         Users = info.SessionUsers?
-            .Select(u => new SessionUserSnapshot(u.UserID ?? "", Plain(u.Username), u.IsPresent, AccessLevelNames.DeviceFromName(u.OutputDevice?.ToString()),
+            .Select(u => new SessionUserSnapshot(u.UserID ?? "", RichText.Strip(u.Username), u.IsPresent, AccessLevelNames.DeviceFromName(u.OutputDevice?.ToString()),
                 !string.IsNullOrEmpty(u.UserID) && engine.Cloud.Contacts.IsContact(u.UserID, true)))
             .ToArray() ?? [],
     };
@@ -45,16 +46,5 @@ internal static class SessionMapper
     {
         var id = info.ActualCorrespondingWorldId?.ToString();
         return string.IsNullOrWhiteSpace(id) ? null : id;
-    }
-
-    /// <summary>Strips rich-text tags to plain text (verification V11). The UI re-neutralizes markup before display.</summary>
-    public static string Plain(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return "";
-        }
-
-        return value.Contains('<') ? new StringRenderTree(value).GetRawString() : value;
     }
 }

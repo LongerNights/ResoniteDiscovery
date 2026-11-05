@@ -49,7 +49,6 @@ public sealed record DiscoverSettings
     /// <summary>Results as one row per world instead of a grid of cards.</summary>
     public bool ListView { get; init; }
 
-    /// <summary>Rail sections switched off (spec F28). Their lenses keep their own switches.</summary>
     /// <summary>Show a message when a favorited world gets a public live session (spec F26).</summary>
     public bool NotifyFavoriteLive { get; init; } = true;
 
@@ -79,6 +78,7 @@ public sealed record DiscoverSettings
     /// <summary>Words that hide any world or session whose name contains them (case-insensitive).</summary>
     public IReadOnlyList<string> HiddenWords { get; init; } = [];
 
+    /// <summary>Rail sections switched off (spec F28). Their lenses keep their own switches.</summary>
     public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [];
 
     /// <summary>Lenses switched off one by one (spec F28).</summary>
@@ -105,10 +105,6 @@ public sealed record DiscoverSettings
     public bool GalaxyTabIcon { get; init; }
 
     public bool ShowIncompatibleSessions { get; init; }
-    public bool JoinShowsSessionList { get; init; }
-
-    /// <summary>Records per search page. 40 rather than the spec's 50: a page is shown in at most 40 pooled card slots.</summary>
-    public int SearchPageSize { get; init; } = 40;
     public TimeSpan SearchDebounce { get; init; } = TimeSpan.FromMilliseconds(400);
     public TimeSpan SearchCacheFirstPageTtl { get; init; } = TimeSpan.FromMinutes(5);
     public TimeSpan SearchCacheLaterPageTtl { get; init; } = TimeSpan.FromMinutes(15);
@@ -116,10 +112,7 @@ public sealed record DiscoverSettings
     public TimeSpan ManualRefreshCooldown { get; init; } = TimeSpan.FromSeconds(15);
 
     public int SessionChangesPerTick { get; init; } = Model.SessionChangeQueue.DefaultMaxPerTick;
-    public int MaxCachedEntries { get; init; } = 500;
-    public int MaxCardSlots { get; init; } = 40;
-
-    /// <summary>Card slots the screen can hold; the page size is rows times columns, capped here. (<see cref="MaxCardSlots"/> and <see cref="SearchPageSize"/> are the old fixed values and are no longer read.)</summary>
+    /// <summary>Card slots the screen can hold; the page size is rows times columns, capped here.</summary>
     public const int CardSlotLimit = 100;
 
     /// <summary>Rows of worlds on a page (Settings > Display). A list view row counts as a quarter of a grid row.</summary>
@@ -148,16 +141,13 @@ public sealed record DiscoverSettings
 
     /// <summary>A search that has not answered after this long shows the "servers are slow" banner.</summary>
     public TimeSpan SlowSearchNotice { get; init; } = TimeSpan.FromSeconds(15);
-    public int MaxRecentWorlds { get; init; } = 50;
-
     public TimeSpan SnapshotIntervalScreenOpen { get; init; } = TimeSpan.FromSeconds(60);
     public TimeSpan SnapshotIntervalScreenClosed { get; init; } = TimeSpan.FromMinutes(5);
     public TimeSpan HistoryRetention { get; init; } = TimeSpan.FromDays(14);
 
     public TimeSpan MinWriteInterval { get; init; } = TimeSpan.FromSeconds(5);
 
-    /// <summary>Lens switches fade the content out and back in with a short rise; off for an instant swap.</summary>
-    /// <summary>Fade through black when switching lenses. Off by default: it hides the cards loading, but covers the whole results pane.</summary>
+    /// <summary>Fade through black when switching lenses. On by default: it hides the cards loading, but covers the whole results pane.</summary>
     public bool AnimateTransitions { get; init; } = true;
 
     /// <summary>How fast animations run: 1 is normal, above 1 faster, below 1 slower. See <see cref="AnimationSpeedChoices"/>.</summary>
@@ -171,11 +161,41 @@ public sealed record DiscoverSettings
 
     /// <summary>The values the settings button cycles through.</summary>
     public static readonly int[] CardsPerRowChoices = [2, 3, 4, 5, 6, 7];
-    public TimeSpan TransitionOut { get; init; } = TimeSpan.FromMilliseconds(120);
-    public TimeSpan TransitionIn { get; init; } = TimeSpan.FromMilliseconds(280);
-
-    /// <summary>How far, in canvas units, the results rise into place as they fade in.</summary>
-    public float TransitionRise { get; init; } = 28f;
-
     public FormulaSettings Formulas { get; init; } = new();
+
+    /// <summary>
+    /// Clamps every number and time span that guards the network budget, the update tick or disk writes to a safe range, so
+    /// an edited or corrupt settings.json cannot turn them off (e.g. a zero refresh interval).
+    /// </summary>
+    public DiscoverSettings Sanitize() => this with
+    {
+        SearchDebounce = Clamp(SearchDebounce, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(5)),
+        SearchCacheFirstPageTtl = Clamp(SearchCacheFirstPageTtl, TimeSpan.FromSeconds(30), TimeSpan.FromHours(1)),
+        SearchCacheLaterPageTtl = Clamp(SearchCacheLaterPageTtl, TimeSpan.FromSeconds(30), TimeSpan.FromHours(1)),
+        AutoRefreshInterval = Clamp(AutoRefreshInterval, MinAutoRefresh, TimeSpan.FromHours(1)),
+        ManualRefreshCooldown = Clamp(ManualRefreshCooldown, MinManualCooldown, TimeSpan.FromMinutes(10)),
+        SessionChangesPerTick = Math.Clamp(SessionChangesPerTick, 1, 500),
+        CardBindsPerTick = Math.Clamp(CardBindsPerTick, 1, 20),
+        CardCreatesPerTick = Math.Clamp(CardCreatesPerTick, 1, 10),
+        CardFillTimeout = Clamp(CardFillTimeout, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30)),
+        SlowSearchNotice = Clamp(SlowSearchNotice, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(2)),
+        SnapshotIntervalScreenOpen = Clamp(SnapshotIntervalScreenOpen, TimeSpan.FromSeconds(30), TimeSpan.FromHours(1)),
+        SnapshotIntervalScreenClosed = Clamp(SnapshotIntervalScreenClosed, TimeSpan.FromMinutes(1), TimeSpan.FromHours(6)),
+        HistoryRetention = Clamp(HistoryRetention, TimeSpan.FromDays(1), TimeSpan.FromDays(60)),
+        MinWriteInterval = Clamp(MinWriteInterval, TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5)),
+        NotifyMinGapPerWorld = Clamp(NotifyMinGapPerWorld, TimeSpan.FromMinutes(1), TimeSpan.FromDays(1)),
+        NotifyWindow = Clamp(NotifyWindow, TimeSpan.FromMinutes(1), TimeSpan.FromHours(6)),
+        NotifyMaxPerWindow = Math.Clamp(NotifyMaxPerWindow, 1, 20),
+        RowsPerPage = Math.Clamp(RowsPerPage, 1, 30),
+        CardsPerRow = Math.Clamp(CardsPerRow, 1, 8),
+        BrowsePopularTagCount = Math.Clamp(BrowsePopularTagCount, 0, 20),
+        AnimationSpeed = float.IsFinite(AnimationSpeed) ? Math.Clamp(AnimationSpeed, 0.25f, 3f) : 1f,
+    };
+
+    /// <summary>Floors that protect the networking budget (spec): one automatic refresh a minute at most, a manual one every 15 s.</summary>
+    public static readonly TimeSpan MinAutoRefresh = TimeSpan.FromSeconds(30);
+
+    public static readonly TimeSpan MinManualCooldown = TimeSpan.FromSeconds(5);
+
+    private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max) => value < min ? min : value > max ? max : value;
 }
