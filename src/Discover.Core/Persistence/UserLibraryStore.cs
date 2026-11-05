@@ -41,7 +41,21 @@ public sealed class UserLibraryStore
 
     public HistoryLog LoadHistory() => HistoryLog.FromFile(_files.Load(HistoryFileName, () => new HistoryFile()));
 
-    public void SaveHistory(HistoryLog log) => _files.Save(HistoryFileName, log.ToFile());
+    public void SaveHistory(HistoryLog log) => SaveHistory(log.ToFile());
+
+    private readonly object _historyGate = new();
+
+    /// <summary>
+    /// Writes an already-copied history file (compact JSON). Safe from a background thread: writes are serialized, so a
+    /// shutdown flush waits for one in progress instead of colliding on the temp file.
+    /// </summary>
+    public void SaveHistory(HistoryFile file)
+    {
+        lock (_historyGate)
+        {
+            _files.Save(HistoryFileName, file, indented: false);
+        }
+    }
 
     public DiscoverSettings LoadSettings() => _files.Load(SettingsFileName, () => new DiscoverSettings());
 
@@ -91,43 +105,76 @@ public sealed class UserLibraryStore
 /// </summary>
 public sealed class LibrarySaver
 {
+    private static readonly TimeSpan[] RetrySteps = [TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(2)];
+
     private readonly UserLibraryStore _store;
     private readonly UserLibrary _library;
     private readonly TimeProvider _time;
     private readonly TimeSpan _minInterval;
+    private readonly Action<string>? _log;
     private readonly HashSet<LibraryFile> _dirty = [];
     private readonly Dictionary<LibraryFile, DateTimeOffset> _lastWrite = [];
+    private readonly Dictionary<LibraryFile, (int Failures, DateTimeOffset RetryAt)> _failed = [];
 
-    public LibrarySaver(UserLibraryStore store, UserLibrary library, TimeSpan minInterval, TimeProvider? time = null)
+    public LibrarySaver(UserLibraryStore store, UserLibrary library, TimeSpan minInterval, TimeProvider? time = null, Action<string>? log = null)
     {
         _store = store;
         _library = library;
         _minInterval = minInterval;
         _time = time ?? TimeProvider.System;
+        _log = log;
         _library.Changed += file => _dirty.Add(file);
     }
 
     public int PendingFiles => _dirty.Count;
 
-    /// <summary>Writes each dirty file whose last write is old enough. Returns how many files were written.</summary>
+    /// <summary>
+    /// Writes each dirty file whose last write is old enough. Returns how many files were written. A file that cannot be
+    /// written (disk full, locked) stays dirty and is retried after 5 s, 30 s, then every 2 minutes; this never throws.
+    /// </summary>
     public int Tick()
     {
         var now = _time.GetUtcNow();
         var written = 0;
         foreach (var file in _dirty.ToList())
         {
-            if (_lastWrite.TryGetValue(file, out var last) && now - last < _minInterval)
+            if ((_lastWrite.TryGetValue(file, out var last) && now - last < _minInterval)
+                || (_failed.TryGetValue(file, out var failure) && now < failure.RetryAt))
             {
                 continue;
             }
 
-            _store.Save(_library, file);
-            _lastWrite[file] = now;
-            _dirty.Remove(file);
-            written++;
+            if (TrySave(file, now))
+            {
+                written++;
+            }
         }
 
         return written;
+    }
+
+    private bool TrySave(LibraryFile file, DateTimeOffset now)
+    {
+        try
+        {
+            _store.Save(_library, file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            var failures = _failed.TryGetValue(file, out var f) ? f.Failures + 1 : 1;
+            _failed[file] = (failures, now + RetrySteps[Math.Min(failures - 1, RetrySteps.Length - 1)]);
+            if (failures == 1)
+            {
+                _log?.Invoke($"[Discover] Could not save {file}: {ex.GetType().Name}; will retry");
+            }
+
+            return false;
+        }
+
+        _failed.Remove(file);
+        _lastWrite[file] = now;
+        _dirty.Remove(file);
+        return true;
     }
 
     /// <summary>Writes everything dirty now, ignoring the interval.</summary>
@@ -137,10 +184,10 @@ public sealed class LibrarySaver
         var written = 0;
         foreach (var file in _dirty.ToList())
         {
-            _store.Save(_library, file);
-            _lastWrite[file] = now;
-            _dirty.Remove(file);
-            written++;
+            if (TrySave(file, now))
+            {
+                written++;
+            }
         }
 
         return written;

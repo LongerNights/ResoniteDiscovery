@@ -10,7 +10,7 @@ public sealed class FakeRecordSource : IRecordSource
     public List<RecordQuery> Queries { get; } = [];
     public string? FailWith { get; set; }
 
-    public Task<RecordPage> SearchAsync(RecordQuery query, CancellationToken cancellationToken = default)
+    public Task<RecordPage> SearchAsync(RecordQuery query)
     {
         Queries.Add(query);
         if (FailWith is not null)
@@ -23,6 +23,6 @@ public sealed class FakeRecordSource : IRecordSource
         return Task.FromResult(new RecordPage(true, page, hasMore));
     }
 
-    public Task<RecordSnapshot?> GetAsync(string ownerId, string recordId, CancellationToken cancellationToken = default)
+    public Task<RecordSnapshot?> GetAsync(string ownerId, string recordId)
         => Task.FromResult(Records.FirstOrDefault(r => r.OwnerId == ownerId && r.RecordId == recordId));
 }

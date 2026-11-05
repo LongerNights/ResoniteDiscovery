@@ -1,5 +1,6 @@
 using Elements.Core;
 using FrooxEngine;
+using FrooxEngine.UIX;
 
 namespace Discover.Resonite.Ui;
 
@@ -95,4 +96,23 @@ internal static class Theme
 
     /// <summary>Labels laid over thumbnails: translucent black so any thumbnail stays readable underneath.</summary>
     public static colorX Pill => colorX.Black.SetA(0.7f);
+
+    /// <summary>
+    /// An almost invisible press and hover target. Its four colours are the same, set directly: a translucent button would
+    /// otherwise tint on hover (hiding the 360 preview underneath) or turn opaque grey.
+    /// </summary>
+    internal static (Image Image, Button Button) Catcher(UIBuilder ui, string name)
+    {
+        var clear = colorX.Black.SetA(0.02f);
+        var image = ui.Image(clear);
+        image.Slot.Name = name;
+        var button = image.Slot.AttachComponent<Button>();
+        var driver = button.ColorDrivers[0];
+        driver.TintColorMode.Value = InteractionElement.ColorMode.Direct;
+        driver.NormalColor.Value = clear;
+        driver.HighlightColor.Value = clear;
+        driver.PressColor.Value = clear;
+        driver.DisabledColor.Value = clear;
+        return (image, button);
+    }
 }

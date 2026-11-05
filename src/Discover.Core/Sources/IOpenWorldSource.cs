@@ -10,4 +10,7 @@ public interface IOpenWorldSource
 {
     /// <summary>Every open world except userspace, in no particular order.</summary>
     IReadOnlyList<OpenWorldSnapshot> GetOpenWorlds();
+
+    /// <summary>How many worlds <see cref="GetOpenWorlds"/> would list, without building their user lists.</summary>
+    int CountOpenWorlds();
 }

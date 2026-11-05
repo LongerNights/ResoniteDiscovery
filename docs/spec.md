@@ -496,14 +496,14 @@ Account files load once `Cloud.Session.CurrentUserID` is known and reload on acc
 | Current Worlds, Live Now, Friends | Zero extra requests. They read the world manager and the engine's session cache. |
 | Record search | Page size 40; one search at a time (a new one cancels the previous); typing debounced 400 ms. |
 | Browse "popular here" chips | Zero requests: computed from loaded results and the session cache. |
-| `author:` resolution | At most one lookup per distinct name per session, through the engine's cached user lookup (V30). |
+| `author:` resolution | At most one lookup per distinct name (3+ characters, 20 per session), through the engine's cached user lookup (V30). |
 | Search cache | Keyed by `SearchParameters`; 5 min for page 1, 15 min for later pages. |
-| Auto-refresh | Visible search lens at most every 60 s. |
-| Manual refresh | 15 s cooldown; also `Sessions.ForceFetch()`. |
+| Auto-refresh | Visible search lens at most every 60 s (setting floor 30 s). |
+| Manual refresh | 15 s cooldown (setting floor 5 s); also `Sessions.ForceFetch()`. |
 | Record hydration | Through `RecordCache` (32 ids per call); only visible cards; at most 100 outstanding. |
 | Thumbnails | Through the engine's asset system. |
 
-**Performance targets** — unchanged: first cards from cache < 200 ms; < 2 ms average and < 6 ms worst per frame with the tab open; < 0.1 ms closed (the takeover's keep-hidden check included); ≤ 40 card slots; ≤ 500 cached entries; ≤ 60 thumbnails; ≤ 50 session events per tick.
+**Performance targets** — unchanged: first cards from cache < 200 ms; < 2 ms average and < 6 ms worst per frame with the tab open; < 0.1 ms closed (the takeover's keep-hidden check included); ≤ 100 card slots (rows per page times cards per row); ≤ 60 thumbnails on screen; ≤ 50 session events per tick.
 
 **Error handling**
 

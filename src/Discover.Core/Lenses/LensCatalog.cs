@@ -87,10 +87,13 @@ public static class LensCatalog
     }
 
     /// <summary>Makes the default lens something that can open (hidden or a named list falls back to the first visible lens).</summary>
-    public static DiscoverSettings Normalize(DiscoverSettings settings) =>
-        settings.DefaultLens != LensKind.NamedList && settings.IsVisible(settings.DefaultLens)
+    public static DiscoverSettings Normalize(DiscoverSettings settings)
+    {
+        settings = settings.Sanitize();
+        return settings.DefaultLens != LensKind.NamedList && settings.IsVisible(settings.DefaultLens)
             ? settings
             : settings with { DefaultLens = FirstVisible(settings) };
+    }
 
     private static DiscoverSettings Guard(DiscoverSettings before, DiscoverSettings after) =>
         Openable(after).Count == 0 ? before : Normalize(after);

@@ -18,6 +18,9 @@ public sealed class DiscoveryIndex
     public IReadOnlyCollection<DiscoveryEntry> Entries => _entries.Values;
     public int Count => _entries.Count;
 
+    /// <summary>Goes up on every rebuilt entry, so a cache of anything derived from the entries knows when to refresh.</summary>
+    public int Version { get; private set; }
+
     public bool TryGetEntry(string key, out DiscoveryEntry entry) => _entries.TryGetValue(key, out entry!);
 
     public static string KeyFor(SessionSnapshot session) =>
@@ -135,6 +138,7 @@ public sealed class DiscoveryIndex
 
     private void Rebuild(string key)
     {
+        Version++;
         _records.TryGetValue(key, out var record);
 
         var listed = new List<SessionSnapshot>();

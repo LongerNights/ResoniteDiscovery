@@ -92,6 +92,12 @@ public sealed class UserLibrary
     public const int MaxTagsPerWorld = 32;
     public const int MaxRecent = 50;
 
+    /// <summary>Import limits: an export is a shareable file, so its size is bounded before it is merged on the update thread.</summary>
+    public const int MaxImportFavorites = 5000;
+    public const int MaxImportLists = 200;
+    public const int MaxImportMembersPerList = 2000;
+    public const int MaxImportTagKeys = 5000;
+
     private readonly TimeProvider _time;
     private readonly FavoritesFile _favorites;
     private readonly ListsFile _lists;
@@ -105,6 +111,19 @@ public sealed class UserLibrary
         _lists = lists ?? new ListsFile();
         _tags = tags ?? new TagsFile();
         _recent = recent ?? new RecentFile();
+
+        // A hand-edited or damaged file can hold null collections; treat them as empty.
+        _favorites.Items ??= [];
+        _lists.Lists ??= [];
+        foreach (var list in _lists.Lists)
+        {
+            list.Members ??= [];
+        }
+
+        _lists.Lists.RemoveAll(l => l is null);
+        _tags.Tags ??= new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        _recent.Items ??= [];
+        _recent.Visited ??= [];
     }
 
     /// <summary>Raised after any change, with the file that now needs saving.</summary>
@@ -121,7 +140,44 @@ public sealed class UserLibrary
 
     public IReadOnlyList<FavoriteEntry> Favorites => _favorites.Items;
 
-    public bool IsStarred(string key) => _favorites.Items.Any(f => KeyEquals(f.Key, key));
+    public bool IsStarred(string key) => StarredSet.Contains(key);
+
+    private HashSet<string>? _starredSet;
+    private Dictionary<string, List<string>>? _listIndex;
+
+    // Lookup caches, dropped on every change (Notify), so Render's per-card checks are O(1) instead of scanning all saved items.
+    private HashSet<string> StarredSet => _starredSet ??= new HashSet<string>(_favorites.Items.Select(f => f.Key), StringComparer.OrdinalIgnoreCase);
+
+    private Dictionary<string, List<string>> ListIndex => _listIndex ??= BuildListIndex();
+
+    private Dictionary<string, List<string>> BuildListIndex()
+    {
+        var index = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var list in _lists.Lists)
+        {
+            foreach (var member in list.Members)
+            {
+                if (!index.TryGetValue(member.Key, out var ids))
+                {
+                    index[member.Key] = ids = [];
+                }
+
+                if (!ids.Contains(list.Id))
+                {
+                    ids.Add(list.Id);
+                }
+            }
+        }
+
+        return index;
+    }
+
+    private void Notify(LibraryFile file)
+    {
+        _starredSet = null;
+        _listIndex = null;
+        Changed?.Invoke(file);
+    }
 
     /// <summary>Stars a world. Idempotent (the original date is kept). False for standalone sessions or empty keys.</summary>
     public bool Star(string key, string name)
@@ -134,7 +190,7 @@ public sealed class UserLibrary
         if (!IsStarred(key))
         {
             _favorites.Items.Add(new FavoriteEntry { Key = key, Name = Clean(name), StarredAt = Now });
-            Changed?.Invoke(LibraryFile.Favorites);
+            Notify(LibraryFile.Favorites);
         }
 
         return true;
@@ -145,7 +201,7 @@ public sealed class UserLibrary
         var removed = _favorites.Items.RemoveAll(f => KeyEquals(f.Key, key)) > 0;
         if (removed)
         {
-            Changed?.Invoke(LibraryFile.Favorites);
+            Notify(LibraryFile.Favorites);
         }
 
         return removed;
@@ -173,7 +229,7 @@ public sealed class UserLibrary
             Order = _lists.Lists.Count == 0 ? 0 : _lists.Lists.Max(l => l.Order) + 1,
         };
         _lists.Lists.Add(list);
-        Changed?.Invoke(LibraryFile.Lists);
+        Notify(LibraryFile.Lists);
         return list;
     }
 
@@ -187,7 +243,7 @@ public sealed class UserLibrary
         }
 
         list.Name = name;
-        Changed?.Invoke(LibraryFile.Lists);
+        Notify(LibraryFile.Lists);
         return true;
     }
 
@@ -209,7 +265,7 @@ public sealed class UserLibrary
             list.Order = order++;
         }
 
-        Changed?.Invoke(LibraryFile.Lists);
+        Notify(LibraryFile.Lists);
     }
 
     public bool DeleteList(string listId)
@@ -217,7 +273,7 @@ public sealed class UserLibrary
         var removed = _lists.Lists.RemoveAll(l => l.Id == listId) > 0;
         if (removed)
         {
-            Changed?.Invoke(LibraryFile.Lists);
+            Notify(LibraryFile.Lists);
         }
 
         return removed;
@@ -235,7 +291,7 @@ public sealed class UserLibrary
         if (!list.Members.Any(m => KeyEquals(m.Key, key)))
         {
             list.Members.Add(new ListMember { Key = key, Name = Clean(name), AddedAt = Now });
-            Changed?.Invoke(LibraryFile.Lists);
+            Notify(LibraryFile.Lists);
         }
 
         return true;
@@ -246,16 +302,14 @@ public sealed class UserLibrary
         var removed = GetList(listId)?.Members.RemoveAll(m => KeyEquals(m.Key, key)) > 0;
         if (removed)
         {
-            Changed?.Invoke(LibraryFile.Lists);
+            Notify(LibraryFile.Lists);
         }
 
         return removed;
     }
 
-    public IReadOnlyList<string> ListIdsContaining(string key) => _lists.Lists
-        .Where(l => l.Members.Any(m => KeyEquals(m.Key, key)))
-        .Select(l => l.Id)
-        .ToList();
+    public IReadOnlyList<string> ListIdsContaining(string key) =>
+        ListIndex.TryGetValue(key, out var ids) ? ids : [];
 
     // ---- Personal tags
 
@@ -294,7 +348,7 @@ public sealed class UserLibrary
         }
 
         tags.Add(tag);
-        Changed?.Invoke(LibraryFile.Tags);
+        Notify(LibraryFile.Tags);
         return true;
     }
 
@@ -310,7 +364,7 @@ public sealed class UserLibrary
             _tags.Tags.Remove(key);
         }
 
-        Changed?.Invoke(LibraryFile.Tags);
+        Notify(LibraryFile.Tags);
         return true;
     }
 
@@ -341,7 +395,7 @@ public sealed class UserLibrary
             _recent.Visited.RemoveRange(0, _recent.Visited.Count - MaxVisited);
         }
 
-        Changed?.Invoke(LibraryFile.Recent);
+        Notify(LibraryFile.Recent);
     }
 
     /// <summary>Notes a world opened through the screen: newest first, no duplicates, capped at <see cref="MaxRecent"/>.</summary>
@@ -365,7 +419,7 @@ public sealed class UserLibrary
             _recent.Items.RemoveRange(MaxRecent, _recent.Items.Count - MaxRecent);
         }
 
-        Changed?.Invoke(LibraryFile.Recent);
+        Notify(LibraryFile.Recent);
     }
 
     // ---- Export and import (F23)
@@ -398,15 +452,20 @@ public sealed class UserLibrary
 
         int favorites = 0, lists = 0, members = 0, tags = 0;
 
-        foreach (var f in data.Favorites.Where(f => DiscoveryKeys.IsSavable(f.Key) && !IsStarred(f.Key)))
+        var incomingFavorites = (data.Favorites ?? []).Where(f => f is not null).Take(MaxImportFavorites);
+        var starred = new HashSet<string>(_favorites.Items.Select(f => f.Key), StringComparer.OrdinalIgnoreCase);
+        foreach (var f in incomingFavorites.Where(f => DiscoveryKeys.IsSavable(f.Key)))
         {
-            _favorites.Items.Add(new FavoriteEntry { Key = f.Key, Name = Clean(f.Name), StarredAt = f.StarredAt });
-            favorites++;
+            if (starred.Add(f.Key))
+            {
+                _favorites.Items.Add(new FavoriteEntry { Key = f.Key, Name = Clean(f.Name), StarredAt = f.StarredAt });
+                favorites++;
+            }
         }
 
-        foreach (var incoming in data.Lists.OrderBy(l => l.Order))
+        foreach (var incoming in (data.Lists ?? []).Where(l => l is not null).OrderBy(l => l.Order).Take(MaxImportLists))
         {
-            var list = GetList(incoming.Id);
+            var list = string.IsNullOrWhiteSpace(incoming.Id) ? null : GetList(incoming.Id);
             if (list is null)
             {
                 list = new SavedList
@@ -424,14 +483,18 @@ public sealed class UserLibrary
                 lists++;
             }
 
-            foreach (var m in incoming.Members.Where(m => DiscoveryKeys.IsSavable(m.Key) && !list.Members.Any(x => KeyEquals(x.Key, m.Key))))
+            var present = new HashSet<string>(list.Members.Select(x => x.Key), StringComparer.OrdinalIgnoreCase);
+            foreach (var m in (incoming.Members ?? []).Where(m => m is not null).Take(MaxImportMembersPerList))
             {
-                list.Members.Add(new ListMember { Key = m.Key, Name = Clean(m.Name), AddedAt = m.AddedAt });
-                members++;
+                if (DiscoveryKeys.IsSavable(m.Key) && present.Add(m.Key))
+                {
+                    list.Members.Add(new ListMember { Key = m.Key, Name = Clean(m.Name), AddedAt = m.AddedAt });
+                    members++;
+                }
             }
         }
 
-        foreach (var (key, incomingTags) in data.Tags.Where(p => DiscoveryKeys.IsSavable(p.Key)))
+        foreach (var (key, incomingTags) in (data.Tags ?? []).Where(p => DiscoveryKeys.IsSavable(p.Key) && p.Value is not null).Take(MaxImportTagKeys))
         {
             foreach (var tag in incomingTags.Select(NormalizeTag).Where(t => t.Length > 0))
             {
@@ -449,9 +512,9 @@ public sealed class UserLibrary
             }
         }
 
-        if (favorites > 0) Changed?.Invoke(LibraryFile.Favorites);
-        if (lists > 0 || members > 0) Changed?.Invoke(LibraryFile.Lists);
-        if (tags > 0) Changed?.Invoke(LibraryFile.Tags);
+        if (favorites > 0) Notify(LibraryFile.Favorites);
+        if (lists > 0 || members > 0) Notify(LibraryFile.Lists);
+        if (tags > 0) Notify(LibraryFile.Tags);
         return new ImportResult(favorites, lists, members, tags);
     }
 

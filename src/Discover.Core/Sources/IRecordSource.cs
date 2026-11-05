@@ -92,8 +92,8 @@ public sealed record RecordPage(bool Ok, IReadOnlyList<RecordSnapshot> Records, 
 /// </summary>
 public interface IRecordSource
 {
-    Task<RecordPage> SearchAsync(RecordQuery query, CancellationToken cancellationToken = default);
+    Task<RecordPage> SearchAsync(RecordQuery query);
 
     /// <summary>Hydrates one record by owner and record id; null when missing or on error.</summary>
-    Task<RecordSnapshot?> GetAsync(string ownerId, string recordId, CancellationToken cancellationToken = default);
+    Task<RecordSnapshot?> GetAsync(string ownerId, string recordId);
 }
