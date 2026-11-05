@@ -1,6 +1,6 @@
-# Galaxy Sieve: initial Claude Code run (M0 Verification)
+# ResoniteDiscovery: initial Claude Code run (M0 Verification)
 
-You're starting work on Galaxy Sieve. `CLAUDE.md` is already loaded, so I won't repeat it. Read `docs/spec.md` (at least Summary, Data sources, Integration, Performance/safety, Milestones), `docs/verification.md`, `docs/decisions.md`, and `docs/reference/README.md` first. The repo is scaffolded but has never been built. This session is **Milestone M0**. Do not start M1 unless I say so.
+You're starting work on ResoniteDiscovery. `CLAUDE.md` is already loaded, so I won't repeat it. Read `docs/spec.md` (at least Summary, Data sources, Integration, Performance/safety, Milestones), `docs/verification.md`, `docs/decisions.md`, and `docs/reference/README.md` first. The repo is scaffolded but has never been built. This session is **Milestone M0**. Do not start M1 unless I say so.
 
 ## Goal
 

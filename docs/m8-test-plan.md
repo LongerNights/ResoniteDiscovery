@@ -1,6 +1,6 @@
 # M8 in-game test plan: Current Worlds
 
-Install (close Resonite first; the loaded DLL is locked): `dotnet build src/Discover.Resonite -p:ResoniteInstallOnBuild=true`, start Resonite, open the Galaxy Sieve tab.
+Install (close Resonite first; the loaded DLL is locked): `dotnet build src/Discover.Resonite -p:ResoniteInstallOnBuild=true`, start Resonite, open the ResoniteDiscovery tab.
 
 | # | Do | Expect |
 | --- | --- | --- |

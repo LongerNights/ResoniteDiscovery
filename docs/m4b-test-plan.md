@@ -1,6 +1,6 @@
 # M4b in-game test plan
 
-Install, restart Resonite, open the Galaxy Sieve tab.
+Install, restart Resonite, open the ResoniteDiscovery tab.
 
 | # | Do | Expect |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Install, restart Resonite, open the Galaxy Sieve tab.
 | 4 | Press Info on a card | Detail panel: title, by line, description, tags, sessions, device mix, Join/Go there, Lists, Close |
 | 5 | Detail > Lists, Join | Opens the organize panel / the join confirmation |
 | 6 | Settings (top bar) | Panel with Animations, Live lenses only, Start on, Export, Import. Changes apply at once; they are saved per account (`settings.json`) |
-| 7 | Export, then Import | `exports\galaxy-sieve-export.json` appears under `%APPDATA%\GalaxySieve\<account>\`; Import reports what it added (nothing new when re-importing) |
+| 7 | Export, then Import | `exports\resonite-discovery-export.json` appears under `%APPDATA%\ResoniteDiscovery\<account>\`; Import reports what it added (nothing new when re-importing) |
 | 8 | Change "Start on", restart | The screen opens on that lens |
 
 | 9 | Settings > "Results: Grid" (press to switch to List) | Results become one row per world: thumbnail left, title/host/tags in the middle, Info, Lists, star, and the action button on the right. The choice is saved (`listView` in `settings.json`) |

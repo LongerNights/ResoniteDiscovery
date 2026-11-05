@@ -1,5 +1,7 @@
 # ResoniteDiscovery
 
+> **DISCLAIMER:** I’ve written applications and small mods for personal use before, but this mod was written almost entirely by Claude Code. It’s my first time using AI tools on a coding project. I wanted to see what they can really do, and I was surprised at every step. I know AI tooling is a polarizing topic, and I respect that people feel strongly about it either way. I’m reading through all the code myself, but there’s a lot of it. Since the mod is in early testing and release, please keep that in mind, and feel free to open an issue if you spot something off.
+
 A client-side [Resonite](https://resonite.com) mod that **replaces the dash's Worlds tab**. It keeps the stock look but
 changes how you find and return to worlds. A "Classic browser" button at the bottom of the left rail opens the stock tab
 again.

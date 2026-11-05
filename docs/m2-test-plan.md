@@ -5,7 +5,7 @@ only compiles and the Core logic is unit tested.
 
 ## Install and remove
 
-Galaxy Sieve is a ResoniteModLoader (RML) mod. On this install, MonkeyLoader's RML compatibility pack loads it
+ResoniteDiscovery is a ResoniteModLoader (RML) mod. On this install, MonkeyLoader's RML compatibility pack loads it
 from `rml_mods\`, like McpLink. It was installed on 2026-11-02; restart Resonite to load it. To reinstall after a
 rebuild (copies `Discover.Resonite.dll`, `.pdb` and `.xml` into `<Resonite>\rml_mods\`):
 
@@ -23,14 +23,14 @@ leave a `Discover.Resonite.nupkg` in `MonkeyLoader\Mods\` (an earlier MonkeyLoad
 1. Log lines (McpLink `logs` with pattern `\[Discover\]`, or the game log): `Started`, `Controller started`,
    `Screen attached`. Any `Tick failed` or `Paused` line is a bug.
 2. The RML pack loaded the mod at all. If there is no `Started` line, look in the MonkeyLoader log for a load error
-   naming `Discover.Resonite`, and check the mod list ("Galaxy Sieve") in the RML mod settings.
+   naming `Discover.Resonite`, and check the mod list ("ResoniteDiscovery") in the RML mod settings.
 
 ## Cases
 
 | ID | Steps | Expected |
 | --- | --- | --- |
-| F1 | Open the dash on desktop, then in VR | A "Galaxy Sieve" tab sits right after Worlds; the stock Worlds tab looks and works exactly as before |
-| F1 restart | Restart the game twice | Exactly one Galaxy Sieve tab each time (no duplicates saved into the dash) |
+| F1 | Open the dash on desktop, then in VR | A "ResoniteDiscovery" tab sits right after Worlds; the stock Worlds tab looks and works exactly as before |
+| F1 restart | Restart the game twice | Exactly one ResoniteDiscovery tab each time (no duplicates saved into the dash) |
 | F2 | With two public sessions of one saved world online (or any world with several sessions) open Live Now | One card for that world with `+N sessions` |
 | F6 | Open Live Now | Each card shows thumbnail, name, host and age, `active/max users`, friend badge only when a contact is present, Mobile badge, Full badge |
 | F7 | A world with two sessions where only the smaller has a contact: press Join | Joins the smaller one. A full world shows Full and its button is disabled |
@@ -46,7 +46,7 @@ leave a `Discover.Resonite.nupkg` in `MonkeyLoader\Mods\` (an earlier MonkeyLoad
 | ID | Result | Evidence |
 | --- | --- | --- |
 | Load | Pass, after one fix | Run 1: `Started` but no controller (`IsUserspace()` is false inside `WorldAdded`; fixed with a re-check). Run 2: controller and tab fine, UI build threw (`Panel` already nests; fixed). Run 3: clean log (`Started`, `Controller started`, `Screen attached`, no failures) |
-| F1 | Pass | Tab sits after Worlds, stock tab unchanged; McpLink finds exactly one Galaxy Sieve screen after three restarts |
+| F1 | Pass | Tab sits after Worlds, stock tab unchanged; McpLink finds exactly one ResoniteDiscovery screen after three restarts |
 | F2 | Pass | Screenshot (run 4): Avatar Station "+4 sessions", The Hidden Star Theater "+3 sessions", one card each |
 | F6 | Pass | Screenshot: thumbnail, name, host and age, users/max, friend badge |
 | F7 | Pass | Join opened Elysium through `Userspace.OpenWorld` (engine log `Opening world`), the session with contacts present |

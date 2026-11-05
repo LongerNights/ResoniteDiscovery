@@ -85,7 +85,7 @@ public sealed class TestClock : TimeProvider
 /// <summary>A temp folder deleted on dispose.</summary>
 public sealed class TempDir : IDisposable
 {
-    public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "galaxysieve-tests-" + Guid.NewGuid().ToString("N"));
+    public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "resonitediscovery-tests-" + Guid.NewGuid().ToString("N"));
 
     public TempDir() => Directory.CreateDirectory(Path);
 

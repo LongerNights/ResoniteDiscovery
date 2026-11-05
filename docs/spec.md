@@ -1,30 +1,30 @@
-# Galaxy Sieve — Worlds Tab Overhaul: Technical Specification
+# ResoniteDiscovery — Worlds Tab Overhaul: Technical Specification
 
 Nov 3, 2026 · @Winter · rewritten Nov 3, 2026 for the Worlds tab overhaul (supersedes the Nov 2 "sit beside" spec; see `decisions.md`)
 
-**Galaxy Sieve** is a client-side Resonite mod that **replaces the dash's Worlds tab with a cleaner one** (built against 2026.10.29.1239). It keeps everything the stock world browser can do, puts the search tools the stock tab hides behind its "Custom" button in plain sight, folds the six category buttons into one Browse view with recommended tags, adds a dedicated view of the worlds you are in right now, and brings over Galaxy Sieve's own extras: Favorites, Recent, named lists and personal tags.
+**ResoniteDiscovery** is a client-side Resonite mod that **replaces the dash's Worlds tab with a cleaner one** (built against 2026.10.29.1239). It keeps everything the stock world browser can do, puts the search tools the stock tab hides behind its "Custom" button in plain sight, folds the six category buttons into one Browse view with recommended tags, adds a dedicated view of the worlds you are in right now, and brings over ResoniteDiscovery's own extras: Favorites, Recent, named lists and personal tags.
 
 ## Summary and scope
 
-**Why the change.** An audit of the stock Worlds tab (Nov 2–3, 2026) found that most of the discovery features Galaxy Sieve set out to add already exist in the stock browser, but are hard to find:
+**Why the change.** An audit of the stock Worlds tab (Nov 2–3, 2026) found that most of the discovery features ResoniteDiscovery set out to add already exist in the stock browser, but are hard to find:
 
 - The useful search controls (sort key and direction, required and excluded tags, featured-only, date window, owner) sit behind a **Custom** button at the bottom of the filter rail, as one long, cluttered list. Nothing on the main screen hints that they exist.
 - **Social, Games, Avatars, Art, Tutorials and Educational** are six rail buttons that each just add one tag to the search. They take a third of the rail and teach nothing about tags.
 - Several preset buttons use odd defaults, for example sorting by publish date where a popularity sort (total visits) is what people expect.
 - Worlds the user is already in are mixed into the normal results, which makes it unclear what is "open" and what is "out there".
 
-So instead of a second discovery tab next to the stock one, Galaxy Sieve becomes **the Worlds tab**: a full-featured replacement that takes the stock tab's place in the dash, with the stock browser still one click away as a fallback.
+So instead of a second discovery tab next to the stock one, ResoniteDiscovery becomes **the Worlds tab**: a full-featured replacement that takes the stock tab's place in the dash, with the stock browser still one click away as a fallback.
 
 **Target.** Resonite 2026.10.29.1239 client (FrooxEngine 2026.10.29.1239, SkyFrost.Base 1.0.0.0). Not the headless client. Built with the Remora.Resonite.Sdk as a **ResoniteModLoader (RML) mod**: a plain DLL in `rml_mods/`. On the author's install, RML mods load through MonkeyLoader's RML compatibility pack. Other loaders would need only a new shim.
 
 **Goals**
 
-1. **Replace, don't add.** The dash shows one Worlds tab, and it is Galaxy Sieve's. The stock tab is hidden at runtime only (nothing saved), and can be shown again from Settings or reached from a "Classic browser" button.
+1. **Replace, don't add.** The dash shows one Worlds tab, and it is ResoniteDiscovery's. The stock tab is hidden at runtime only (nothing saved), and can be shown again from Settings or reached from a "Classic browser" button.
 2. **Parity first.** Everything the stock Worlds tab can do is reachable in the new tab in the same number of clicks or fewer (the parity table below is the checklist).
 3. **Search in plain sight.** A search box, sort menu (key and direction) and a Filters popover on every search lens, replacing the hidden Custom panel.
 4. **One Browse view** instead of six category buttons: a row of recommended tags (the six categories first, then popular tags from what is on screen), defaulting to the most-visited sort.
 5. **A Current Worlds view** that lists exactly the worlds the user has open, with focus, info and leave.
-6. **Galaxy Sieve extras:** Live Now and Friends (live sessions merged by world), Favorites, named lists, personal tags, Recent, export and import; later Trending, Rising and Hidden Gems.
+6. **ResoniteDiscovery extras:** Live Now and Friends (live sessions merged by world), Favorites, named lists, personal tags, Recent, export and import; later Trending, Rising and Hidden Gems.
 7. **Sensible defaults:** popularity sorts by default, the user's choices remembered.
 8. Joining and opening always go through the engine's own checks.
 
@@ -45,7 +45,7 @@ So instead of a second discovery tab next to the stock one, Galaxy Sieve becomes
 | v1.1 | Local history, Trending, Rising, Hidden Gems, saved filter presets, favorite notifications, hide world or host, hidden word list | Trending list is stable across a 2-hour session and survives restart |
 | v2 | Optional shared aggregation service, content tags if the platform adds them, watchlists | Decided after v1.1 usage |
 
-**What carries over from the Galaxy Sieve build (M0–M4b).** The engine-free core (merge index, visibility rule, lenses, search syntax, persistence, formulas), the session and record adapters, the join service, the card grid, detail panel, organize panel, settings panel, theme and transitions all stay. The changes are: the tab's identity and placement (Integration §1–2), the rail catalog (Browse replaces Most Visited and absorbs the categories; Current Worlds is new), the search controls (Custom parity), the new-session options, and settings migration.
+**What carries over from the ResoniteDiscovery build (M0–M4b).** The engine-free core (merge index, visibility rule, lenses, search syntax, persistence, formulas), the session and record adapters, the join service, the card grid, detail panel, organize panel, settings panel, theme and transitions all stay. The changes are: the tab's identity and placement (Integration §1–2), the rail catalog (Browse replaces Most Visited and absorbs the categories; Current Worlds is new), the search controls (Custom parity), the new-session options, and settings migration.
 
 ## The stock Worlds tab: audit and parity
 
@@ -214,7 +214,7 @@ The stock browser sends every search term as a tag (`SearchQueryParser.Parse`), 
 
 The model mirrors the engine's own merge rule: published records are keyed by the combined record id, sessions by their world id when they have one, and entries with the same key merge.
 
-**DiscoveryEntry** (one per world or standalone session) — unchanged from the Galaxy Sieve build.
+**DiscoveryEntry** (one per world or standalone session) — unchanged from the ResoniteDiscovery build.
 
 | Field | Source | Notes |
 | --- | --- | --- |
@@ -303,11 +303,11 @@ Readings fixed in M1 are in `decisions.md`; constants live in `FormulaSettings`.
 
 ## Feature requirements
 
-Each requirement has one acceptance test a developer can run in game. IDs F1–F28 keep their numbers from the Galaxy Sieve spec (code and test plans cite them); revised rows say so.
+Each requirement has one acceptance test a developer can run in game. IDs F1–F28 keep their numbers from the ResoniteDiscovery spec (code and test plans cite them); revised rows say so.
 
 | ID | Requirement | Acceptance test | Release |
 | --- | --- | --- | --- |
-| F1 (rev) | The dash shows exactly one Worlds tab, and it is Galaxy Sieve's: label "Worlds" (localized like the stock label where possible), the stock Worlds icon by default (galaxy icon optional), in the stock tab's position | Open the dash in desktop and VR: one Worlds tab, in the usual place, opens Galaxy Sieve; restart twice: still exactly one | MVP |
+| F1 (rev) | The dash shows exactly one Worlds tab, and it is ResoniteDiscovery's: label "Worlds" (localized like the stock label where possible), the stock Worlds icon by default (galaxy icon optional), in the stock tab's position | Open the dash in desktop and VR: one Worlds tab, in the usual place, opens ResoniteDiscovery; restart twice: still exactly one | MVP |
 | F2 | Live Now lists visible sessions merged by world | Two sessions of one world show as one card with a session count of 2 | MVP |
 | F3 (rev) | Browse, Featured, New, Random, My Worlds and Group Worlds use `FindRecords` with paging | Next page loads while `HasMoreResults` is true and is disabled after | MVP |
 | F4 | Search box on every lens, with term syntax: plain terms optional, `+term` required, `-term` excluded, `+tag:name`, `author:name` | `+horror -avatar` returns only worlds tagged or named horror and none matching avatar; in Favorites it searches only favorites | MVP |
@@ -331,16 +331,16 @@ Each requirement has one acceptance test a developer can run in game. IDs F1–F
 | F22 | Personal tags: add and remove; orange chips; filter through chips and `+tag:` | Tag a world "chill"; `+tag:chill` in Favorites returns it | MVP |
 | F23 | Export and import favorites, lists and tags as one versioned JSON file; import merges and never deletes | Export, clear the data folder, import: identical data | MVP |
 | F24 | My Worlds and Group Worlds lenses | The user's own world appears in My Worlds; a group's world under that group | MVP |
-| F25 (rev) | Failsafe: if the tab fails to attach, or live updates pause after repeated errors, the mod **restores the stock Worlds button**, logs once, and (if attached) shows a "Galaxy Sieve paused — Classic browser" banner. Nothing the mod did survives a crash or uninstall | Force an exception during attach: the stock Worlds tab is visible and works; kill the game with the takeover active and restart without the mod: the stock tab is visible | MVP |
+| F25 (rev) | Failsafe: if the tab fails to attach, or live updates pause after repeated errors, the mod **restores the stock Worlds button**, logs once, and (if attached) shows a "ResoniteDiscovery paused — Classic browser" banner. Nothing the mod did survives a crash or uninstall | Force an exception during attach: the stock Worlds tab is visible and works; kill the game with the takeover active and restart without the mod: the stock tab is visible | MVP |
 | F26 | Toasts when a favorite gets a live session (on) or contacts join a favorite (off), rate-limited | Starting a public session in a favorited world from a second account shows exactly one toast | v1.1 |
 | F27 | New lens minimum-visits chip, off by default | At 10, worlds under 10 visits are hidden | MVP |
 | F28 (rev) | Customizable rail: Settings can switch off a section (Now, Discover, Yours) or any lens in it. At least one lens outside Your lists stays on. If the current or start lens is hidden, the tab moves to the first visible lens. "Live lenses only" overrides and hides every search lens. Saved per account (`hiddenSections`, `hiddenLenses`) | Hide Discover: Browse, Featured, New, Random disappear and no search request is sent; show it again: the lenses return with their own switches | MVP |
 | F29 | **Browse** lens with the recommended-tags row (categories, popular here, your tags), default sort total visits ↓ | Press Games: results are worlds with the Games tag, most visited first, in 2 clicks from opening the tab; the chip shows as required and Clear all removes it | MVP |
 | F30 | **Current Worlds** lens: every world the user has open (not userspace), one card each with name, host, your role, access level, users/max, uptime, focused badge; buttons Go there, Info, star and Lists (when saveable); Leave (End session for a world you host) is in the Info panel, asks first and uses the engine's own `Userspace.ExitWorld` path | Open three worlds: Current Worlds shows three cards, the focused one first with "You are here"; Go there focuses each; Leave in the Info panel of a non-focused world asks, then closes it and the card disappears within one tick; no network request is made | MVP |
-| F31 | **Tab takeover**: on attach, hide the stock Worlds button at runtime and move the dash off the stock screen if it is current; "Show the stock Worlds tab" in Settings (off by default) shows both; a **Classic browser** button in the rail footer and the paused banner opens the stock screen even while its button is hidden; on shutdown, failure or setting change, restore the button | With the setting off there is one Worlds tab; Classic browser opens the stock list and the dash returns to Galaxy Sieve when the user next picks Worlds; turning the setting on shows both tabs without restart | MVP |
+| F31 | **Tab takeover**: on attach, hide the stock Worlds button at runtime and move the dash off the stock screen if it is current; "Show the stock Worlds tab" in Settings (off by default) shows both; a **Classic browser** button in the rail footer and the paused banner opens the stock screen even while its button is hidden; on shutdown, failure or setting change, restore the button | With the setting off there is one Worlds tab; Classic browser opens the stock list and the dash returns to ResoniteDiscovery when the user next picks Worlds; turning the setting on shows both tabs without restart | MVP |
 | F32 | **Custom-panel parity** in the Filters popover for search lenses: Featured only, Published (any time, past week, month, year, custom `MinDate`/`MaxDate`), sort direction (with F14), and `author:` search with "More by author" in the detail panel | Each stock Custom control (V24 inventory) has a row in the parity table that passes; "Published: past week" on Browse sends `MinDate` = now − 7 d | MVP |
 | F33 | **New session options**: "New session" in the join menu offers access level (Anyone, Registered users, Contacts+, Contacts, LAN, Private; default as the engine chooses) and an Advanced row (unsafe mode, force ports) matching `CustomWorldStart` | Start a new session at Contacts: the world opens and its access level is Contacts; with no choice made, the access level matches what the stock "Open" gives | MVP |
-| F34 | **Settings migration**: an account's Galaxy Sieve `settings.json` from before the overhaul loads cleanly; `MostVisited` maps to Browse, `Live`/`Browse`/`Mine` sections map to Now/Discover/Yours; favorites, lists, tags and Recent are untouched | Copy an M4b `settings.json` with Most Visited hidden and Mine off into the data folder: Browse is hidden, Yours is off, nothing else changes | MVP |
+| F34 | **Settings migration**: an account's ResoniteDiscovery `settings.json` from before the overhaul loads cleanly; `MostVisited` maps to Browse, `Live`/`Browse`/`Mine` sections map to Now/Discover/Yours; favorites, lists, tags and Recent are untouched | Copy an M4b `settings.json` with Most Visited hidden and Mine off into the data folder: Browse is hidden, Yours is off, nothing else changes | MVP |
 
 **Search term syntax.** The mod uses its own parser (Core is engine-free) with the stock meaning: plain terms optional, `+` required, `-` excluded. Plain terms match name, description, tags and author case-insensitively. For record search, tag terms go to the server as tag lists and the rest filter the returned page; `author:` follows the rule in Data sources. Search applies to the current lens only: search lenses send it with the query, local and live lenses filter in memory. Personal tags never go to the server. When a search on a non-search lens finds nothing, the empty state offers "Search all worlds" (opens Browse with the same text).
 
@@ -406,7 +406,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 | Empty result | Message naming the active filters, "Clear filters", and on local or live lenses "Search all worlds" |
 | Search failed | Banner with the result text and Retry; cards stay |
 | Signed out or cloud unreachable | Banner; live lenses and Current Worlds keep working |
-| Paused (F25) | Banner "Galaxy Sieve paused" with Classic browser; stock tab button restored |
+| Paused (F25) | Banner "ResoniteDiscovery paused" with Classic browser; stock tab button restored |
 | Thumbnail missing | World-icon placeholder |
 
 **Copy.** All strings in one table keyed by id. Labels: 2 words where possible. The tab label is "Worlds"; the mod name appears only in Settings, banners and the log.
@@ -419,7 +419,7 @@ Members marked ✓ were confirmed in the 2026.10.29.1239 decompile (ILSpy-MCP) o
 
 ```csharp
 var dash = userspace.GetGloballyRegisteredComponent<UserspaceRadiantDash>().Dash;
-_screen = dash.AttachScreen("Galaxy Sieve", RadiantUI_Constants.MidLight.PURPLE, icon);   // label set to "Worlds" below
+_screen = dash.AttachScreen("ResoniteDiscovery", RadiantUI_Constants.MidLight.PURPLE, icon);   // label set to "Worlds" below
 _screen.Slot.PersistentSelf = false;   // same tick: never saved into Workspaces/Private/RadiantDash/Screens (V15, V22a)
 _screen.Slot.OrderOffset = stockWorlds.Slot.OrderOffset + 1;   // our own slot only: sits right after the (hidden) stock tab
 _controller = new DiscoverController(Engine, _screen);
@@ -454,17 +454,17 @@ V32 (closed): an inactive slot drops out of the dash's button `HorizontalLayout`
 
 | Option | What the mod does | One tab? | Persistence risk | Verdict |
 | --- | --- | --- | --- | --- |
-| A. Sit beside | Nothing to the stock tab | No | None | Was the Galaxy Sieve choice; fails the overhaul goal |
+| A. Sit beside | Nothing to the stock tab | No | None | Was the ResoniteDiscovery choice; fails the overhaul goal |
 | B. Hide the stock button at runtime, replacement screen | As above | Yes (V32) | None (V29) | **Chosen** |
 | C. `ScreenEnabled = false` | Grey out the stock tab | No, greyed | Saved to the cloud workspace | Rejected (V3, V22b) |
 | D. Rebuild the stock screen's facets | Replace `WorldFilterFacetPreset` etc. in the stock `GridContainer` | Yes | Facets are saved in the workspace; a removed mod leaves a broken tab | Rejected |
-| E. Harmony-patch the stock list (`LegacyWorldListManager`, `WorldFilterFacetPreset`) | Change the stock tab in place | Yes | None | Rejected: deep patches on legacy internals break on updates, conflict with other mods that already patch `LegacyWorldDetail` (V23), and would bring no Galaxy Sieve features without a rebuild anyway |
+| E. Harmony-patch the stock list (`LegacyWorldListManager`, `WorldFilterFacetPreset`) | Change the stock tab in place | Yes | None | Rejected: deep patches on legacy internals break on updates, conflict with other mods that already patch `LegacyWorldDetail` (V23), and would bring no ResoniteDiscovery features without a rebuild anyway |
 
 **Dash-mod interaction (V23, partial).** Harmony patches exist on this install on `RadiantDash.UpdateScreens`, `RadiantDash.get_AutoAdaptWidth`, `get_BASE_RESOLUTION`, `UserspaceScreensManager.SetupDefaults`/`AddHelpScreen`, `UserspaceRadiantDash.set_Open`, `LegacyWorldDetail.OnOpen`/`CustomWorldStart`. Owners are not identified. Mods that patch the stock world detail stop affecting the default path once the stock tab is hidden; they still apply in Classic browser. A mod that patches `UpdateScreens` could re-show the stock button; the keep-hidden check handles that. In-game test: the takeover works with the installed dash mods (ResoTabbed, ConsistentDashboard, NoHeadMenuDash, SessionTabOverhaul, SessionTweaks).
 
 **3. Threading** ✓ — unchanged. Session handlers only enqueue; the controller drains ≤ 50 changes per tick; UI mutations after any `await` go through `world.RunSynchronously(...)`; no `.Result` or `.Wait()`. `WorldAdded`/`WorldRemoved` may fire off the userspace world's update; the open-world adapter only enqueues too, and reads world fields on the update thread.
 
-**4. Joining, opening, focusing and leaving.** All joins and opens go through `Userspace.OpenWorld` ✓ (never `JoinSession`, which skips the mutual-block check). Code shapes are unchanged from the Galaxy Sieve build (`JoinService`). New for the overhaul:
+**4. Joining, opening, focusing and leaving.** All joins and opens go through `Userspace.OpenWorld` ✓ (never `JoinSession`, which skips the mutual-block check). Code shapes are unchanged from the ResoniteDiscovery build (`JoinService`). New for the overhaul:
 
 - **New session with options (F33).** Build the same `WorldStartSettings` as the stock "Open" (record URI from `GenerateRecordUri`, `GetExisting = false`) and set `DefaultAccessLevel`, `UnsafeMode` and `ForcePorts` only when the user chose them, exactly as `CustomWorldStart` does (V4). VERIFY V28: the property names and types on `WorldStartSettings`, and that leaving `DefaultAccessLevel` unset gives the stock default (V5 says it does: `Anyone` for a public record, `Private` when the user's status defaults to private, `LAN` under ForceLANOnly).
 - **Go there (F30).** `WorldManager.FocusWorld(world)` ✓ (stock already-open path, V4).
@@ -472,7 +472,7 @@ V32 (closed): an inactive slot drops out of the dash's button `HorizontalLayout`
 
 Before enabling Join, check `Userspace.GetExistingWorld(settings)` to show Open; disable when full. Wrap every call in try/catch, log through `UniLog`, toast on failure.
 
-**5. Persistence** ✓ — unchanged location: `%APPDATA%\GalaxySieve\<userId>\`.
+**5. Persistence** ✓ — unchanged location: `%APPDATA%\ResoniteDiscovery\<userId>\`.
 
 | File | Contents | Write policy |
 | --- | --- | --- |
@@ -484,7 +484,7 @@ Before enabling Join, check `Userspace.GetExistingWorld(settings)` to show Open;
 
 Account files load once `Cloud.Session.CurrentUserID` is known and reload on account change; atomic writes; 5 s debounce; corrupt files renamed `.bad`. Open-world data (Current Worlds) is never written to disk. Export and import use the fixed `exports\` folder (V20).
 
-**6. Loader shim** ✓ — unchanged: `GalaxySieveMod : ResoniteMod` in `Loader/ResoniteModLoaderEntry.cs` behind `#if RESONITE_RML`; `OnEngineInit` registers `Engine.OnShutdown += DiscoverMod.Stop` (which restores the stock tab button) and defers `Start` with `Engine.RunPostInit`.
+**6. Loader shim** ✓ — unchanged: `ResoniteDiscoveryMod : ResoniteMod` in `Loader/ResoniteModLoaderEntry.cs` behind `#if RESONITE_RML`; `OnEngineInit` registers `Engine.OnShutdown += DiscoverMod.Stop` (which restores the stock tab button) and defers `Start` with `Engine.RunPostInit`.
 
 ## Performance, networking and safety
 
@@ -515,7 +515,7 @@ Account files load once `Cloud.Session.CurrentUserID` is known and reload on acc
 | `OpenWorld` throws or returns null | Toast, log, re-enable the button |
 | Mutual block with the host | Engine's own message; no retry |
 | Leave fails | Toast, log; the card stays |
-| Stock Worlds screen not found | No takeover (nothing to hide); Galaxy Sieve attaches as an extra tab and logs once |
+| Stock Worlds screen not found | No takeover (nothing to hide); ResoniteDiscovery attaches as an extra tab and logs once |
 | Data file unreadable | Rename `.bad`, defaults, notify once |
 | Exception in the controller tick | Catch at the tick boundary; after 5 in a row pause live updates, **restore the stock tab button**, show the paused banner |
 
@@ -526,7 +526,7 @@ Account files load once `Cloud.Session.CurrentUserID` is known and reload on acc
 3. Never display, log or store `BroadcastKey`, `HostMachineId`, `HostUserSessionId` or raw session URLs.
 4. History stores world keys, counts and timestamps only.
 5. The mod adds no data-model types and writes nothing to worlds.
-6. **Stock tab:** no Harmony patches, no `ScreenEnabled` writes, no edits to the stock screen or its facets. The only writes are the runtime `ActiveSelf` of the stock Worlds button slot and the dash's current screen, both reverted on shutdown and failure. The Galaxy Sieve screen slot is `PersistentSelf = false`.
+6. **Stock tab:** no Harmony patches, no `ScreenEnabled` writes, no edits to the stock screen or its facets. The only writes are the runtime `ActiveSelf` of the stock Worlds button slot and the dash's current screen, both reverted on shutdown and failure. The ResoniteDiscovery screen slot is `PersistentSelf = false`.
 7. The record search endpoint is work in progress, so parsing is tolerant and a failed search never blocks the live lenses.
 8. A user-defined hidden word list (v1.1) filters names and tags. Defaults to empty.
 9. "Live lenses only" disables all record search and hides every search lens (F28).
@@ -564,9 +564,9 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 
 | Scenario | Expected |
 | --- | --- |
-| Fresh start with the mod | One Worlds tab in the stock position, opening Galaxy Sieve |
+| Fresh start with the mod | One Worlds tab in the stock position, opening ResoniteDiscovery |
 | Kill the game with the takeover active, restart without the mod | Stock Worlds tab present and working |
-| Classic browser | Stock list opens; picking Worlds again returns to Galaxy Sieve |
+| Classic browser | Stock list opens; picking Worlds again returns to ResoniteDiscovery |
 | Parity table, row by row | Every row passes or is recorded as not ported |
 | Browse → Games | Games-tagged worlds, most visited first |
 | Open three worlds, Current Worlds | Three cards, focused first; Go there and Leave work |
@@ -590,12 +590,12 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 | Category buttons | One Browse lens with recommended tags (Nov 3, 2026) |
 | Worlds the user is in | Dedicated Current Worlds lens (Nov 3, 2026) |
 | Distribution | Personal use for now |
-| Name and icon | Galaxy Sieve (mod name); the tab is labelled "Worlds"; stock Worlds icon by default, galaxy icon optional |
+| Name and icon | ResoniteDiscovery (mod name); the tab is labelled "Worlds"; stock Worlds icon by default, galaxy icon optional |
 | Licence | MIT |
 
 ## Milestones and build setup
 
-**Done (Galaxy Sieve build).** M0 verification (V6, V7, V8, V23 open), M1 core, M2 live screen, M3 record lenses, M4a your stuff, M4b My/Group Worlds, detail panel, settings, customizable rail. 348 tests. These carry over as described in Summary.
+**Done (ResoniteDiscovery build).** M0 verification (V6, V7, V8, V23 open), M1 core, M2 live screen, M3 record lenses, M4a your stuff, M4b My/Group Worlds, detail panel, settings, customizable rail. 348 tests. These carry over as described in Summary.
 
 **Overhaul milestones.** Each gate passes before the next starts.
 
