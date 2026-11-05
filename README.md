@@ -22,7 +22,7 @@ with its ResoniteModLoader compatibility pack. MIT licensed.
 
 ## Trending, Rising and Hidden Gems
 
-These three tabs (the **Insights** section) are **off by default**. Turn them on in Settings > Sidebar. Resonite has no
+These three tabs (the **Insights** section) are on by default; Settings > Sidebar can hide them. Resonite has no
 "trending" data to ask for, so the mod builds it **on your PC, from what it sees while the game is running**:
 
 - **History starts empty.** Trending shows "Nothing ranked yet" until the game has been running for an hour or two.

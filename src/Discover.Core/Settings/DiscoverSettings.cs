@@ -79,7 +79,7 @@ public sealed record DiscoverSettings
     /// <summary>Words that hide any world or session whose name contains them (case-insensitive).</summary>
     public IReadOnlyList<string> HiddenWords { get; init; } = [];
 
-    public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [Lenses.RailSectionId.Insights];
+    public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [];
 
     /// <summary>Lenses switched off one by one (spec F28).</summary>
     public IReadOnlyList<Lenses.LensKind> HiddenLenses { get; init; } = [];
