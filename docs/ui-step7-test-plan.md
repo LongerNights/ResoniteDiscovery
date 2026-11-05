@@ -3,9 +3,9 @@
 Built 2026-11-04, not yet run in game.
 
 1. **Rebrand.** The mod loads as "ResoniteDiscovery" (Mods list, log). On first start your data is copied from
-   `%APPDATA%\GalaxySieve\<account>` to `%APPDATA%\ResoniteDiscovery\<account>`: favorites, lists, tags, history, saved
+   the pre-rename data folder to `%APPDATA%\ResoniteDiscovery\<account>`: favorites, lists, tags, history, saved
    views and settings are all still there. The old folder is left alone. Export writes `resonite-discovery-export.json`
-   (an older `galaxy-sieve-export.json` is still read by Import). Settings > Data's note uses the new names.
+   (an older-named export file is still read by Import). Settings > Data's note uses the new names.
 2. **Animations (on by default).** Dropdowns (Sort, Filters, Views) slide down into place; the detail, Settings,
    Session Settings and confirm panels rise into place. The black fade between lenses is gone for good. Settings >
    General > Animations off makes everything appear instantly. Panels still close instantly.

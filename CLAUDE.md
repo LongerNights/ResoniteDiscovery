@@ -2,7 +2,7 @@
 
 *Auto-loaded project guide for Claude sessions in this folder. Keep it short and current.*
 
-**ResoniteDiscovery** (formerly Galaxy Sieve; renamed 2026-11-04, user data moves from `%APPDATA%\GalaxySieve` to `%APPDATA%\ResoniteDiscovery` on first run) is a client-side Resonite mod that **replaces the dash's Worlds tab** with a
+**ResoniteDiscovery** (renamed 2026-11-04; data from the pre-rename folder is copied into `%APPDATA%\ResoniteDiscovery` on first run) is a client-side Resonite mod that **replaces the dash's Worlds tab** with a
 cleaner one (decision 2026-11-03, supersedes "sit beside"): the stock tab's button is hidden
 at runtime only, and a "Classic browser" button still opens it. The rail is Now (Current
 Worlds, Live Now, Friends), Discover (Browse with recommended tags replacing the six stock
@@ -41,7 +41,7 @@ sources in (no ProjectReference), so the mod is one DLL in `rml_mods/`.
 fixed type scale, size-to-content panels, switch rows, tabbed Settings, detail panel with a selectable session list,
 chip bar, list mode, open animations (on by default). Features beyond the original plan: `author:` resolves through the
 engine user lookup (V30), hide lists, saved views, favorite alerts, history with Trending/Rising/Hidden Gems, per-account
-data in `%APPDATA%\ResoniteDiscovery`. The mod was renamed from Galaxy Sieve to ResoniteDiscovery on 2026-11-04.
+data in `%APPDATA%\ResoniteDiscovery`.
 
 Each UI step has an in-game checklist (`docs/ui-step*-test-plan.md`, items 1-17 in `ui-step7-test-plan.md`); the older
 milestone plans are `docs/m*-test-plan.md`. Not done: the GitHub push (waiting on Winter's details; `gh` is not installed),

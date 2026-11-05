@@ -6,7 +6,7 @@ table, numbers in settings, no world writes.*
 
 ## Direction change (2026-11-04): match the stock Worlds tab
 
-Winter's direction after the first rounds: drop the purple Galaxy Sieve theming and match the stock Worlds tab, keep the
+Winter's direction after the first rounds: drop the purple ResoniteDiscovery theming and match the stock Worlds tab, keep the
 screen see-through like the stock one, and give the rail tabs icons.
 
 - **Background.** The stock tab draws a tiled texture (`resdb:///d54b9c04...`, 768 px tiles) under a Dark tint
@@ -15,7 +15,7 @@ screen see-through like the stock one, and give the rail tabs icons.
   category buttons are exactly this grey), light text. The accent is the dash's own cyan (selected tab), used for the
   selected row, primary buttons and required chips. Every purple is gone; the red, orange and yellow chips and the
   favourite star keep their meaning.
-- **Name.** The rail title reads "Worlds", not "Galaxy Sieve" (the tab is already labelled Worlds).
+- **Name.** The rail title reads "Worlds", not "ResoniteDiscovery" (the tab is already labelled Worlds).
 - **Icons.** Rail entries use the engine's own icons, read at runtime from the install by `OfficialAssets` (the stock
   category icons for Live Now, Friends, Browse, Featured, New, Random, My Worlds and Group Worlds; the engine's general icons
   for Current Worlds, Favorites, Recent, Trending, Rising, Hidden Gems, and lists). Nothing is copied into the repo.
@@ -219,7 +219,7 @@ A modal card about 70 % of the pane wide and sized to its content.
 2. **The Sidebar column is 22 identical "X: On" bars** in a narrow column, with section and lens rows differing only by
    capitals. It dominates the panel and is rarely used.
 3. **Text is too small.** Rows, the section headings and the Export note landed on the 13 and 16 steps and read tiny
-   next to "Done", "Export" and "Import". The same happened to the rail headings and the "Galaxy Sieve" title.
+   next to "Done", "Export" and "Import". The same happened to the rail headings and the "ResoniteDiscovery" title.
 4. **The panel is full-height with a gap** between the content and Done, and no room left to add rows.
 5. **There is no grouping** between display, behaviour, notifications and hiding.
 
@@ -255,7 +255,7 @@ A modal card about 70 % of the pane wide and sized to its content.
 | Sidebar | Grouped as in the rail: each section is a header row with one switch, and its lenses are indented rows with a switch each, dimmed when the section is off. Two columns of eleven rows each if the page is tall; otherwise one scrolling column. A "Reset sidebar" quiet button at the bottom. |
 | Alerts | **Favorite goes live:** switch. **Contacts join a favorite:** switch. A line of Caption explaining the rate limit ("At most 3 alerts in 10 minutes, once per world per 30 minutes."). |
 | Hidden | Counts as three stat pills (worlds, authors, words). Below, a scrolling list of every hidden world, author and word, each with a ✕ to restore just that one, and **Add a word** (opens the name prompt) and **Restore all** (quiet, asks to confirm) buttons. This is where the hidden items are shown by name instead of by count. |
-| Data | **Export** and **Import** as two equal secondary buttons, each with a one-line explanation under it, and the exports-folder path as selectable Caption text, with the note rewritten shorter: "Exports go to your Galaxy Sieve folder. Import only adds; it never removes." |
+| Data | **Export** and **Import** as two equal secondary buttons, each with a one-line explanation under it, and the exports-folder path as selectable Caption text, with the note rewritten shorter: "Exports go to your ResoniteDiscovery folder. Import only adds; it never removes." |
 
 **Shared control additions for Settings.** A *dropdown* (button showing the current value and ▾, opening a popover with
 the options, the same popover as Sort) and a *switch* (a 52 × 28 rounded track with a knob that slides 120 ms; on is accent

@@ -13,7 +13,7 @@ From the game log `GALACTICRAFTER - 2026.10.29.1239 - 2026-11-02 17_11_58.log` a
 | McpLink `hot_reload` | Unavailable: `ResoniteHotReloadLib` not in `rml_libs` (optional, only for hot reload) |
 | User id | `U-Winter-Storm` |
 
-## Dash-related mods already installed (test Galaxy Sieve alongside these)
+## Dash-related mods already installed (test ResoniteDiscovery alongside these)
 
 `SessionTabOverhaul` 2.1.1, `ResoTabbed` 2.1.1, `ConsistentDashboard` 1.0.0, `NoHeadMenuDash` 2.0.0,
 `ResoniteModSettings` 2.3.0 (mod settings UI), `SessionTweaks` 5.1.0. `WorldsTabOverhaul` is not installed.

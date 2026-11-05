@@ -8,7 +8,7 @@ Install: close Resonite, `dotnet build src/Discover.Resonite -p:ResoniteInstallO
 | 2 | Start the game with the stock Worlds tab as the last open tab | The dash opens on our screen, not the stock one |
 | 3 | Press Classic browser (footer) | The stock Worlds screen opens; its button stays hidden |
 | 4 | From Classic, press another tab, then Worlds | Our screen opens; Classic mode is over |
-| 5 | Set `showStockWorldsTab` to true in `settings.json`, restart | Both tabs visible; ours is labelled "Galaxy Sieve" with the galaxy icon |
+| 5 | Set `showStockWorldsTab` to true in `settings.json`, restart | Both tabs visible; ours is labelled "ResoniteDiscovery" with the galaxy icon |
 | 6 | Set `galaxyTabIcon` to true, restart | Our "Worlds" tab uses the galaxy icon |
 | 7 | Trigger a failure (see below), or wait for "paused" | The stock Worlds button comes back immediately (F25) |
 | 8 | Kill the game with the takeover active, restart without the mod (remove the DLL) | The stock Worlds tab is present and works (nothing persisted) |

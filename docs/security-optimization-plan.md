@@ -1,6 +1,6 @@
 # Security and optimization plan
 
-*Status: S1–S5, O1–O3, C1–C12 and most of S6 are implemented (2026-11-05); remaining: clear-history control, GalaxySieve folder removal, shutdown-thread check, C9 done as partial files.*
+*Status: S1–S5, O1–O3, C1–C12 and most of S6 are implemented (2026-11-05); remaining: clear-history control, pre-rename folder removal, shutdown-thread check, C9 done as partial files.*
 
 *From a full audit of v0.2.2 (commit 49c592e), 2026-11-04. Build and all 401 tests pass at that commit.*
 
@@ -141,7 +141,7 @@ Ordered by risk. Each item has its location, the problem, the fix and how to tes
   characters and cap lookups per session (for example 20).
 - **Privacy controls:** `recent.json` keeps up to 5,000 visited world keys, including private worlds the user was in, and
   `history.json` keeps 14 days. Neither can be cleared from the UI. Add "Clear history and visited marks" under
-  Settings > Your data. The old `%APPDATA%\GalaxySieve` folder is copied, not moved, so a second copy of the history stays on disk.
+  Settings > Your data. The old pre-rename data folder is copied, not moved, so a second copy of the history stays on disk.
   Delete it after a successful copy (ask Winter first).
 - **Temp icon:** `IconLoader` writes to a fixed `%TEMP%\ResoniteDiscovery\galaxy-icon.png` and never deletes it. Delete it after the
   import.
@@ -161,7 +161,7 @@ These are lower risk than the items above. Do them after, or alongside, the fixe
 | C7 | The stock-screen query is written out twice | `TryAttach` `:472`, `TabTakeover.FindStock` | One static `StockWorlds.Find(dash)` |
 | C8 | The transparent "catcher" button colour setup is copied for the card and the detail panel (10 `SetA(0.02f)` lines) | `DiscoverUi.cs:2075-2083`, `:3655-3663` | `Theme.MakeCatcher(Slot)` |
 | C9 | File size: `DiscoverUi.cs` is 4,006 lines and `DiscoverController.cs` 2,206 | — | Split into `partial` files by panel (Detail, Settings, Organize, NewSession, Prompt, Menus, CardView) and by concern (Actions, Settings, Library, Join, Render). A move only, no behaviour change, in its own commit |
-| C10 | Stale or doubled comments: two `<summary>` blocks on `StartNewSession`, `AwaitingResults`, `AnimateTransitions` and `NotifyFavoriteLive`; "The stock Worlds tab is never touched" (`:25`); "Galaxy Sieve" (`:463`); "V30 is open" (`SearchQuery.cs:181`) | — | Fix them during the split |
+| C10 | Stale or doubled comments: two `<summary>` blocks on `StartNewSession`, `AwaitingResults`, `AnimateTransitions` and `NotifyFavoriteLive`; "The stock Worlds tab is never touched" (`:25`); "ResoniteDiscovery" (`:463`); "V30 is open" (`SearchQuery.cs:181`) | — | Fix them during the split |
 | C11 | Debug logging left in: `Popover placed: …` on every popover | `DiscoverUi.cs:1329` | Remove it, or put it behind a debug setting |
 | C12 | `CancellationToken` parameters that nothing passes or reads; `ReadExport` passes `() => null!` as defaults | `IRecordSource`, `UserLibraryStore.cs:80` | Drop the token, or honour it; give `Load` a nullable overload |
 
