@@ -11,9 +11,7 @@ public class LensCatalogTests
     [Fact]
     public void EverythingIsOnByDefault()
     {
-        // Insights (history lenses) are off until switched on.
-        Assert.All(LensCatalog.Sections.Where(s => s != RailSectionId.Insights).SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
-        Assert.All(LensCatalog.LensesOf(RailSectionId.Insights), l => Assert.False(Defaults.IsVisible(l)));
+        Assert.All(LensCatalog.Sections.SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
         Assert.Equal(LensKind.CurrentWorlds, LensCatalog.FirstVisible(Defaults));
     }
 
@@ -70,7 +68,7 @@ public class LensCatalogTests
 
         var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: settings);
 
-        Assert.Equal([RailSectionId.Now, RailSectionId.Yours], rail.Select(s => s.Id));
+        Assert.Equal([RailSectionId.Now, RailSectionId.Yours, RailSectionId.Insights], rail.Select(s => s.Id));
         Assert.DoesNotContain(rail.SelectMany(s => s.Items), i => i.Lens == LensKind.Recent);
     }
 

@@ -43,7 +43,7 @@ public static class LensCatalog
 
     /// <summary>
     /// On when the lens's switch and its section's switch are on, and "Live lenses only" is not hiding it (search lenses).
-    /// Insights lenses are in their own section, which is off by default.
+    /// Insights lenses are in their own section, which is on by default like the others.
     /// </summary>
     public static bool IsVisible(this DiscoverSettings settings, LensKind lens) =>
         settings.IsSectionOn(SectionOf(lens))
