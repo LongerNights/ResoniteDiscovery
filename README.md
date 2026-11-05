@@ -16,10 +16,10 @@ with its ResoniteModLoader compatibility pack. MIT licensed.
 - **Live and published worlds together.** Current Worlds, Live Now and Friends show sessions; Featured, New and Random
   search published worlds. Live tabs cost no extra requests, and a live-only mode turns record searches off entirely.
 - **Your own things in one place.** Favorites, named lists, personal tags, Recent, My Worlds and Group Worlds.
-- **Hide what you don't want.** Hide worlds, authors or words, with export and import.
+- **Hide what you don't want.** Hide worlds, authors or words.
 - **Detail panel.** Press a card for the preview, description, every live session (with who is in it), Join, and more by
-  the author.
-- **Small extras.** A Visited mark, a red x on Current Worlds cards to leave quickly, favorite alerts, saved views, and a
+  the author just like the default Worlds tab.
+- **Small extras.** A Visited mark, favorite alerts, saved views, export/import functionality (for hides, favorites, and lists), and a
   choice of grid or list with rows per page.
 
 ## Trending, Rising and Hidden Gems
@@ -47,7 +47,7 @@ These three tabs (the **Insights** section) are on by default; Settings > Sideba
    `<Resonite>\rml_mods\` (for Steam: `...\steamapps\common\Resonite\rml_mods`).
 3. Restart Resonite. The dash's **Worlds** tab is now this one.
 
-To uninstall, delete the DLL. Nothing in your worlds is changed, and the stock button is only hidden while the mod runs.
+To uninstall, delete the DLL. Nothing in your dash is changed, and the stock button is only hidden while the mod runs.
 
 Your data (favorites, lists, tags, history, saved views, settings) lives per account in
 `%APPDATA%\ResoniteDiscovery\<account>\`.
