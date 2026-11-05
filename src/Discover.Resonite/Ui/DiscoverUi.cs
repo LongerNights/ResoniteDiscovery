@@ -3676,10 +3676,17 @@ internal sealed class CardView
         RadiantUI_Constants.SetupDefaultStyle(overlay);
         card._leave = overlay.Button((LocaleString)"✕", Theme.ClearButton);
         var leaveRect = card._leave.Slot.GetComponent<RectTransform>();
-        leaveRect.AnchorMin.Value = new float2(0.88f, 0.82f);
-        leaveRect.AnchorMax.Value = new float2(0.98f, 0.97f);
+        PlaceLeave(leaveRect, list: false);
         card._leaveLabel = card._leave.Slot.GetComponentInChildren<Text>();
         DiscoverUi.Clamp(card._leaveLabel, 14f, 24f);
+
+        // The glyph sits low in its box; raise it (the box keeps its size).
+        if (card._leaveLabel.Slot.GetComponent<RectTransform>() is { } leaveLabelRect)
+        {
+            leaveLabelRect.OffsetMin.Value = new float2(0f, 6f);
+            leaveLabelRect.OffsetMax.Value = new float2(0f, 6f);
+        }
+
         card._leave.Slot.ActiveSelf = false;
         card._leave.LocalPressed += (_, _) =>
         {
@@ -3788,8 +3795,7 @@ internal sealed class CardView
         }
 
         var leaveRect = _leave.Slot.GetComponent<RectTransform>();
-        leaveRect.AnchorMin.Value = list ? new float2(0.91f, 0.08f) : new float2(0.88f, 0.82f);
-        leaveRect.AnchorMax.Value = list ? new float2(0.99f, 0.50f) : new float2(0.98f, 0.97f);
+        PlaceLeave(leaveRect, list);
 
         var thumbnail = _parts[0].Slot;
         var buttons = new[] { _star, _info, _organize };
@@ -3801,6 +3807,28 @@ internal sealed class CardView
             var (min, max) = list ? ListOverlayAnchors[i] : _gridOverlayAnchors[i];
             rect.AnchorMin.Value = min;
             rect.AnchorMax.Value = max;
+        }
+    }
+
+    /// <summary>The leave x: a fixed square in the card's top right corner (grid), or at the right of the row (list).</summary>
+    private static void PlaceLeave(RectTransform rect, bool list)
+    {
+        // Same height as the picture's corner pill (about 49) and the same inset from the card's top and sides (measured
+        // in game: the pill sits 19 from the left and 20 from the top), so the x lines up with the counter.
+        const float size = 49f, insetX = 19f, insetY = 20f;
+        if (list)
+        {
+            rect.AnchorMin.Value = new float2(1f, 0.5f);
+            rect.AnchorMax.Value = new float2(1f, 0.5f);
+            rect.OffsetMin.Value = new float2(-size - insetX, -size / 2f);
+            rect.OffsetMax.Value = new float2(-insetX, size / 2f);
+        }
+        else
+        {
+            rect.AnchorMin.Value = new float2(1f, 1f);
+            rect.AnchorMax.Value = new float2(1f, 1f);
+            rect.OffsetMin.Value = new float2(-size - insetX, -size - insetY);
+            rect.OffsetMax.Value = new float2(-insetX, -insetY);
         }
     }
 
