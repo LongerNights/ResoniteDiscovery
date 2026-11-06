@@ -7,7 +7,7 @@ Install, restart Resonite, open the ResoniteDiscovery tab.
 | 1 | Click My Worlds (Mine section) | Your published worlds, newest update first. Empty account shows "You have not published any worlds yet." |
 | 2 | Click Group Worlds | One group opens directly; several show a choice panel (first four by name). The header reads "Group Worlds · <name>" and lists that group's worlds |
 | 3 | Group Worlds when in no group | Toast "You are not in any groups." |
-| 4 | Press Info on a card | Detail panel: title, by line, description, tags, sessions, device mix, Join/Go there, Lists, Close |
+| 4 | Press Info on a card | Detail panel: title, by line, description, tags, sessions, device mix, Join/Focus world, Lists, Close |
 | 5 | Detail > Lists, Join | Opens the organize panel / the join confirmation |
 | 6 | Settings (top bar) | Panel with Animations, Live lenses only, Start on, Export, Import. Changes apply at once; they are saved per account (`settings.json`) |
 | 7 | Export, then Import | `exports\resonite-discovery-export.json` appears under `%APPDATA%\ResoniteDiscovery\<account>\`; Import reports what it added (nothing new when re-importing) |

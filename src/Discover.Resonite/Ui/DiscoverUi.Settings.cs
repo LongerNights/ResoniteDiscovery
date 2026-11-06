@@ -23,7 +23,6 @@ internal sealed partial class DiscoverUi
 
     // Page controls, bound by ShowSettings.
     private (Image Track, RectTransform Knob) _animationsSwitch;
-    private (Image Track, RectTransform Knob) _liveOnlySwitch;
     private (Image Track, RectTransform Knob) _notifyLiveSwitch;
     private (Image Track, RectTransform Knob) _notifyContactsSwitch;
     private Text _startLensValue = null!;
@@ -32,7 +31,11 @@ internal sealed partial class DiscoverUi
     private const int MaxStartLensRows = 16;
     private readonly List<(Button Button, Text Label)> _startLensItems = [];
     private IReadOnlyList<(LensKind Lens, string Label, bool Selected)> _startLensChoices = [];
-    private readonly Dictionary<float, Button> _speedButtons = [];
+    private Slider<float> _animationSpeedSlider = null!;
+    private Text _animationSpeedLabel = null!;
+    private Slider<float> _panSpeedSlider = null!;
+    private Text _panSpeedLabel = null!;
+    private bool _applyingSettings;
     private Button _viewGrid = null!;
     private Button _viewList = null!;
     private readonly Dictionary<int, Button> _cardsPerRowButtons = [];
@@ -93,21 +96,9 @@ internal sealed partial class DiscoverUi
         {
             SettingsGroup(ui, "settings.tab.general");
             _startLensRow = ValueRow(ui, UiStrings.Get("settings.startOn"), ToggleStartLensMenu, out _startLensValue);
-            _liveOnlySwitch = SettingsSwitch(ui, UiStrings.Get("settings.liveOnly"), () => _actions.ToggleSetting(SettingKey.LiveOnly));
             _animationsSwitch = SettingsSwitch(ui, UiStrings.Get("settings.animations"), () => _actions.ToggleSetting(SettingKey.Animations));
-            SettingsLabel(ui, UiStrings.Get("settings.animationSpeed"));
-            ui.Style.MinHeight = 46f;
-            var speedRow = ui.HorizontalLayout(6f, 0f, Alignment.MiddleCenter);
-            foreach (var (value, id) in new[] { (0.6f, "settings.speed.slow"), (1f, "settings.speed.normal"), (1.6f, "settings.speed.fast") })
-            {
-                var speedButton = ui.Button((LocaleString)UiStrings.Get(id));
-                Fix(speedButton.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
-                var captured = value;
-                speedButton.LocalPressed += (_, _) => _actions.SetAnimationSpeed(captured);
-                _speedButtons[value] = speedButton;
-            }
-
-            ui.NestOut();
+            _animationSpeedLabel = SettingsLabel(ui, UiStrings.Get("settings.animationSpeed"));
+            _animationSpeedSlider = SettingsSlider(ui, DiscoverSettings.AnimationSpeedMin, DiscoverSettings.AnimationSpeedMax, v => _actions.SetAnimationSpeed(v));
         }));
 
         // Display
@@ -124,6 +115,9 @@ internal sealed partial class DiscoverUi
             Fix(_viewList.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
             _viewList.LocalPressed += (_, _) => _actions.SetListView(true);
             ui.NestOut();
+
+            _panSpeedLabel = SettingsLabel(ui, UiStrings.Get("settings.panSpeed"));
+            _panSpeedSlider = SettingsSlider(ui, DiscoverSettings.PreviewPanSpeedMin, DiscoverSettings.PreviewPanSpeedMax, v => _actions.SetPreviewPanSpeed(v));
 
             SettingsLabel(ui, UiStrings.Get("settings.cardsPerRow"));
             ui.Style.MinHeight = 46f;
@@ -392,11 +386,41 @@ internal sealed partial class DiscoverUi
         heading.Color.Value = Theme.TextSecondary;
     }
 
-    private static void SettingsLabel(UIBuilder ui, string text)
+    private static Text SettingsLabel(UIBuilder ui, string text)
     {
         ui.Style.MinHeight = 30f;
         var label = ui.Text((LocaleString)text, bestFit: true, alignment: Alignment.BottomLeft);
         Fix(label, TypeScale.Body);
+        return label;
+    }
+
+    /// <summary>A slider under its label. Moving it calls <paramref name="changed"/>; setting it from the model does not.</summary>
+    private Slider<float> SettingsSlider(UIBuilder ui, float min, float max, Action<float> changed)
+    {
+        ui.Style.MinHeight = 40f;
+        var slider = ui.Slider<float>(32f, min, min, max, false);
+        slider.Value.OnValueChange += field =>
+        {
+            if (!_applyingSettings)
+            {
+                changed(field.Value);
+                UpdateSliderLabels(field.Value, slider);
+            }
+        };
+        return slider;
+    }
+
+    private void UpdateSliderLabels(float value, Slider<float> slider)
+    {
+        var text = value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        if (slider == _animationSpeedSlider)
+        {
+            _animationSpeedLabel.Content.Value = UiStrings.Get("settings.animationSpeed") + ": " + text;
+        }
+        else if (slider == _panSpeedSlider)
+        {
+            _panSpeedLabel.Content.Value = UiStrings.Get("settings.panSpeed") + ": " + text;
+        }
     }
 
     private (Image Track, RectTransform Knob) SettingsSwitch(UIBuilder ui, string text, Action pressed)
@@ -442,16 +466,24 @@ internal sealed partial class DiscoverUi
         _settingsListView = settings.ListView;
 
         ApplySwitch(_animationsSwitch.Track, _animationsSwitch.Knob, model.Animations);
-        ApplySwitch(_liveOnlySwitch.Track, _liveOnlySwitch.Knob, model.LiveOnly);
         ApplySwitch(_notifyLiveSwitch.Track, _notifyLiveSwitch.Knob, settings.NotifyFavoriteLive);
         ApplySwitch(_notifyContactsSwitch.Track, _notifyContactsSwitch.Knob, settings.NotifyContactsInFavorite);
         _startLensValue.Content.Value = "<nobr>" + RichText.Neutralize(model.StartLens) + "  ▾</nobr>";
         _startLensChoices = model.StartLensChoices ?? [];
 
-        foreach (var (value, button) in _speedButtons)
+        _applyingSettings = true;
+        try
         {
-            SetColor(button, Math.Abs(value - settings.AnimationSpeed) < 0.01f ? Theme.ButtonSelected : Theme.Button);
+            _animationSpeedSlider.Value.Value = settings.AnimationSpeed;
+            _panSpeedSlider.Value.Value = settings.PreviewPanSpeed;
         }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        UpdateSliderLabels(settings.AnimationSpeed, _animationSpeedSlider);
+        UpdateSliderLabels(settings.PreviewPanSpeed, _panSpeedSlider);
 
         SetColor(_viewGrid, settings.ListView ? Theme.Button : Theme.ButtonSelected);
         SetColor(_viewList, settings.ListView ? Theme.ButtonSelected : Theme.Button);

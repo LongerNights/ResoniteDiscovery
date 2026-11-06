@@ -136,6 +136,69 @@ internal sealed partial class DiscoverController
         _ = RunAsync(() => _join.JoinAsync(entry, sessionId), entry);
     }
 
+    /// <summary>
+    /// Detail panel, "Join without focusing": joins the chosen session but leaves the view where it is, so the user can keep
+    /// browsing or stay in the world they are in. A session that is already open is not touched.
+    /// </summary>
+    public void JoinSessionInBackground(string key, string sessionId)
+    {
+        if (!TryFind(key, out var entry))
+        {
+            return;
+        }
+
+        if (_join.IsOpen(sessionId))
+        {
+            Notice(UiStrings.Format("notice.alreadyOpen", RichText.Neutralize(entry.DisplayName)));
+            return;
+        }
+
+        _ = RunAsync(() => _join.JoinAsync(entry, sessionId, focus: false), entry);
+    }
+
+    /// <summary>Detail panel, Get session orb: an orb for the chosen live session, in front of the user (stock parity).</summary>
+    public void GetSessionOrb(string key, string sessionId)
+    {
+        if (!TryFind(key, out _))
+        {
+            return;
+        }
+
+        if (!_join.SpawnSessionOrb(sessionId))
+        {
+            Notice(UiStrings.Get("notice.orbFailed"));
+        }
+    }
+
+    /// <summary>Detail panel, Get world orb: an orb for the published world, in front of the user (stock parity).</summary>
+    public void GetWorldOrb(string key)
+    {
+        if (!TryFind(key, out var entry) || entry.Record is not { } record)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            var ok = await _join.SpawnWorldOrbAsync(record).ConfigureAwait(false);
+            if (!ok)
+            {
+                Post(() => Notice(UiStrings.Get("notice.orbFailed")));
+            }
+        });
+    }
+
+    /// <summary>
+    /// The empty-results notice's button: lifts only the session filters in the way (and includes sessions with nobody in
+    /// them only if one of the hidden worlds needs it) so the worlds they were hiding show up. Search and chips stay.
+    /// </summary>
+    public void ShowHiddenByFilters()
+    {
+        var now = DateTime.UtcNow;
+        _filters = _filters.RevealingHidden(HiddenByFilters(now), now, _lens != LensKind.Friends);
+        QueryChanged();
+    }
+
     /// <summary>Detail panel, Hide...: hide the world or everything by its author from the live, search and insight lenses (F19).</summary>
     public void HideOptions(string key)
     {
@@ -246,7 +309,7 @@ internal sealed partial class DiscoverController
         ResetSortForLens();
         _livePage = 0;
         _pager.Reset();
-        if (LensEngine.SourceOf(lens) == LensSource.Search && !_settings.LiveLensesOnly)
+        if (LensEngine.SourceOf(lens) == LensSource.Search)
         {
             RequestPage(0, force: false);
         }
@@ -350,7 +413,7 @@ internal sealed partial class DiscoverController
 
         _lastManualRefreshUtc = now;
         _engine.Cloud.Sessions.ForceFetch();
-        if (LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly)
+        if (LensEngine.SourceOf(_lens) == LensSource.Search)
         {
             _seed = _random.Next();
             RequestPage(_pager.PageIndex, force: true);

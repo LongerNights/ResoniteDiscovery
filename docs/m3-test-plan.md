@@ -21,7 +21,7 @@ is unit tested (304 tests). Install and first-check steps are in `m2-test-plan.m
 | F27 | New lens > Filters > "At least N visits" | Worlds under N visits disappear (client-side) |
 | Join menu | Press **Join** on a live world | The engine's dialog: Cancel and Join (or a button per session when there are several); Join enters the session; Cancel does nothing |
 | New session | Press **New session** on a published world with nobody in it | Dialog "Start a new session of ..."; Start opens it |
-| Go there | Press **Go there** on a world you have open | Focuses it with no dialog and no second `Opening world` log line |
+| Focus world | Press **Focus world** on a world you have open | Focuses it with no dialog and no second `Opening world` log line |
 | Full / other version | Find a full world; turn on "Show other versions" | Full shows a disabled button; other-version worlds are dimmed with a disabled button |
 | Errors | Disconnect the network, press Refresh on Most Visited | Banner with Retry; the last results stay; retries at 5 s, 15 s, 60 s |
 | Empty | Search for a nonsense string | "No worlds match", the hint, and a Clear filters button that works |

@@ -410,7 +410,7 @@ internal sealed partial class DiscoverController
     // ---- settings, export and import
 
     private SettingsModel SettingsView() =>
-        new(_settings.AnimateTransitions, _settings.LiveLensesOnly, RailBuilder.Title(_settings.DefaultLens), _settings,
+        new(_settings.AnimateTransitions, RailBuilder.Title(_settings.DefaultLens), _settings,
             LensCatalog.Openable(_settings).Select(l => (l, RailBuilder.Title(l), l == _settings.DefaultLens)).ToList(),
             HideRules.Items(_settings));
 
@@ -461,15 +461,6 @@ internal sealed partial class DiscoverController
                     _ui.Animate = _settings.AnimateTransitions;
                 }
 
-                break;
-            case SettingKey.LiveOnly:
-                _settings = LensCatalog.Normalize(_settings with { LiveLensesOnly = !_settings.LiveLensesOnly });
-                if (!_settings.LiveLensesOnly)
-                {
-                    QueryChanged();
-                }
-
-                EnsureLensVisible();
                 break;
             case SettingKey.ListView:
                 SetListView(!_settings.ListView);
@@ -528,9 +519,11 @@ internal sealed partial class DiscoverController
         _ui?.ShowSettings(SettingsView());
     }
 
+    /// <summary>The animation speed slider moved. Applied at once; the file is written once the slider has rested (see <see cref="FlushSettings"/>).</summary>
     public void SetAnimationSpeed(float speed)
     {
-        if (!DiscoverSettings.AnimationSpeedChoices.Contains(speed) || Math.Abs(_settings.AnimationSpeed - speed) < 0.01f)
+        speed = Math.Clamp(speed, DiscoverSettings.AnimationSpeedMin, DiscoverSettings.AnimationSpeedMax);
+        if (!float.IsFinite(speed) || Math.Abs(_settings.AnimationSpeed - speed) < 0.005f)
         {
             return;
         }
@@ -541,8 +534,37 @@ internal sealed partial class DiscoverController
             _ui.AnimationSpeed = speed;
         }
 
-        PersistSettings();
-        _ui?.ShowSettings(SettingsView());
+        _settingsWriteDueUtc = DateTime.UtcNow.AddSeconds(0.6);
+    }
+
+    /// <summary>The preview pan speed slider moved; same handling as <see cref="SetAnimationSpeed"/>.</summary>
+    public void SetPreviewPanSpeed(float speed)
+    {
+        speed = Math.Clamp(speed, DiscoverSettings.PreviewPanSpeedMin, DiscoverSettings.PreviewPanSpeedMax);
+        if (!float.IsFinite(speed) || Math.Abs(_settings.PreviewPanSpeed - speed) < 0.005f)
+        {
+            return;
+        }
+
+        _settings = _settings with { PreviewPanSpeed = speed };
+        if (_ui is not null)
+        {
+            _ui.PreviewPanSpeed = speed;
+        }
+
+        _settingsWriteDueUtc = DateTime.UtcNow.AddSeconds(0.6);
+    }
+
+    private DateTime? _settingsWriteDueUtc;
+
+    /// <summary>Writes settings changed by a slider once it has been still for a moment, so a drag is one write, not hundreds.</summary>
+    private void FlushSettings(DateTime now)
+    {
+        if (_settingsWriteDueUtc is { } due && now >= due)
+        {
+            _settingsWriteDueUtc = null;
+            PersistSettings();
+        }
     }
 
     public void SetRowsPerPage(int rows)

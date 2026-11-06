@@ -194,6 +194,62 @@ public sealed record BrowseFilters
         };
     }
 
+    /// <summary>
+    /// Whether the session lens lists the entry: Live Now leaves out sessions nobody is in unless <see cref="IncludeEmpty"/>
+    /// is on (<paramref name="emptyApplies"/> false for lenses that do not, like Friends), then the session filters apply.
+    /// </summary>
+    public bool IsListedLive(DiscoveryEntry entry, DateTime now, bool emptyApplies = true) =>
+        (!emptyApplies || IncludeEmpty || entry.PublicSessions.Any(s => s.ActiveUsers >= 1)) && MatchesLive(entry, now);
+
+    /// <summary>
+    /// The filters with only what is needed to list <paramref name="hidden"/> lifted: each session filter that one of them
+    /// fails is turned off, and empty sessions are included only if one of them has nobody in it. Anything not in the way
+    /// stays, as do the search-lens filters.
+    /// </summary>
+    public BrowseFilters RevealingHidden(IEnumerable<DiscoveryEntry> hidden, DateTime now, bool emptyApplies = true)
+    {
+        var result = this;
+        foreach (var entry in hidden)
+        {
+            if (emptyApplies && !IncludeEmpty && !entry.PublicSessions.Any(s => s.ActiveUsers >= 1))
+            {
+                result = result with { IncludeEmpty = true };
+            }
+
+            if (MinUptimeMinutes > 0 && !(None with { MinUptimeMinutes = MinUptimeMinutes }).MatchesLive(entry, now))
+            {
+                result = result with { MinUptimeMinutes = 0 };
+            }
+
+            if (MinUsers > 0 && !(None with { MinUsers = MinUsers }).MatchesLive(entry, now))
+            {
+                result = result with { MinUsers = 0 };
+            }
+
+            if (HasRoom && !(None with { HasRoom = true }).MatchesLive(entry, now))
+            {
+                result = result with { HasRoom = false };
+            }
+
+            if (MobileFriendly && !(None with { MobileFriendly = true }).MatchesLive(entry, now))
+            {
+                result = result with { MobileFriendly = false };
+            }
+
+            if (HasVr && !(None with { HasVr = true }).MatchesLive(entry, now))
+            {
+                result = result with { HasVr = false };
+            }
+
+            if (Host != HostFilter.Any && !(None with { Host = Host }).MatchesLive(entry, now))
+            {
+                result = result with { Host = HostFilter.Any };
+            }
+        }
+
+        return result;
+    }
+
     public bool MatchesRecord(RecordSnapshot record) => MinVisits <= 0 || record.Visits >= MinVisits;
 }
 

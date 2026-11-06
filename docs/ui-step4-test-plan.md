@@ -11,7 +11,7 @@ Built 2026-11-04, not yet run in game. See `docs/ui-redesign.md`.
    - Title, byline, description and device mix at the right.
    - TAGS: up to ten chips; pressing one closes the panel and adds it to the tag chips on the results. Hidden when
      the world has no tags.
-   - SESSIONS text list, then the action rows: the main action (Join / Go there / New session) with Favorite,
+   - SESSIONS text list, then the action rows: the main action (Join / Focus world / New session) with Favorite,
      Lists and Copy link; below, More by author, Hide..., Leave (when open) and Close.
 4. Every action still works: Favorite toggles its label, Lists opens the organize panel, Copy link copies, Hide...
    asks, Leave / End ends or leaves an open world.

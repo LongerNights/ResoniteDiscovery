@@ -37,8 +37,8 @@ and rail, stock look and palette, list mode pass.
 Left, all optional: a "..." menu in the detail panel for Hide and Leave; close animations (panels still close
 instantly); a lens-switch title cross-fade and a card hover outline (the engine has no border style, so the outline
 would be a layered shape); Session Settings inside the detail panel rather than as its own panel; Refresh and Settings
-as icon-only buttons (they are icon plus text for now); stock "Get Session Orb" and "Copy Session URL" (left out on
-purpose: the orb is a world write and the session URL is a value the mod never shows).
+as icon-only buttons (they are icon plus text for now); stock "Copy Session URL" (left out on purpose: the session URL is a value the mod
+never shows; the orbs were added 2026-11-06, see decisions.md).
 
 ## What is wrong today
 
@@ -182,7 +182,7 @@ A modal card about 70 % of the pane wide and sized to its content.
 - **Stats:** stat pills replace the "· · ·" byline.
 - **Tags:** tags are chips, and pressing one adds it to the chip bar and closes the panel.
 - **Sessions:** a row per session showing host, users/max and age, each with its own Join button. This replaces the separate join confirmation when there are two or more sessions.
-- **Action bar:** the primary action (Join, Go there or New session) on the left. Favorite, Lists and Copy link are icon buttons on the right. ⋯ opens a small menu with Hide this world, Hide author and Leave/End session.
+- **Action bar:** the primary action (Join, Focus world or New session) on the left. Favorite, Lists and Copy link are icon buttons on the right. ⋯ opens a small menu with Hide this world, Hide author and Leave/End session.
 
 ## Session Settings (new session)
 

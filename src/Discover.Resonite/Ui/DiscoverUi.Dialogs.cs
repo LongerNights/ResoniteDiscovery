@@ -623,6 +623,15 @@ internal sealed partial class DiscoverUi
         set => UiMotion.Enabled = value;
     }
 
+    internal readonly PanTuning PanTuning = new();
+
+    /// <summary>The preview pan speed setting, applied to every card's and the detail panel's preview at once.</summary>
+    public float PreviewPanSpeed
+    {
+        get => PanTuning.Multiplier;
+        set => PanTuning.Set(value);
+    }
+
     /// <summary>1 is normal; see <see cref="UiMotion.Speed"/>.</summary>
     public float AnimationSpeed
     {

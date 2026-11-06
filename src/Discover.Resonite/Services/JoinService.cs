@@ -45,9 +45,10 @@ internal sealed class JoinService
 
     /// <summary>
     /// Joins <paramref name="sessionId"/> when given (the join menu's pick), else the planner's best session. An already
-    /// open world is focused, not joined twice.
+    /// open world is focused, not joined twice. With <paramref name="focus"/> false the world is joined in the background:
+    /// it opens (and shows its load indicator) without taking the focus, and an already open one is left as it is.
     /// </summary>
-    public async Task<JoinOutcome> JoinAsync(DiscoveryEntry entry, string? sessionId = null)
+    public async Task<JoinOutcome> JoinAsync(DiscoveryEntry entry, string? sessionId = null, bool focus = true)
     {
         try
         {
@@ -77,7 +78,7 @@ internal sealed class JoinService
                 SessionID = info.SessionId,
                 HostUserId = info.HostUserId,   // required for the mutual-block check
                 GetExisting = true,             // focus an already-open world instead of joining twice
-                AutoFocus = true,
+                AutoFocus = focus,
                 CreateLoadIndicator = true,
                 FetchedWorldName = info.Name,
             };
@@ -119,6 +120,62 @@ internal sealed class JoinService
         {
             UniLog.Warning($"[Discover] New session failed: {ex.GetType().Name}");
             return JoinOutcome.Failed;
+        }
+    }
+
+    /// <summary>
+    /// The stock "Get Session Orb": a world orb for the live session, placed in front of the user in the focused world
+    /// (<c>WorldOrb.SpawnSessionOrb</c>, as <c>LegacyWorldDetail.OnGetSessionOrb</c> calls it). The orb is local to the
+    /// user's own space and the engine fills it from the session info, so the mod never reads the session URLs. Update thread.
+    /// </summary>
+    public bool SpawnSessionOrb(string sessionId)
+    {
+        try
+        {
+            var info = _engine.Cloud.Sessions.TryGetInfo(sessionId);
+            if (info is null || info.HasEnded || _engine.WorldManager.FocusedWorld is not { } world)
+            {
+                return false;
+            }
+
+            WorldOrb.SpawnSessionOrb(world, info);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] Session orb failed: {ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The stock "Get World Orb": an orb for the published world, from its record (<c>WorldOrb.SpawnWorldOrb</c>). The
+    /// record comes from the engine's record cache; the spawn itself is queued onto the focused world by the engine, so
+    /// continuing on any thread is safe.
+    /// </summary>
+    public async Task<bool> SpawnWorldOrbAsync(RecordSnapshot record)
+    {
+        try
+        {
+            var world = _engine.WorldManager.FocusedWorld;
+            if (world is null)
+            {
+                return false;
+            }
+
+            var full = await _engine.Cloud.Records.RecordCache<SkyFrost.Base.Record>().Get(record.OwnerId, record.RecordId).ConfigureAwait(false);
+            if (full is null || full.IsDeleted)
+            {
+                return false;
+            }
+
+            WorldOrb.SpawnWorldOrb(world, full);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            UniLog.Warning($"[Discover] World orb failed: {ex.GetType().Name}");
+            return false;
         }
     }
 
