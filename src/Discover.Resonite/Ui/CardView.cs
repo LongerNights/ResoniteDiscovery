@@ -60,7 +60,7 @@ internal sealed class CardView
     /// <summary>True from the moment a new lens is queued until this card is rebound; presses are ignored meanwhile.</summary>
     public bool Stale { get; set; }
 
-    public static CardView Create(Slot parent, World world, IAssetProvider<Sprite> rounded, IBrowseActions actions)
+    public static CardView Create(Slot parent, World world, IAssetProvider<Sprite> rounded, IBrowseActions actions, PanTuning pan)
     {
         var slot = parent.AddSlot("Card");
         slot.PersistentSelf = false;
@@ -224,6 +224,7 @@ internal sealed class CardView
 
         // Hovering pans the 360 preview, exactly as on the stock card: its panner reads hover events from this button.
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
+        pan.Register(panner);
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
 
@@ -336,7 +337,7 @@ internal sealed class CardView
         }
     }
 
-    /// <summary>The leave x: a fixed square in the card's top right corner (grid), or at the right of the row (list).</summary>
+    /// <summary>The leave x: a fixed square in the card's top right corner (grid), or the top right of the picture (list).</summary>
     private static void PlaceLeave(RectTransform rect, bool list)
     {
         // Same height as the picture's corner pill (about 49) and the same inset from the card's top and sides (measured
@@ -344,10 +345,14 @@ internal sealed class CardView
         const float size = 49f, insetX = 19f, insetY = 20f;
         if (list)
         {
-            rect.AnchorMin.Value = new float2(1f, 0.5f);
-            rect.AnchorMax.Value = new float2(1f, 0.5f);
-            rect.OffsetMin.Value = new float2(-size - insetX, -size / 2f);
-            rect.OffsetMax.Value = new float2(-insetX, size / 2f);
+            // The top right corner of the picture (its right edge is 17% of the row), as in the grid card.
+            // Measured in game: the picture's right edge is about 10 right of that anchor and its top about 8 below the
+            // card's, so these insets leave 9 from the picture's edges, the same as the counter pill's from its left.
+            const float insetRight = 2f, insetTop = 17f;
+            rect.AnchorMin.Value = new float2(0.17f, 1f);
+            rect.AnchorMax.Value = new float2(0.17f, 1f);
+            rect.OffsetMin.Value = new float2(-size - insetRight, -size - insetTop);
+            rect.OffsetMax.Value = new float2(-insetRight, -insetTop);
         }
         else
         {
@@ -437,7 +442,7 @@ internal sealed class CardView
         });
         var enabled = card.Action is CardAction.Join or CardAction.GoThere or CardAction.NewSession;
         _button.Enabled = enabled;
-        _button.ColorDrivers[0].SetColors(!enabled ? Theme.ButtonQuiet : card.Action == CardAction.GoThere ? Theme.Button : Theme.ButtonSelected);
+        _button.ColorDrivers[0].SetColors(enabled ? Theme.ButtonSelected : Theme.ButtonQuiet);
 
         SetThumbnail(card.ThumbnailUrl, engine);
     }

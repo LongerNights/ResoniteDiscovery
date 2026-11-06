@@ -92,8 +92,17 @@ public class CurrentWorldsTests
     }
 
     [Fact]
-    public void LiveLensesOnlyDoesNotHideCurrentWorlds()
+    public void AnOpenWorldWithoutARecordIsMarkedVisitedUnderItsStableSessionKey()
     {
-        Assert.True((new Discover.Core.Settings.DiscoverSettings { LiveLensesOnly = true }).IsVisible(LensKind.CurrentWorlds));
+        var library = new Discover.Core.Persistence.UserLibrary();
+        var headless = World("S-U-Elysium:Fastdraw");
+        var random = World("S-5f1c2e0a-0000-0000-0000-000000000000");
+
+        Assert.Equal("S:s-u-elysium:fastdraw", CurrentWorlds.KeyOf(headless));
+        library.MarkVisited(CurrentWorlds.KeyOf(headless));
+        library.MarkVisited(CurrentWorlds.KeyOf(random));
+
+        Assert.True(library.IsVisited("S:s-u-elysium:fastdraw"));
+        Assert.False(library.IsVisited(CurrentWorlds.KeyOf(random))); // a random session id vanishes with the session
     }
 }

@@ -313,7 +313,7 @@ Each requirement has one acceptance test a developer can run in game. IDs F1–F
 | F4 | Search box on every lens, with term syntax: plain terms optional, `+term` required, `-term` excluded, `+tag:name`, `author:name` | `+horror -avatar` returns only worlds tagged or named horror and none matching avatar; in Favorites it searches only favorites | MVP |
 | F5 | Tag chips: click once to require, twice to exclude, third time to clear | Chip states map to `RequiredTags` and `ExcludedTags` on the next query | MVP |
 | F6 | Cards show thumbnail, name, author or host, users and max, friends present, mobile badge, tags (max 3), visits, age | A session with 5 of 10 users and 1 friend shows `5/10` and the friend badge | MVP |
-| F7 | Join asks first in the mod's confirmation menu: one button per joinable session (best first, at most three) and Cancel; a published world with no session offers "New session" (F33); an open world shows "Go there" and focuses with no menu | With two sessions where only the smaller has a contact, the first button joins the smaller; a full session's button is disabled with "Full" | MVP |
+| F7 | Join asks first in the mod's confirmation menu: one button per joinable session (best first, at most three) and Cancel; a published world with no session offers "New session" (F33); an open world shows "Focus world" and focuses with no menu | With two sessions where only the smaller has a contact, the first button joins the smaller; a full session's button is disabled with "Full" | MVP |
 | F8 | Worlds already open show an Open badge on every lens, and Join focuses the existing world | Join on an open session focuses it with no new connection | MVP |
 | F9 | Favorites: star toggles, stored per account | Stars survive a restart and do not appear for a different account | MVP |
 | F10 | Friends lens lists sessions where contacts are present | A session with one contact present appears; one with none does not | MVP |
@@ -336,7 +336,7 @@ Each requirement has one acceptance test a developer can run in game. IDs F1–F
 | F27 | New lens minimum-visits chip, off by default | At 10, worlds under 10 visits are hidden | MVP |
 | F28 (rev) | Customizable rail: Settings can switch off a section (Now, Discover, Yours) or any lens in it. At least one lens outside Your lists stays on. If the current or start lens is hidden, the tab moves to the first visible lens. "Live lenses only" overrides and hides every search lens. Saved per account (`hiddenSections`, `hiddenLenses`) | Hide Discover: Browse, Featured, New, Random disappear and no search request is sent; show it again: the lenses return with their own switches | MVP |
 | F29 | **Browse** lens with the recommended-tags row (categories, popular here, your tags), default sort total visits ↓ | Press Games: results are worlds with the Games tag, most visited first, in 2 clicks from opening the tab; the chip shows as required and Clear all removes it | MVP |
-| F30 | **Current Worlds** lens: every world the user has open (not userspace), one card each with name, host, your role, access level, users/max, uptime, focused badge; buttons Go there, Info, star and Lists (when saveable); Leave (End session for a world you host) is in the Info panel, asks first and uses the engine's own `Userspace.ExitWorld` path | Open three worlds: Current Worlds shows three cards, the focused one first with "You are here"; Go there focuses each; Leave in the Info panel of a non-focused world asks, then closes it and the card disappears within one tick; no network request is made | MVP |
+| F30 | **Current Worlds** lens: every world the user has open (not userspace), one card each with name, host, your role, access level, users/max, uptime, focused badge; buttons Focus world, Info, star and Lists (when saveable); Leave (End session for a world you host) is in the Info panel, asks first and uses the engine's own `Userspace.ExitWorld` path | Open three worlds: Current Worlds shows three cards, the focused one first with "You are here"; Focus world focuses each; Leave in the Info panel of a non-focused world asks, then closes it and the card disappears within one tick; no network request is made | MVP |
 | F31 | **Tab takeover**: on attach, hide the stock Worlds button at runtime and move the dash off the stock screen if it is current; "Show the stock Worlds tab" in Settings (off by default) shows both; a **Classic browser** button in the rail footer and the paused banner opens the stock screen even while its button is hidden; on shutdown, failure or setting change, restore the button | With the setting off there is one Worlds tab; Classic browser opens the stock list and the dash returns to ResoniteDiscovery when the user next picks Worlds; turning the setting on shows both tabs without restart | MVP |
 | F32 | **Custom-panel parity** in the Filters popover for search lenses: Featured only, Published (any time, past week, month, year, custom `MinDate`/`MaxDate`), sort direction (with F14), and `author:` search with "More by author" in the detail panel | Each stock Custom control (V24 inventory) has a row in the parity table that passes; "Published: past week" on Browse sends `MinDate` = now − 7 d | MVP |
 | F33 | **New session options**: "New session" in the join menu offers access level (Anyone, Registered users, Contacts+, Contacts, LAN, Private; default as the engine chooses) and an Advanced row (unsafe mode, force ports) matching `CustomWorldStart` | Start a new session at Contacts: the world opens and its access level is Contacts; with no choice made, the access level matches what the stock "Open" gives | MVP |
@@ -360,7 +360,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 | Results | 12, 5, 52, 28 | Card grid, 4 columns, or list view |
 | Status bar | 12, 33, 52, 3 | Page number and "updated" age, Previous and Next. Same place as the stock paging facet |
 
-**Current Worlds layout.** Same regions; the chip bar is replaced by a one-line summary ("3 worlds open · you are in Kitchen"). Cards use the normal card with: a "You are here" pill instead of the Open pill on the focused world, a role badge (Host/Guest), an access-level badge, and Go there in place of Join (Leave is in the Info panel). List view is the default for this lens (it is a short list) and is remembered separately.
+**Current Worlds layout.** Same regions; the chip bar is replaced by a one-line summary ("3 worlds open · you are in Kitchen"). Cards use the normal card with: a "You are here" pill instead of the Open pill on the focused world, a role badge (Host/Guest), an access-level badge, and Focus world in place of Join (Leave is in the Info panel). List view is the default for this lens (it is a short list) and is remembered separately.
 
 **Palette.** Purple and black (author's request, Nov 2, 2026), all from `RadiantUI_Constants` by name in `Ui/Theme.cs`. Hex values are for review only.
 
@@ -391,7 +391,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 - Minimum hit target: 2 grid cells on the short side.
 - The grid uses the engine's scroll rect. Pages of at most 40 pooled `PersistentSelf = false` card slots (UIX has no virtualization hook, V12).
 - Thumbnails load lazily when a card is first visible and unload when the page changes (V10: `StaticTexture2D`, 360° projection).
-- Info opens the detail panel over the results; Join and Go there stay one click away on the card.
+- Info opens the detail panel over the results; Join and Focus world stay one click away on the card.
 - Desktop keys: Ctrl+F focuses search; Escape clears search, then closes the panel.
 - Colour is never the only signal; every coloured badge has text or an icon.
 - Lens switches animate (curtain 120 ms out, 280 ms in with a 28-unit rise; `AnimateTransitions`). Tweens only on the mod's own slots.
@@ -467,7 +467,7 @@ V32 (closed): an inactive slot drops out of the dash's button `HorizontalLayout`
 **4. Joining, opening, focusing and leaving.** All joins and opens go through `Userspace.OpenWorld` ✓ (never `JoinSession`, which skips the mutual-block check). Code shapes are unchanged from the ResoniteDiscovery build (`JoinService`). New for the overhaul:
 
 - **New session with options (F33).** Build the same `WorldStartSettings` as the stock "Open" (record URI from `GenerateRecordUri`, `GetExisting = false`) and set `DefaultAccessLevel`, `UnsafeMode` and `ForcePorts` only when the user chose them, exactly as `CustomWorldStart` does (V4). VERIFY V28: the property names and types on `WorldStartSettings`, and that leaving `DefaultAccessLevel` unset gives the stock default (V5 says it does: `Anyone` for a public record, `Private` when the user's status defaults to private, `LAN` under ForceLANOnly).
-- **Go there (F30).** `WorldManager.FocusWorld(world)` ✓ (stock already-open path, V4).
+- **Focus world (F30).** `WorldManager.FocusWorld(world)` ✓ (stock already-open path, V4).
 - **Leave (F30).** Use the engine's own leave path (VERIFY V27); never destroy a world directly unless the decompile shows that is what the engine's own leave does. Ask first. Disabled when the world is the only non-userspace world and the engine would refuse (follow the engine's rule; VERIFY with V27).
 
 Before enabling Join, check `Userspace.GetExistingWorld(settings)` to show Open; disable when full. Wrap every call in try/catch, log through `UniLog`, toast on failure.
@@ -569,7 +569,7 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 | Classic browser | Stock list opens; picking Worlds again returns to ResoniteDiscovery |
 | Parity table, row by row | Every row passes or is recorded as not ported |
 | Browse → Games | Games-tagged worlds, most visited first |
-| Open three worlds, Current Worlds | Three cards, focused first; Go there and Leave work |
+| Open three worlds, Current Worlds | Three cards, focused first; Focus world and Leave work |
 | Host two public sessions of one world from two accounts | One card, session count 2 |
 | Contact hosts a contacts-only session | Appears only in Friends (and in Current Worlds for the host) |
 | Hidden-from-listing session | Appears in no discovery lens |
@@ -604,7 +604,7 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 | M5 Stock audit | **Done Nov 3, 2026.** V24, V29, V32 closed; parity table filled from the decompile; the Educational tag fixed | Parity table complete; V24, V29, V32 closed | Small |
 | M6 Takeover | `TabTakeover` (hide, keep hidden, switch away, Classic browser, restore), label "Worlds" (V31), icon setting, failsafe (F25 rev), settings toggle | F1 (rev), F25 (rev), F31 pass, including the crash-and-uninstall test | Medium |
 | M7 Rail and Browse | New rail catalog (Now/Discover/Yours), Browse with recommended tags, Most Visited folded in, per-lens default sorts, direction toggle, settings migration | F3 (rev), F14 (rev), F28 (rev), F29, F34 pass | Medium |
-| M8 Current Worlds | `IOpenWorldSource`, adapter (V25, V26), lens, cards, Go there, Leave (V27) | F30, F16 pass | Medium |
+| M8 Current Worlds | `IOpenWorldSource`, adapter (V25, V26), lens, cards, Focus world, Leave (V27) | F30, F16 pass | Medium |
 | M9 Parity | Filters popover search rows (F32), `author:` (V30), new-session options (F33, V28), detail panel "More by author" | Every parity row passes; F13 (rev), F18 pass; in-game test plan complete | Medium |
 | M10 v1.1 | History, Trending, Rising, Hidden Gems, presets, notifications, hide lists, word list | F15, F17, F19, F26 pass; ranking review done | Large |
 

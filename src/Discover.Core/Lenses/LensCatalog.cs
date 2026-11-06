@@ -42,13 +42,12 @@ public static class LensCatalog
         !settings.HiddenSections.Contains(section);
 
     /// <summary>
-    /// On when the lens's switch and its section's switch are on, and "Live lenses only" is not hiding it (search lenses).
+    /// On when the lens's switch and its section's switch are on.
     /// Insights lenses are in their own section, which is on by default like the others.
     /// </summary>
     public static bool IsVisible(this DiscoverSettings settings, LensKind lens) =>
         settings.IsSectionOn(SectionOf(lens))
-        && !settings.HiddenLenses.Contains(lens)
-        && !(settings.LiveLensesOnly && LensEngine.SourceOf(lens) == LensSource.Search);
+        && !settings.HiddenLenses.Contains(lens);
 
     /// <summary>Lenses a screen can open on its own: visible ones, not counting the named lists (which need a list id).</summary>
     public static IReadOnlyList<LensKind> Openable(DiscoverSettings settings) => Sections

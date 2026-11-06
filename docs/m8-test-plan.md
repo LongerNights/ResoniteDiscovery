@@ -7,7 +7,7 @@ Install (close Resonite first; the loaded DLL is locked): `dotnet build src/Disc
 | 1 | Look at the NOW section | Current Worlds is first, with a count of your open worlds (userspace is not counted) |
 | 2 | Open it with three worlds open | Three cards. The world you are looking at is first, with a green "You are here" badge. Each card shows Host or Guest, the access level (Public, Registered, Contacts, Contacts+, LAN, Private), users/max and a thumbnail when the world has one |
 | 3 | Open a private or LAN world you host | It is listed (Current Worlds ignores the visibility rule) and appears in no other lens |
-| 4 | Press Go there on a background world | The dash closes onto that world; no new connection. Open the tab again: that world is first now |
+| 4 | Press Focus world on a background world | The dash closes onto that world; no new connection. Open the tab again: that world is first now |
 | 5 | Info on a world you joined | The panel has a Leave world button. Pressing it asks "Leave {world}? Unsaved changes may be lost."; confirm and the world closes and its card disappears within a couple of seconds |
 | 6 | Info on a world you host | The button reads End session and the question says it sends everyone out. Cancel works |
 | 7 | Info on your local home | No leave button (the engine refuses to exit the local home) |

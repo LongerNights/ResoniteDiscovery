@@ -71,7 +71,7 @@ internal sealed partial class DiscoverController
     private void QueryChanged()
     {
         _livePage = 0;
-        if (LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly)
+        if (LensEngine.SourceOf(_lens) == LensSource.Search)
         {
             RequestPage(0, force: false);
         }
@@ -273,6 +273,25 @@ internal sealed partial class DiscoverController
             .ToList();
     }
 
+    /// <summary>
+    /// The session-lens worlds that match the search and chips but are hidden by the session filters (typically sessions
+    /// with nobody in them, which Live Now leaves out). Only asked when something was searched for and nothing is shown,
+    /// so the empty state can offer them instead of leaving the user thinking the world is not open.
+    /// </summary>
+    private List<DiscoveryEntry> HiddenByFilters(DateTime now)
+    {
+        if (_search.IsEmpty && _chips.IsEmpty)
+        {
+            return [];
+        }
+
+        var friends = _lens == LensKind.Friends;
+        var source = friends ? LensEngine.Friends(_index.Entries) : LensEngine.LiveNow(_index.Entries, includeEmpty: true);
+        return source.Select(Dec)
+            .Where(e => !HideRules.IsHidden(e, _settings) && _search.Matches(e) && _chips.Matches(e) && !_filters.IsListedLive(e, now, !friends))
+            .ToList();
+    }
+
     private bool AnyNarrowing =>
         !_search.IsEmpty || !_chips.IsEmpty || _filters.ActiveCount(LensEngine.SourceOf(_lens)) > 0;
 
@@ -295,7 +314,7 @@ internal sealed partial class DiscoverController
 
         if (searchLens)
         {
-            all = _settings.LiveLensesOnly ? [] : SearchEntries();
+            all = SearchEntries();
             shown = all;
             hasPrevious = _pager.HasPrevious;
             hasNext = _pager.HasMore;
@@ -338,13 +357,10 @@ internal sealed partial class DiscoverController
 
         string? emptyMessage = null;
         string? emptyHint = null;
+        var hiddenByFilters = 0;
         if (cards.Count == 0)
         {
-            if (_settings.LiveLensesOnly && searchLens)
-            {
-                emptyMessage = UiStrings.Get("empty.searchDisabled");
-            }
-            else if (searchLens && _pager.Loading)
+            if (searchLens && _pager.Loading)
             {
                 emptyMessage = UiStrings.Get("empty.loading");
             }
@@ -356,6 +372,11 @@ internal sealed partial class DiscoverController
             {
                 emptyMessage = UiStrings.Get("empty.noMatch");
                 emptyHint = UiStrings.Get("empty.noMatchHint");
+                if (source == LensSource.Sessions && HiddenByFilters(now) is { Count: > 0 } hiddenEntries)
+                {
+                    hiddenByFilters = hiddenEntries.Count;
+                    emptyHint = hiddenEntries.Count == 1 ? UiStrings.Get("empty.hiddenOne") : UiStrings.Format("empty.hiddenMany", hiddenEntries.Count);
+                }
             }
             else if (source == LensSource.Local)
             {
@@ -434,7 +455,8 @@ internal sealed partial class DiscoverController
             source == LensSource.Sessions,
             ListTools: _lens == LensKind.NamedList && _library is not null,
             ShowNewList: _settings.IsVisible(LensKind.NamedList),
-            ListView: _settings.ListView);
+            ListView: _settings.ListView,
+            HiddenByFilters: hiddenByFilters);
 
         _ui.SetPresets(_settings.Presets.Select(p => p.Name).ToList());
         _ui.Render(view);

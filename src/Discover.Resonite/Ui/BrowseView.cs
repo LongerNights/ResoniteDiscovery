@@ -57,7 +57,8 @@ internal sealed record BrowseView(
     bool SessionLens,
     bool ListTools = false,
     bool ShowNewList = true,
-    bool ListView = false);
+    bool ListView = false,
+    int HiddenByFilters = 0);
 
 /// <summary>One list in the organize panel, and whether the world is in it.</summary>
 internal sealed record OrganizeList(string Id, string Name, bool Member);
@@ -68,13 +69,12 @@ internal sealed record OrganizeModel(string Key, string Title, IReadOnlyList<Org
 /// <summary>The settings the panel shows.</summary>
 internal sealed record SettingsModel(
     bool Animations,
-    bool LiveOnly,
     string StartLens,
     Discover.Core.Settings.DiscoverSettings Settings,
     IReadOnlyList<(LensKind Lens, string Label, bool Selected)>? StartLensChoices = null,
     IReadOnlyList<HiddenItem>? HiddenItems = null);
 
-internal enum SettingKey { Animations, LiveOnly, StartLens, ListView, CardsPerRow, HiddenRestore, HiddenWord, NotifyLive, NotifyContacts }
+internal enum SettingKey { Animations, StartLens, ListView, CardsPerRow, HiddenRestore, HiddenWord, NotifyLive, NotifyContacts }
 
 /// <summary>What the screen's controls do. Called on the update thread, from button and text-field events.</summary>
 internal interface IBrowseActions
@@ -109,6 +109,10 @@ internal interface IBrowseActions
     void MoreByAuthor(string key);
     void HideOptions(string key);
     void JoinSession(string key, string sessionId);
+    void JoinSessionInBackground(string key, string sessionId);
+    void GetSessionOrb(string key, string sessionId);
+    void GetWorldOrb(string key);
+    void ShowHiddenByFilters();
     void StartNewSession(string key);
     void SavePresetPrompt();
     void ApplyPreset(int index);
@@ -118,6 +122,7 @@ internal interface IBrowseActions
     void SetCardsPerRow(int count);
     void SetRowsPerPage(int rows);
     void SetAnimationSpeed(float speed);
+    void SetPreviewPanSpeed(float speed);
     void SetStartLens(LensKind lens);
     void RestoreHidden(HiddenKind kind, string id);
     void SetListView(bool list);

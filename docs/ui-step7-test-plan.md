@@ -62,7 +62,7 @@ Not changed: DLL and assembly names (`Discover.Resonite.dll`) and the GitHub rep
     one, and says Full when it is full. "+ New session" at the end of the list asks for the session settings. A world with
     no live session shows "Not live right now" and the main New session button as before. Under the description a line reads
     "Published ... ago · Updated ... ago". Check a world with three or four sessions still fits on screen.
-    Not copied on purpose: Get Session Orb and Copy Session URL.
+    Not copied on purpose: Copy Session URL. (Orbs and background join: see ui-step11-test-plan.md.)
 17. **Top bar icons.** Views, Refresh and Settings have a small engine icon at the left with the label clear of it; Sort and
     Filters have none (their arrow says dropdown) and are one text size smaller so long names ("Friends present") fit.
     Session Settings access names are the stock ones (Anyone, Registered Users, ...) instead of "Public".

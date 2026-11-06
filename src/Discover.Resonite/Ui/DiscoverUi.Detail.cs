@@ -40,6 +40,10 @@ internal sealed partial class DiscoverUi
     private Text _detailActionLabel = null!;
     private Button _detailLists = null!;
     private Button _detailCopy = null!;
+    private Slot _detailExtraRow = null!;
+    private Button _detailJoinBackground = null!;
+    private Button _detailSessionOrb = null!;
+    private Button _detailWorldOrb = null!;
     private Button _detailLeave = null!;
     private Button _detailAuthor = null!;
     private Button _detailHide = null!;
@@ -265,6 +269,40 @@ internal sealed partial class DiscoverUi
         };
         ui.NestOut();
 
+        // Session extras: join without taking the focus, and the stock tab's two orbs.
+        ui.Style.MinHeight = 44f;
+        var extras = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        _detailExtraRow = extras.Slot;
+        _detailJoinBackground = ui.Button((LocaleString)UiStrings.Get("detail.joinBackground"), Theme.ButtonQuiet);
+        Fix(_detailJoinBackground.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _detailJoinBackground.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key && _detailSelected < _detailSessionData.Count)
+            {
+                CloseMenus();
+                _actions.JoinSessionInBackground(key, _detailSessionData[_detailSelected].SessionId);
+            }
+        };
+        _detailSessionOrb = ui.Button((LocaleString)UiStrings.Get("detail.sessionOrb"), Theme.ButtonQuiet);
+        Fix(_detailSessionOrb.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _detailSessionOrb.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key && _detailSelected < _detailSessionData.Count)
+            {
+                _actions.GetSessionOrb(key, _detailSessionData[_detailSelected].SessionId);
+            }
+        };
+        _detailWorldOrb = ui.Button((LocaleString)UiStrings.Get("detail.worldOrb"), Theme.ButtonQuiet);
+        Fix(_detailWorldOrb.Slot.GetComponentInChildren<Text>(), TypeScale.Body);
+        _detailWorldOrb.LocalPressed += (_, _) =>
+        {
+            if (_detailKey is { } key)
+            {
+                _actions.GetWorldOrb(key);
+            }
+        };
+        ui.NestOut();
+
         ui.Style.MinHeight = 44f;
         var quiet = ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
         _detailAuthor = ui.Button((LocaleString)UiStrings.Get("detail.moreByAuthor"), Theme.ButtonQuiet);
@@ -326,8 +364,7 @@ internal sealed partial class DiscoverUi
         var (catcher, _) = Theme.Catcher(ui, "Hover");
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
         // Gentler than the engine's default: the full-speed pan makes the picture whirl as the pointer enters.
-        panner.HorizontalPanningAcceleration.Value *= 0.35f;
-        panner.HorizontalPanningSpeed.Value *= 0.6f;
+        PanTuning.Register(panner, speedScale: 0.6f, accelerationScale: 0.35f);
         block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
         block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
         ui.NestOut();
@@ -398,6 +435,7 @@ internal sealed partial class DiscoverUi
             _detailActionLabel.Content.Value = UiStrings.Get(session.CanJoin ? "card.join" : "card.full");
             _detailAction.Enabled = session.CanJoin;
             _detailAction.ColorDrivers[0].SetColors(session.CanJoin ? Theme.ButtonSelected : Theme.ButtonQuiet);
+            _detailJoinBackground.Enabled = session.CanJoin;
         }
     }
 
@@ -622,6 +660,11 @@ internal sealed partial class DiscoverUi
         _detailSessions.Content.Value = RichText.Neutralize(model.Sessions);
         _detailDevices.Content.Value = RichText.Neutralize(model.Devices);
         _detailDates.Content.Value = "<nobr>" + RichText.Neutralize(model.Dates) + "</nobr>";
+        var hasSessions = _detailSessionData.Count > 0;
+        _detailJoinBackground.Slot.ActiveSelf = hasSessions && model.Action == CardAction.Join;
+        _detailSessionOrb.Slot.ActiveSelf = hasSessions;
+        _detailWorldOrb.Slot.ActiveSelf = model.CanWorldOrb;
+        _detailExtraRow.ActiveSelf = hasSessions || model.CanWorldOrb;
         _detailLists.Slot.ActiveSelf = model.CanSave;
         _detailCopy.Slot.ActiveSelf = model.CanCopyLink;
         _detailAuthor.Slot.ActiveSelf = model.CanMoreByAuthor;

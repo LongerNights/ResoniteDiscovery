@@ -44,7 +44,6 @@ public sealed record DiscoverSettings
     public int Version { get; init; } = 2;
 
     public Lenses.LensKind DefaultLens { get; init; } = Lenses.LensKind.LiveNow;
-    public bool LiveLensesOnly { get; init; }
 
     /// <summary>Results as one row per world instead of a grid of cards.</summary>
     public bool ListView { get; init; }
@@ -150,11 +149,17 @@ public sealed record DiscoverSettings
     /// <summary>Fade through black when switching lenses. On by default: it hides the cards loading, but covers the whole results pane.</summary>
     public bool AnimateTransitions { get; init; } = true;
 
-    /// <summary>How fast animations run: 1 is normal, above 1 faster, below 1 slower. See <see cref="AnimationSpeedChoices"/>.</summary>
+    /// <summary>How fast animations run: 1 is normal, above 1 faster, below 1 slower.</summary>
     public float AnimationSpeed { get; init; } = 1f;
 
-    /// <summary>The speeds Settings offers: slow, normal, fast.</summary>
-    public static readonly float[] AnimationSpeedChoices = [0.6f, 1f, 1.6f];
+    /// <summary>The range of Settings' animation speed slider.</summary>
+    public const float AnimationSpeedMin = 0.5f, AnimationSpeedMax = 2f;
+
+    /// <summary>How fast the 360 previews pan as the pointer moves over them, as a multiple of the engine's own pan speed.</summary>
+    public float PreviewPanSpeed { get; init; } = 1.3f;
+
+    /// <summary>The range of Settings' preview pan speed slider.</summary>
+    public const float PreviewPanSpeedMin = 0.3f, PreviewPanSpeedMax = 2.5f;
 
     /// <summary>Cards per row in the grid layout. Fewer per row means larger cards. A value outside the choices counts as 4.</summary>
     public int CardsPerRow { get; init; } = 4;
@@ -189,6 +194,7 @@ public sealed record DiscoverSettings
         RowsPerPage = Math.Clamp(RowsPerPage, 1, 30),
         CardsPerRow = Math.Clamp(CardsPerRow, 1, 8),
         BrowsePopularTagCount = Math.Clamp(BrowsePopularTagCount, 0, 20),
+        PreviewPanSpeed = float.IsFinite(PreviewPanSpeed) ? Math.Clamp(PreviewPanSpeed, 0.2f, 4f) : 1.3f,
         AnimationSpeed = float.IsFinite(AnimationSpeed) ? Math.Clamp(AnimationSpeed, 0.25f, 3f) : 1f,
     };
 

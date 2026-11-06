@@ -52,16 +52,6 @@ public class LensCatalogTests
     }
 
     [Fact]
-    public void LiveOnlyOverridesTheSearchLenses()
-    {
-        var live = Defaults with { LiveLensesOnly = true };
-
-        Assert.False(live.IsVisible(LensKind.Featured));
-        Assert.False(live.IsVisible(LensKind.MyWorlds));
-        Assert.True(live.IsVisible(LensKind.Favorites));
-    }
-
-    [Fact]
     public void TheRailFollowsTheSettings()
     {
         var settings = LensCatalog.ToggleLens(LensCatalog.ToggleSection(Defaults, RailSectionId.Discover), LensKind.Recent);

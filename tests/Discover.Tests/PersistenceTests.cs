@@ -147,10 +147,9 @@ public class PersistenceTests
         Assert.True(store.LoadSettings().AnimateTransitions);
         Assert.Equal(1f, store.LoadSettings().AnimationSpeed);
 
-        store.SaveSettings(new DiscoverSettings { AnimationSpeed = DiscoverSettings.AnimationSpeedChoices[2] });
+        store.SaveSettings(new DiscoverSettings { AnimationSpeed = 1.6f });
 
         Assert.Equal(1.6f, store.LoadSettings().AnimationSpeed);
-        Assert.Equal([0.6f, 1f, 1.6f], DiscoverSettings.AnimationSpeedChoices);
     }
 
     [Fact]
@@ -161,7 +160,6 @@ public class PersistenceTests
         var settings = new DiscoverSettings
         {
             DefaultLens = Discover.Core.Lenses.LensKind.Friends,
-            LiveLensesOnly = true,
             HiddenSections = [Discover.Core.Lenses.RailSectionId.Discover],
             HiddenLenses = [Discover.Core.Lenses.LensKind.Recent, Discover.Core.Lenses.LensKind.Friends],
             Formulas = new FormulaSettings { TrendingWindow = TimeSpan.FromHours(3), GemSmoothing = 40 },

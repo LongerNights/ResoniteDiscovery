@@ -50,6 +50,7 @@ internal sealed partial class DiscoverUi
     private Text _emptyText = null!;
     private Slot _emptyArea = null!;
     private Slot _clearFiltersButton = null!;
+    private Slot _showHiddenButton = null!;
     private Text _sortButtonLabel = null!;
     private Text _filtersButtonLabel = null!;
     private Button _previous = null!;
@@ -647,9 +648,14 @@ internal sealed partial class DiscoverUi
         _emptyText = TextIn(ui, split[0], Alignment.MiddleCenter, Theme.TextSecondary, 20f, 30f);
         ui.NestInto(split[1]);
         split[1].AddFixedPadding(6f);
+        ui.HorizontalLayout(10f, 0f, Alignment.MiddleCenter);
+        var showHidden = ui.Button((LocaleString)UiStrings.Get("empty.showHidden"), Theme.ButtonSelected);
+        showHidden.LocalPressed += (_, _) => _actions.ShowHiddenByFilters();
+        _showHiddenButton = showHidden.Slot;
         var clear = ui.Button((LocaleString)UiStrings.Get("empty.clearFilters"), Theme.ButtonSelected);
         clear.LocalPressed += (_, _) => _actions.ClearChips();
         _clearFiltersButton = clear.Slot;
+        ui.NestOut(); // the buttons
         ui.NestOut();
         ui.NestOut();
         _emptyArea.ActiveSelf = false;
@@ -819,7 +825,7 @@ internal sealed partial class DiscoverUi
                     return;
                 }
 
-                var created = CardView.Create(_content, _screen.World, _rounded, _actions);
+                var created = CardView.Create(_content, _screen.World, _rounded, _actions, PanTuning);
                 created.SetListLayout(_listLayout);
                 _cards.Add(created);
                 creates++;
@@ -946,7 +952,9 @@ internal sealed partial class DiscoverUi
         if (empty)
         {
             _emptyText.Content.Value = view.EmptyHint is null ? view.EmptyMessage! : $"{view.EmptyMessage}\n<size=60%>{view.EmptyHint}</size>";
-            _clearFiltersButton.ActiveSelf = view.ShowClearFilters;
+            // One button: the hidden worlds' own when there are any, else the plain clear.
+            _showHiddenButton.ActiveSelf = view.HiddenByFilters > 0;
+            _clearFiltersButton.ActiveSelf = view.ShowClearFilters && view.HiddenByFilters == 0;
         }
 
         SetBanner(view.Banner);

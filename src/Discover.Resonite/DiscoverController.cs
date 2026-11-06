@@ -87,7 +87,7 @@ internal sealed partial class DiscoverController : IBrowseActions
     private int _hydrationOutstanding;
     private string? _organizeKey;
 
-    // Current Worlds: the open worlds as of the last render, by entry key (Go there and Leave need the session id).
+    // Current Worlds: the open worlds as of the last render, by entry key (Focus world and Leave need the session id).
     private readonly Dictionary<string, OpenWorldItem> _openItems = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastOpenWorldsPollUtc = DateTime.MinValue;
 
@@ -336,6 +336,7 @@ internal sealed partial class DiscoverController : IBrowseActions
 
         ApplyPendingSearch(now);
         MaintainSearchLens(now);
+        FlushSettings(now);
 
         if (_transitioning)
         {
@@ -407,7 +408,7 @@ internal sealed partial class DiscoverController : IBrowseActions
     /// </summary>
     private void MaintainSearchLens(DateTime now)
     {
-        if (LensEngine.SourceOf(_lens) != LensSource.Search || _settings.LiveLensesOnly || _pager.Loading)
+        if (LensEngine.SourceOf(_lens) != LensSource.Search || _pager.Loading)
         {
             return;
         }
@@ -489,6 +490,7 @@ internal sealed partial class DiscoverController : IBrowseActions
             CardsPerRow = _settings.CardsPerRow,
             Animate = _settings.AnimateTransitions,
             AnimationSpeed = _settings.AnimationSpeed,
+            PreviewPanSpeed = _settings.PreviewPanSpeed,
         };
         try
         {
@@ -506,6 +508,8 @@ internal sealed partial class DiscoverController : IBrowseActions
     }
 
     /// <summary>Every world the user has open counts as visited (the Visited mark on cards).</summary>
+    private readonly HashSet<string> _recentSeen = new(StringComparer.OrdinalIgnoreCase);
+
     private void TrackVisits()
     {
         if (_library is null)
@@ -517,9 +521,17 @@ internal sealed partial class DiscoverController : IBrowseActions
         {
             foreach (var open in _openWorlds.GetOpenWorlds())
             {
-                if (!string.IsNullOrWhiteSpace(open.RecordKey))
+                // A world with no record (a headless host's own world) is known by its session key; MarkVisited keeps
+                // only the keys that outlive the session (custom session ids), so a random one is not stored.
+                var key = CurrentWorlds.KeyOf(open);
+                _library.MarkVisited(key);
+
+                // Worlds opened some other way (a friend's invite, the stock tab, a link) belong in Recent too: the first
+                // time each open session is seen it is recorded, once. Worlds opened here were recorded already.
+                if (_recentSeen.Add(open.SessionId) && DiscoveryKeys.IsSavable(key))
                 {
-                    _library.MarkVisited(open.RecordKey);
+                    _library.RecordOpened(key, open.Name);
+                    _dirty = true;
                 }
             }
         }
@@ -541,7 +553,7 @@ internal sealed partial class DiscoverController : IBrowseActions
         _pager.PageSize = size;
         _pager.Reset();
         _livePage = 0;
-        if (LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly)
+        if (LensEngine.SourceOf(_lens) == LensSource.Search)
         {
             RequestPage(0, force: false);
         }
@@ -600,7 +612,7 @@ internal sealed partial class DiscoverController : IBrowseActions
     }
 
     /// <summary>A search tab whose page is still on its way: the scan holds until it has arrived (or the timeout).</summary>
-    private bool AwaitingResults => LensEngine.SourceOf(_lens) == LensSource.Search && !_settings.LiveLensesOnly && _pager.Loading;
+    private bool AwaitingResults => LensEngine.SourceOf(_lens) == LensSource.Search && _pager.Loading;
 
     /// <summary>
     /// Lifts the curtain once the queued cards are filled in (or after <see cref="DiscoverSettings.CardFillTimeout"/>), so the

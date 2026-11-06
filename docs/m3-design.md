@@ -8,7 +8,7 @@ The visual design was made as a canvas (four boards) on 2026-11-03: https://clau
 1. **Browse lens** (Most Visited): rail with LIVE and BROWSE sections (MINE arrives in M4), top bar (search, sort, filters, refresh), tag chip bar, lens title and counts, card grid, status bar with paging.
 2. **Menus**: the sort menu (unsupported sorts greyed with the reason) and the filters popover (minimum people, has room, mobile friendly, has VR, hosted by, show other versions).
 3. **States**: first load, search failed (banner with Retry, last results kept), nothing found (names the filters; Clear filters).
-4. **Cards**: live with friends, already open ("You're here" and "Go there"), full, published with no session ("New session"), other version (dimmed, disabled); a list view (not built yet).
+4. **Cards**: live with friends, already open ("You're here" and "Focus world"), full, published with no session ("New session"), other version (dimmed, disabled); a list view (not built yet).
 
 ## What is built (M3)
 

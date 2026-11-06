@@ -20,9 +20,16 @@ public static class CurrentWorlds
         .Select(w => new OpenWorldItem(EntryFor(w, lookupRecord), w))
         .ToList();
 
+    /// <summary>
+    /// The key an open world's card has: its record, else (a world with no record, such as one a headless host started)
+    /// its standalone session key.
+    /// </summary>
+    public static string KeyOf(OpenWorldSnapshot world) =>
+        !string.IsNullOrWhiteSpace(world.RecordKey) ? world.RecordKey : DiscoveryKeys.ForStandaloneSession(world.SessionId);
+
     public static DiscoveryEntry EntryFor(OpenWorldSnapshot world, Func<string, RecordSnapshot?> lookupRecord)
     {
-        var key = !string.IsNullOrWhiteSpace(world.RecordKey) ? world.RecordKey : DiscoveryKeys.ForStandaloneSession(world.SessionId);
+        var key = KeyOf(world);
         var session = new SessionSnapshot
         {
             SessionId = world.SessionId,

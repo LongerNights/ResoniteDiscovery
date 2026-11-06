@@ -136,18 +136,6 @@ public class CardModelTests
     }
 
     [Fact]
-    public void LiveOnlyLeavesSearchLensesOffTheRail()
-    {
-        var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: new DiscoverSettings { LiveLensesOnly = true });
-
-        var lenses = rail.SelectMany(s => s.Items).Select(i => i.Lens).ToList();
-        Assert.DoesNotContain(LensKind.New, lenses);
-        Assert.DoesNotContain(LensKind.MyWorlds, lenses);
-        Assert.Contains(LensKind.Favorites, lenses);
-        Assert.DoesNotContain(rail, s => s.Items.Count == 0 && s.Id == RailSectionId.Discover); // Browse goes with its lenses
-    }
-
-    [Fact]
     public void PersonalTagsComeFirstAndAreMarked()
     {
         var entry = new DiscoveryEntry

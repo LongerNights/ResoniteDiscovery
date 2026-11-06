@@ -21,7 +21,8 @@ public sealed record DetailModel(
     IReadOnlyList<string>? TagList = null,
     IReadOnlyList<DetailSession>? SessionRows = null,
     string Dates = "",
-    bool CanStartNew = false);
+    bool CanStartNew = false,
+    bool CanWorldOrb = false);
 
 /// <summary>One live session in the detail panel: its line of text and whether it can be joined (not full, same build).</summary>
 public sealed record DetailSession(
@@ -145,6 +146,7 @@ public static class DetailBuilder
             tags,
             rows,
             dates,
-            entry.IsWorld && record is not null);
+            entry.IsWorld && record is not null,
+            record is not null);
     }
 }
