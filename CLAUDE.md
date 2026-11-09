@@ -94,7 +94,7 @@ dotnet build src/Discover.Resonite -p:ResoniteInstallOnBuild=true   # copies the
   FrooxEngine.dll takes ~35 s to load. It shows signatures, not method bodies.
 - **Method bodies:** Winter runs ResoniteDumper; or ILSpy-Mcp if registered (`ilspy-mcp`).
 - To get more decompiled code, Winter runs ResoniteDumper; save each run as
-  `docs/reference/dumper-<date>-batch<N>.txt` and update `docs/reference/README.md`.
+  `docs/reference/dumper-<date>-batch<N>.txt` (git-ignored: decompiled engine source is not published; Resonite's Mod and Plugin Policy bars redistributing engine components) and note findings in `docs/verification.md`.
 - **McpLink** is an RML mod serving MCP at `http://localhost:7357/mcp` on Winter's PC. It is
   reachable from Claude Code running on Windows (McpLink 2.14.0, 98 tools; `eval` needs `McpLink_libs`, not installed yet) (registered with `claude mcp add mcplink -- python
   <path>\proxy\mcplink_proxy.py`), **not** from Cowork's cloud session or its Linux VM. If no

@@ -11,3 +11,6 @@ __pycache__/
 
 # Local Claude desktop app settings (account and session ids, folder grants): not project content.
 Claude outputs/claude_desktop_config.json
+
+# Decompiled Resonite source stays local (not redistributable)
+docs/reference/dumper-*.txt

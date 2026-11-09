@@ -1,6 +1,6 @@
 # Decompiled reference
 
-Excerpts of Resonite assemblies produced by ResoniteDumper from Winter's install
+Excerpts of Resonite assemblies produced by ResoniteDumper are kept **locally only** (`dumper-*.txt` is git-ignored): decompiled engine source is not published in this repository, because Resonite's Mod and Plugin Policy does not allow redistributing engine components. Findings are recorded in `../verification.md`. The first batch (below) was removed from the repository on 2026-11-08. Originally: excerpts of Resonite assemblies produced by ResoniteDumper from Winter's install
 (`E:\Program Files (x86)\Steam\steamapps\common\Resonite`). Read-only reference — never edit
 a dump; add a new batch instead. Findings go in `../verification.md`.
 

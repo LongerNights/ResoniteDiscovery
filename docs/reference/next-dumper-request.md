@@ -1,7 +1,7 @@
 # Next ResoniteDumper request: batch 2
 
 For Winter to run in one go against build **2026.10.29.1239**. Save the output as
-`docs/reference/dumper-<date>-batch2.txt` and add a row to `README.md`.
+`docs/reference/dumper-<date>-batch2.txt` (git-ignored, local only) and record findings in `../verification.md`.
 
 **Why this batch.** On 2026-11-02 most M0 rows were closed by reading method bodies live through
 ILSpy-MCP (see `verification.md`, evidence "ilspy"). Those reads are not stored in the repo.
