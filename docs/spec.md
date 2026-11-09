@@ -24,7 +24,7 @@ So instead of a second discovery tab next to the stock one, ResoniteDiscovery be
 3. **Search in plain sight.** A search box, sort menu (key and direction) and a Filters popover on every search lens, replacing the hidden Custom panel.
 4. **One Browse view** instead of six category buttons: a row of recommended tags (the six categories first, then popular tags from what is on screen), defaulting to the most-visited sort.
 5. **A Current Worlds view** that lists exactly the worlds the user has open, with focus, info and leave.
-6. **ResoniteDiscovery extras:** Live Now and Friends (live sessions merged by world), Favorites, named lists, personal tags, Recent, export and import; later Trending, Rising and Hidden Gems.
+6. **ResoniteDiscovery extras:** Live Now and Friends (live sessions merged by world), Favorites, named lists, personal tags, Recent, export and import; Trending, Rising and Hidden Gems from local history (off by default; see "Insights status and future").
 7. **Sensible defaults:** popularity sorts by default, the user's choices remembered.
 8. Joining and opening always go through the engine's own checks.
 
@@ -131,7 +131,7 @@ VRChat and Roblox both treat discovery as several ranked views plus search, not 
 | Like-ratio thresholds gate visibility in top-rated sorts | [Roblox discovery guide](https://bloxg.com/guides/roblox-algorithm) | Not adopted: Resonite exposes no like or vote data |
 | Non-personalized charts so every user sees the same ranking | [Roblox DevForum](https://devforum.roblox.com/t/testing-an-enhanced-discover-page-top-charts-and-new-sorts/2954676) | All lenses are deterministic and explainable |
 
-**What Resonite cannot support yet.** Like ratios, per-user ratings, dwell time and unique-visitor counts are not exposed to clients. `Record.Rating` exists in the data model but whether the cloud populates it is unverified (V6). Trending and Rising are approximations from what one client observes while running, and the UI labels them that way.
+**What Resonite cannot support yet.** Like ratios, per-user ratings, dwell time and unique-visitor counts are not exposed to clients. `Record.Rating` exists in the data model but whether the cloud populates it is unverified (V6). Trending and Rising are approximations from what one client observes while running, and the UI labels them that way. Testers found them too sparse to be useful on local data alone, so the Insights section is off by default (see "Insights status and future").
 
 **Community requests that match this mod.** Resonite's issue tracker has open requests for [an engagement-based trending tab](https://github.com/Yellow-Dog-Man/Resonite-Issues/issues/7332) and [content-warning world tags](https://github.com/Yellow-Dog-Man/Resonite-Issues/issues/7321). If the platform ships either, consume it in place of the local approximations.
 
@@ -259,7 +259,7 @@ Core sees open worlds through a new `IOpenWorldSource` (list plus change events,
 | **Now** | Current Worlds, Live Now, Friends | Current Worlds shows a count badge (open worlds, excluding userspace) |
 | **Discover** | Browse, Featured, New, Random | Browse replaces Most Visited and the six stock category buttons |
 | **Yours** | Favorites, each named list (up to five shown, then "More lists…"), "+ New list", Recent, My Worlds, Group Worlds | Was "Mine" |
-| **Insights** (v1.1) | Trending, Rising, Hidden Gems | Hidden until v1.1 ships |
+| **Insights** | Trending, Rising, Hidden Gems | **Off by default** (turn on in Settings > Sidebar, under "Experimental"). Built only from this client's own history, so thin (see "Insights status and future") |
 | Footer | Settings, Classic browser | Classic browser opens the hidden stock tab (F31) |
 
 **Lens definitions**
@@ -290,7 +290,13 @@ The sort menu can change any search lens's sort for the session; the per-lens de
 
 Chips follow F5 (require, exclude, clear). With no chips and no text, Browse shows the most-visited worlds, which is what Most Visited showed. Opening Browse from a category deep link (Settings or a tag on a card) arrives with that chip already required.
 
-**Formulas** (v1.1, inputs from the history file) — unchanged.
+**Insights status and future** (decision 2026-11-08). Trending, Rising and Hidden Gems rank worlds from the local history file, which only holds what this one client saw while the game ran. Testers found that too sparse to be useful, so:
+
+- The Insights section is **off by default** (`HiddenSections` defaults to `[Insights]`). Saved settings keep their own choice.
+- Settings > Sidebar lists it in its own **Experimental** group: a horizontal bar under the Now, Discover and Yours switches, then the heading, then a note explaining that the rankings use only the player's own game history and that a shared server tracking public worlds is planned if enough people ask (strings `settings.experimental`, `settings.insightsNote`), then the Insights switches in one row under the note. The Insights tabs themselves carry no banner: whoever switched them on has read the note.
+- **Planned, not started:** a small hosted service that watches public world data and publishes a continuously updating ranking, which these three tabs would read instead of (or merged with) local history. It is only built if demand is high enough. Until then the local formulas below stay as they are, and the mod makes no requests to any server of its own (hard rule 7 is unchanged).
+
+**Formulas** (inputs from the history file; to be replaced or supplemented by the shared source above if it is ever built) — unchanged.
 
 ```text
 Trending = mean(liveUsers over last 6h) * (1 + log2(1 + distinctSnapshotsWithUsers/10))
@@ -354,7 +360,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 
 | Region | Cells (X, Y, W, H) | Contents |
 | --- | --- | --- |
-| Rail | 0, 0, 12, 36 | Sections Now, Discover, Yours (and Insights in v1.1) as in "The rail"; footer with Settings and Classic browser. Same slot as the stock filter rail |
+| Rail | 0, 0, 12, 36 | Sections Now, Discover, Yours (and Insights, off by default) as in "The rail"; footer with Settings and Classic browser. Same slot as the stock filter rail |
 | Top bar | 12, 0, 52, 3 | Search box (prompt "Search worlds or tags…"), Sort button with direction toggle, Filters button with a count, grid/list toggle, refresh |
 | Chip bar | 12, 3, 52, 2 | Active tag chips and Clear all. **On Browse** this row is the recommended-tags row (categories, popular here, your tags) and grows to 3 cells, the results shrink by 1 |
 | Results | 12, 5, 52, 28 | Card grid, 4 columns, or list view |
@@ -394,7 +400,7 @@ The tab must look like part of the dash. It reuses the stock screen grid (64 by 
 - Info opens the detail panel over the results; Join and Focus world stay one click away on the card.
 - Desktop keys: Ctrl+F focuses search; Escape clears search, then closes the panel.
 - Colour is never the only signal; every coloured badge has text or an icon.
-- Lens switches animate (curtain 120 ms out, 280 ms in with a 28-unit rise; `AnimateTransitions`). Tweens only on the mod's own slots.
+- Lens switches animate (curtain 120 ms out, 280 ms in with a 28-unit rise; `AnimateTransitions`). Tweens only on the mod's own slots. While the covered results wait for the new page and its cards (more than 300 ms), the cleared area shows "Loading…" with three pulsing dots (`empty.loading`); it goes when the reveal starts, and a quick switch shows none.
 - Leave always asks ("Leave {world}? Unsaved changes may be lost." Leave / Cancel), and is disabled for the userspace world (never listed anyway).
 
 **States**
@@ -554,7 +560,7 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 
 **Automated tests** (pure logic, CI) — existing suites stay (merge, visibility, lenses, formulas, search syntax, persistence, cache, rail catalog). New:
 
-- Rail catalog: the Now/Discover/Yours sections, Browse replacing Most Visited, Insights hidden until v1.1, the at-least-one-lens guard.
+- Rail catalog: the Now/Discover/Yours sections, Browse replacing Most Visited, Insights off by default, the at-least-one-lens guard.
 - Settings migration (F34): golden M4b `settings.json` files map to the new ids.
 - Browse chips: categories first and in order; "popular here" excludes categories and excluded tags, caps at 8, is deterministic for a fixed input.
 - Current Worlds ordering and keys: focused first, then last focused; record key, custom session key, local key; local keys never persisted.

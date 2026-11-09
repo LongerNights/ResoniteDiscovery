@@ -14,7 +14,7 @@ public enum RailSectionId
     Discover,
     Yours,
 
-    /// <summary>Trending, Rising and Hidden Gems, from this client's local history (v1.1). Off until switched on in Settings.</summary>
+    /// <summary>Trending, Rising and Hidden Gems, from this client's local history (v1.1). Off by default; switched on in Settings.</summary>
     Insights,
 }
 
@@ -43,7 +43,7 @@ public static class LensCatalog
 
     /// <summary>
     /// On when the lens's switch and its section's switch are on.
-    /// Insights lenses are in their own section, which is on by default like the others.
+    /// Insights lenses are in their own section, which is off by default (see <see cref="DiscoverSettings.HiddenSections"/>).
     /// </summary>
     public static bool IsVisible(this DiscoverSettings settings, LensKind lens) =>
         settings.IsSectionOn(SectionOf(lens))

@@ -49,6 +49,9 @@ internal sealed partial class DiscoverUi
     private Text _status = null!;
     private Text _emptyText = null!;
     private Slot _emptyArea = null!;
+    private Slot _loadingArea = null!;
+    private readonly Image[] _loadingDots = new Image[3];
+    private bool _loadingShown;
     private Slot _clearFiltersButton = null!;
     private Slot _showHiddenButton = null!;
     private Text _sortButtonLabel = null!;
@@ -611,6 +614,7 @@ internal sealed partial class DiscoverUi
         ui.NestInto(bannerParts[1]);
         var retry = ui.Button((LocaleString)UiStrings.Get("banner.retry"), Theme.ButtonSelected);
         retry.LocalPressed += (_, _) => _actions.Retry();
+
         ui.NestOut();
         _banner = _bannerRect.Slot;
         _banner.ActiveSelf = false;
@@ -659,6 +663,39 @@ internal sealed partial class DiscoverUi
         ui.NestOut();
         ui.NestOut();
         _emptyArea.ActiveSelf = false;
+
+        // "Loading…" and three pulsing dots, centred in the area the scan has cleared; shown while the new cards are on
+        // their way (see SetLoading). Under the scan line, over the emptied results.
+        var loading = ui.Empty("Loading");
+        var loadingRect = loading.GetComponent<RectTransform>();
+        loadingRect.AnchorMin.Value = new float2(0.25f, 0.34f);
+        loadingRect.AnchorMax.Value = new float2(0.75f, 0.66f);
+        ui.NestInto(loadingRect);
+        var loadingSplit = ui.SplitVertically(0.56f, 0.44f);
+        var loadingText = TextIn(ui, loadingSplit[0], Alignment.MiddleCenter, Theme.TextSecondary, 20f, 30f);
+        loadingText.Content.Value = UiStrings.Get("empty.loading");
+        ui.NestInto(loadingSplit[1]);
+        var dotRow = ui.HorizontalLayout(12f, 0f, Alignment.MiddleCenter);
+        dotRow.ForceExpandWidth.Value = false;
+        dotRow.ForceExpandHeight.Value = false;
+        for (var i = 0; i < _loadingDots.Length; i++)
+        {
+            ui.Style.MinWidth = 16f;
+            ui.Style.PreferredWidth = 16f;
+            ui.Style.MinHeight = 16f;
+            ui.Style.PreferredHeight = 16f;
+            var dot = ui.Image(Theme.Tab);
+            dot.Sprite.Target = _rounded;
+            dot.NineSliceSizing.Value = NineSliceSizing.FixedSize;
+            dot.InteractionTarget.Value = false;
+            _loadingDots[i] = dot;
+        }
+
+        ui.NestOut(); // the dots
+        ui.NestOut(); // the area
+        ui.NestOut(); // the split
+        loading.ActiveSelf = false;
+        _loadingArea = loading;
 
         // The tab-switch scan line: a thin cyan line over the results area (last in it, so nothing is drawn over it). It
         // travels with the results viewport's bottom edge while that edge moves (see Cover and Reveal).
@@ -948,7 +985,7 @@ internal sealed partial class DiscoverUi
         PumpCards();
 
         var empty = view.Cards.Count == 0 && view.EmptyMessage is not null;
-        _emptyArea.ActiveSelf = empty;
+        _emptyArea.ActiveSelf = empty && !_loadingShown;
         if (empty)
         {
             _emptyText.Content.Value = view.EmptyHint is null ? view.EmptyMessage! : $"{view.EmptyMessage}\n<size=60%>{view.EmptyHint}</size>";
@@ -1177,6 +1214,35 @@ internal sealed partial class DiscoverUi
         _viewport.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve, onDoneLocal: () => done());
         _scanLineRect.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve);
         _scanLineRect.AnchorMax.TweenFromTo(new float2(1f, from), new float2(1f, to), seconds, curve);
+    }
+
+    /// <summary>
+    /// Shows or hides the "Loading…" notice and its dots, and pulses the dots (<paramref name="time"/> is world time in
+    /// seconds). It replaces the empty-state text while shown, so the two never overlap.
+    /// </summary>
+    public void SetLoading(bool on, double time)
+    {
+        if (on != _loadingShown)
+        {
+            _loadingShown = on;
+            _loadingArea.ActiveSelf = on;
+            if (on)
+            {
+                _emptyArea.ActiveSelf = false;
+            }
+        }
+
+        if (!on)
+        {
+            return;
+        }
+
+        for (var i = 0; i < _loadingDots.Length; i++)
+        {
+            var phase = (time * 1.4 - i * 0.18) % 1.0;
+            var pulse = 0.5 + 0.5 * Math.Cos(phase * 2.0 * Math.PI);
+            _loadingDots[i].Tint.Value = Theme.Tab.SetA((float)(0.25 + 0.75 * pulse));
+        }
     }
 
     /// <summary>Ends any transition at once: the results fully shown, the line hidden.</summary>

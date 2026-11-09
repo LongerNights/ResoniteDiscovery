@@ -7,7 +7,7 @@ cleaner one (decision 2026-11-03, supersedes "sit beside"): the stock tab's butt
 at runtime only, and a "Classic browser" button still opens it. The rail is Now (Current
 Worlds, Live Now, Friends), Discover (Browse with recommended tags replacing the six stock
 category buttons, Featured, New, Random), Yours (Favorites, lists, Recent, My Worlds, Group
-Worlds); v1.1 adds Trending/Rising/Hidden Gems. The stock "Custom" search options move into
+Worlds); Insights (Trending/Rising/Hidden Gems, from local history) is off by default (2026-11-08). The stock "Custom" search options move into
 the top bar's sort and Filters controls; the spec's parity table is the checklist. Code
 namespaces stay `Discover.*`; the tab is labelled "Worlds". A ResoniteModLoader (RML) mod;
 personal use for now; MIT.

@@ -437,9 +437,7 @@ internal sealed partial class DiscoverController
             RailBuilder.Count(_lens, all.Count, people),
             RailBuilder.SortLabel(_sort),
             _filters.ActiveCount(source),
-            _lens == LensKind.Browse
-                ? BrowseTags.Row(BrowseTags.Build(_settings, all, _chips.Items, _library?.AllTags.ToList() ?? []), _chips.Items, DiscoverUi.MaxChips)
-                : BrowseTags.ActiveOnly(_chips.Items),
+            BrowseTags.Row(BrowseTags.Build(_settings, all, _chips.Items, _library?.AllTags.ToList() ?? []), _chips.Items, DiscoverUi.MaxChips),
             cards,
             emptyMessage,
             emptyHint,

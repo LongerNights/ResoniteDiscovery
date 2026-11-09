@@ -148,7 +148,8 @@ internal sealed partial class DiscoverUi
             ui.NestOut();
         }));
 
-        // Sidebar: two columns, since there are two dozen switches.
+        // Sidebar: three columns of switches (Now, Discover, Yours), then a bar and the Experimental group under them: its
+        // heading, the explanation, and the Insights switches side by side in one row.
         _settingsPages.Add(SettingsPage(ui, () =>
         {
             ui.Style.MinHeight = 0f;
@@ -156,43 +157,32 @@ internal sealed partial class DiscoverUi
             var columns = ui.HorizontalLayout(14f, 0f, Alignment.TopLeft);
             columns.ForceExpandHeight.Value = false;
             ui.Style.FlexibleHeight = -1f;
-            foreach (var group in new[] { new[] { RailSectionId.Now, RailSectionId.Discover }, new[] { RailSectionId.Yours, RailSectionId.Insights } })
+            foreach (var section in new[] { RailSectionId.Now, RailSectionId.Discover, RailSectionId.Yours })
             {
                 ui.Style.FlexibleWidth = 1f;
                 var column = ui.VerticalLayout(4f, 0f, Alignment.TopCenter);
                 column.ForceExpandHeight.Value = false;
                 ui.Style.FlexibleWidth = -1f;
-                var firstSection = true;
-                foreach (var section in group)
-                {
-                    if (!firstSection)
-                    {
-                        ui.Style.MinHeight = 14f; // a gap between sections
-                        ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleCenter);
-                    }
-
-                    firstSection = false;
-                    ui.Style.MinHeight = 42f;
-                    var id = section;
-                    var sectionRow = SettingsSwitchRow(ui, "", () => _actions.ToggleSection(id));
-                    _sectionRows[section] = (sectionRow.Button, sectionRow.Track, sectionRow.Knob);
-                    foreach (var lens in LensCatalog.LensesOf(section))
-                    {
-                        ui.Style.MinHeight = 36f;
-                        var kind = lens;
-                        var lensRow = SettingsSwitchRow(ui, "", () => _actions.ToggleLens(kind));
-                        if (lensRow.Label.Slot.GetComponent<RectTransform>() is { } lensRect)
-                        {
-                            lensRect.OffsetMin.Value = new float2(36f, 0f);
-                        }
-
-                        _lensRows[lens] = (lensRow.Button, lensRow.Track, lensRow.Knob);
-                    }
-                }
-
+                AddSectionSwitches(ui, section, indentLenses: true);
                 ui.NestOut();
             }
 
+            ui.NestOut();
+
+            ui.Style.MinHeight = 3f;
+            var bar = ui.Image(Theme.TextSecondary.SetA(0.45f));
+            bar.InteractionTarget.Value = false;
+            SettingsGroup(ui, "settings.experimental");
+            ui.Style.MinHeight = 48f;
+            var insightsNote = ui.Text((LocaleString)UiStrings.Get("settings.insightsNote"), bestFit: true, alignment: Alignment.TopLeft);
+            Fix(insightsNote, TypeScale.Caption);
+            insightsNote.Color.Value = Theme.TextSecondary;
+
+            ui.Style.MinHeight = 42f;
+            ui.Style.FlexibleHeight = -1f;
+            var insightsRow = ui.HorizontalLayout(6f, 0f, Alignment.TopLeft);
+            insightsRow.ForceExpandHeight.Value = false;
+            AddSectionSwitches(ui, RailSectionId.Insights, indentLenses: false);
             ui.NestOut();
         }));
 
@@ -354,6 +344,33 @@ internal sealed partial class DiscoverUi
         PositionMenu(_startLensMenu);
         _startLensMenu.ActiveSelf = true;
         AnimateOpen(_startLensMenu, MenuDrop, null, CurvePreset.ReboundOutSmall);
+    }
+
+    /// <summary>
+    /// A section's own switch and one switch per lens, in the current layout. In a column the lenses are indented under the
+    /// section; in a row they sit beside it.
+    /// </summary>
+    private void AddSectionSwitches(UIBuilder ui, RailSectionId section, bool indentLenses)
+    {
+        ui.Style.MinHeight = 42f;
+        ui.Style.FlexibleWidth = indentLenses ? -1f : 1f;
+        var sectionRow = SettingsSwitchRow(ui, "", () => _actions.ToggleSection(section));
+        _sectionRows[section] = (sectionRow.Button, sectionRow.Track, sectionRow.Knob);
+        foreach (var lens in LensCatalog.LensesOf(section))
+        {
+            ui.Style.MinHeight = indentLenses ? 36f : 42f;
+            ui.Style.FlexibleWidth = indentLenses ? -1f : 1f;
+            var kind = lens;
+            var lensRow = SettingsSwitchRow(ui, "", () => _actions.ToggleLens(kind));
+            if (indentLenses && lensRow.Label.Slot.GetComponent<RectTransform>() is { } lensRect)
+            {
+                lensRect.OffsetMin.Value = new float2(36f, 0f);
+            }
+
+            _lensRows[lens] = (lensRow.Button, lensRow.Track, lensRow.Knob);
+        }
+
+        ui.Style.FlexibleWidth = -1f;
     }
 
     /// <summary>One settings page: a vertical list that fills the page area.</summary>

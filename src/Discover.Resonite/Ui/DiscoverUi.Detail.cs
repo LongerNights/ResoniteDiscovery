@@ -361,12 +361,10 @@ internal sealed partial class DiscoverUi
 
         ui.NestInto(previewRect);
         ui.RawGraphic(LegacyWorldThumbnailItem.GetWorldPreviewMaterial(_screen.World), block);
-        var (catcher, _) = Theme.Catcher(ui, "Hover");
+        var (catcher, hoverButton) = Theme.Catcher(ui, "Hover");
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
         // Gentler than the engine's default: the full-speed pan makes the picture whirl as the pointer enters.
-        PanTuning.Register(panner, speedScale: 0.6f, accelerationScale: 0.35f);
-        block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
-        block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
+        PanTuning.Register(panner, block, hoverButton, speedScale: 0.6f, accelerationScale: 0.35f);
         ui.NestOut();
     }
 

@@ -9,10 +9,20 @@ public class LensCatalogTests
     private static readonly DiscoverSettings Defaults = new();
 
     [Fact]
-    public void EverythingIsOnByDefault()
+    public void EverythingIsOnByDefaultExceptInsights()
     {
-        Assert.All(LensCatalog.Sections.SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
+        var withoutInsights = LensCatalog.Sections.Where(s => s != RailSectionId.Insights);
+        Assert.All(withoutInsights.SelectMany(LensCatalog.LensesOf), l => Assert.True(Defaults.IsVisible(l)));
+        Assert.All(LensCatalog.LensesOf(RailSectionId.Insights), l => Assert.False(Defaults.IsVisible(l)));
         Assert.Equal(LensKind.CurrentWorlds, LensCatalog.FirstVisible(Defaults));
+    }
+
+    [Fact]
+    public void InsightsCanBeSwitchedOn()
+    {
+        var on = LensCatalog.ToggleSection(Defaults, RailSectionId.Insights);
+
+        Assert.All(LensCatalog.LensesOf(RailSectionId.Insights), l => Assert.True(on.IsVisible(l)));
     }
 
     [Fact]
@@ -56,9 +66,10 @@ public class LensCatalogTests
     {
         var settings = LensCatalog.ToggleLens(LensCatalog.ToggleSection(Defaults, RailSectionId.Discover), LensKind.Recent);
 
-        var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: settings);
+        var rail = RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: LensCatalog.ToggleSection(settings, RailSectionId.Insights));
 
         Assert.Equal([RailSectionId.Now, RailSectionId.Yours, RailSectionId.Insights], rail.Select(s => s.Id));
+        Assert.DoesNotContain(RailBuilder.Build(LensKind.LiveNow, 0, 0, visibility: settings), s => s.Id == RailSectionId.Insights);
         Assert.DoesNotContain(rail.SelectMany(s => s.Items), i => i.Lens == LensKind.Recent);
     }
 

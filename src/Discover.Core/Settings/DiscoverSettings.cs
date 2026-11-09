@@ -77,8 +77,11 @@ public sealed record DiscoverSettings
     /// <summary>Words that hide any world or session whose name contains them (case-insensitive).</summary>
     public IReadOnlyList<string> HiddenWords { get; init; } = [];
 
-    /// <summary>Rail sections switched off (spec F28). Their lenses keep their own switches.</summary>
-    public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [];
+    /// <summary>
+    /// Rail sections switched off (spec F28). Their lenses keep their own switches. Insights starts off: its rankings come
+    /// only from this client's own history, which is thin until a shared source exists (decisions 2026-11-08).
+    /// </summary>
+    public IReadOnlyList<Lenses.RailSectionId> HiddenSections { get; init; } = [Lenses.RailSectionId.Insights];
 
     /// <summary>Lenses switched off one by one (spec F28).</summary>
     public IReadOnlyList<Lenses.LensKind> HiddenLenses { get; init; } = [];

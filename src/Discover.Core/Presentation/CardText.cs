@@ -109,6 +109,8 @@ public static class UiStrings
         ["lens.rising.sub"] = "Growing fastest vs. yesterday",
         ["lens.hiddenGems.sub"] = "Newer worlds gaining visits",
         ["empty.history"] = "Nothing ranked yet. History builds while the game runs; give it an hour or two",
+        ["settings.experimental"] = "Experimental",
+        ["settings.insightsNote"] = "Insights (Trending, Rising, Hidden Gems) are off by default. They only use the history your own game records, so they are thin and differ from player to player. If enough people want them, a server tracking public worlds may feed these tabs later.",
         ["rail.newList"] = "+ New list",
         ["lens.currentWorlds"] = "Current Worlds",
         ["lens.currentWorlds.sub"] = "Worlds you have open",

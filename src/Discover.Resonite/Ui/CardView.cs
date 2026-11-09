@@ -224,9 +224,7 @@ internal sealed class CardView
 
         // Hovering pans the 360 preview, exactly as on the stock card: its panner reads hover events from this button.
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();
-        pan.Register(panner);
-        block.PerspectiveAngleOffset.DriveFrom(panner.AngleOffset);
-        block.PerspectiveFieldOfView.DriveFrom(panner.FOV);
+        pan.Register(panner, block, press);
 
         card.SetListLayout(false);
         DiscoverUi.ApplyTextLift(slot);

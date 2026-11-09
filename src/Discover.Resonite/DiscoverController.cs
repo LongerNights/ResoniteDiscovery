@@ -114,6 +114,10 @@ internal sealed partial class DiscoverController : IBrowseActions
     private bool _slowNoticed;
     private bool _revealPending;
     private DateTime _revealDeadlineUtc;
+    private DateTime _revealPendingSinceUtc;
+
+    /// <summary>How long the covered results wait before the "Loading…" notice appears, so a quick switch shows none.</summary>
+    private static readonly TimeSpan LoadingNoticeDelay = TimeSpan.FromMilliseconds(300);
     private DateTime _lastManualRefreshUtc = DateTime.MinValue;
     private readonly DateTime _startedUtc = DateTime.UtcNow;
     private volatile Uri? _iconUri;
@@ -327,6 +331,8 @@ internal sealed partial class DiscoverController : IBrowseActions
             _revealPending = false;
             _ui.Reveal(UiMotion.Seconds(0.45f), 0f);
         }
+
+        _ui.SetLoading(_revealPending && now - _revealPendingSinceUtc >= LoadingNoticeDelay, _screen.World.Time.WorldTime);
 
         if (!_slowNoticed && _pager.Loading && now - _loadingSinceUtc >= _settings.SlowSearchNotice)
         {
@@ -621,6 +627,7 @@ internal sealed partial class DiscoverController : IBrowseActions
     private void RevealWhenFilled()
     {
         _revealPending = true;
+        _revealPendingSinceUtc = DateTime.UtcNow;
         _revealDeadlineUtc = DateTime.UtcNow + _settings.CardFillTimeout;
     }
 
