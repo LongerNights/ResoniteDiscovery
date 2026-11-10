@@ -33,6 +33,10 @@ internal sealed partial class DiscoverUi
     private Text _detailVisibility = null!;
     private Text _detailUsersLine = null!;
     private Text _detailPeople = null!;
+    private LayoutElement? _detailTopLayout;
+    private LayoutElement? _detailDescriptionLayout;
+    private LayoutElement? _detailAreaLayout;
+    private LayoutElement? _detailPeopleLayout;
     private static readonly string ContactColorHex = "#" + RadiantUI_Constants.Hero.GREEN.ToHexString(false).TrimStart('#');
     private Text _detailDevices = null!;
     private Text _detailDates = null!;
@@ -71,6 +75,7 @@ internal sealed partial class DiscoverUi
         ui.Style.MinHeight = 170f;
         var top = ui.HorizontalLayout(18f, 0f, Alignment.TopLeft);
         top.ForceExpandWidth.Value = false;
+        _detailTopLayout = top.Slot.GetComponent<LayoutElement>();
         ui.Style.MinWidth = 400f;
         ui.Style.FlexibleWidth = -1f;
         var previewRect = ui.Next("Preview").GetComponent<RectTransform>();
@@ -95,6 +100,7 @@ internal sealed partial class DiscoverUi
         ui.Style.MinHeight = 50f;
         _detailDescription = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
         Fix(_detailDescription, TypeScale.Body);
+        _detailDescriptionLayout = _detailDescription.Slot.GetComponent<LayoutElement>();
 
         ui.Style.MinHeight = 24f;
         _detailDates = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.MiddleLeft);
@@ -150,6 +156,7 @@ internal sealed partial class DiscoverUi
         ui.Style.MinHeight = 188f;
         _detailSessionArea = ui.HorizontalLayout(12f, 0f, Alignment.TopLeft);
         _detailSessionArea.ForceExpandWidth.Value = false;
+        _detailAreaLayout = _detailSessionArea.Slot.GetComponent<LayoutElement>();
         ui.Style.MinWidth = 270f;
         ui.Style.FlexibleWidth = -1f;
         var list = ui.VerticalLayout(5f, 0f, Alignment.TopCenter);
@@ -202,6 +209,7 @@ internal sealed partial class DiscoverUi
         ui.Style.MinHeight = 76f;
         _detailPeople = ui.Text((LocaleString)"", bestFit: true, alignment: Alignment.TopLeft);
         Fix(_detailPeople, TypeScale.Body);
+        _detailPeopleLayout = _detailPeople.Slot.GetComponent<LayoutElement>();
         ui.NestOut(); // the info layout
         ui.NestOut(); // the info frame
         ui.NestOut(); // the session area
@@ -387,6 +395,29 @@ internal sealed partial class DiscoverUi
         _detailThumbnailUri = uri;
     }
 
+    private const int MaxDescriptionChars = 700;
+
+    /// <summary>Height of wrapped text: lines (hard breaks plus wrapping at <paramref name="charsPerLine"/>) times the line height.</summary>
+    private static float LinesHeight(string text, int charsPerLine, float lineHeight, float minimum)
+    {
+        var lines = 0;
+        foreach (var part in text.Split((char)10))
+        {
+            lines += Math.Max(1, (part.Length + charsPerLine - 1) / charsPerLine);
+        }
+
+        return Math.Max(minimum, lines * lineHeight + 4f);
+    }
+
+    private static void SetMinHeight(LayoutElement? element, float height)
+    {
+        if (element is not null)
+        {
+            element.MinHeight.Value = height;
+            element.PreferredHeight.Value = height; // the layout may take the preferred size over the minimum
+        }
+    }
+
     private void SelectDetailSession(int index)
     {
         if (index < _detailSessionData.Count)
@@ -422,10 +453,21 @@ internal sealed partial class DiscoverUi
         _detailUptime.Content.Value = "<nobr>" + RichText.Neutralize(session.Uptime) + "</nobr>";
         _detailVisibility.Content.Value = "<nobr>" + RichText.Neutralize(session.Visibility) + "</nobr>";
         _detailUsersLine.Content.Value = "<nobr>" + RichText.Neutralize(session.UsersLine) + "</nobr>";
-        var names = session.Users.Take(24).Select(u => u.IsContact
+        const int shownUsers = 60;
+        var names = session.Users.Take(shownUsers).Select(u => u.IsContact
             ? $"<color={ContactColorHex}>{RichText.Neutralize(CardText.Ellipsize(u.Name, 20))}</color>"
             : RichText.Neutralize(CardText.Ellipsize(u.Name, 20)));
-        _detailPeople.Content.Value = string.Join(", ", names);
+        var peopleText = string.Join(", ", names);
+        if (session.Users.Count > shownUsers)
+        {
+            peopleText += $", +{session.Users.Count - shownUsers}";
+        }
+
+        _detailPeople.Content.Value = peopleText;
+        // The text does not size its own box, so give the box the height its lines need (about 80 characters to a line).
+        var peopleHeight = LinesHeight(string.Join(", ", session.Users.Take(shownUsers).Select(u => CardText.Ellipsize(u.Name, 20))), 78, 24f, 76f);
+        SetMinHeight(_detailPeopleLayout, peopleHeight);
+        SetMinHeight(_detailAreaLayout, Math.Max(188f, 124f + peopleHeight));
 
         // A joinable session is joined by the main button; a full one says so.
         if (_detailModel is { Action: CardAction.Join })
@@ -624,7 +666,16 @@ internal sealed partial class DiscoverUi
         _detailKey = model.Key;
         _detailTitle.Content.Value = "<nobr>" + RichText.Neutralize(model.Title) + "</nobr>";
         _detailBy.Content.Value = "<nobr>" + RichText.Neutralize(model.ByLine) + "</nobr>";
-        _detailDescription.Content.Value = RichText.Neutralize(model.Description);
+        var description = model.Description ?? "";
+        if (description.Length > MaxDescriptionChars)
+        {
+            description = description[..MaxDescriptionChars].TrimEnd() + "…";
+        }
+
+        _detailDescription.Content.Value = RichText.Neutralize(description);
+        var descriptionHeight = LinesHeight(description, 66, 24f, 50f);
+        SetMinHeight(_detailDescriptionLayout, descriptionHeight);
+        SetMinHeight(_detailTopLayout, Math.Max(170f, 154f + descriptionHeight));
         var tagList = model.TagList ?? [];
         for (var t = 0; t < MaxDetailTags; t++)
         {
