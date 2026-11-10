@@ -17,7 +17,7 @@
     <Title>ResoniteDiscovery</Title>
     <Authors>Winter</Authors>
     <Description>World discovery screen for the Resonite dash: live sessions and published worlds in ranked, searchable lenses.</Description>
-    <Version>0.4.0</Version>
+    <Version>0.4.1</Version>
     <!-- Public members here are internal plumbing; the XML-doc warning is noise. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
