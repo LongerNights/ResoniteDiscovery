@@ -6,9 +6,9 @@ A client-side [Resonite](https://resonite.com) mod that **replaces the dash's Wo
 changes how you find and return to worlds. A "Classic browser" button at the bottom of the left rail opens the stock tab
 again.
 
-Targets Resonite **2026.11.6.1136** (the current release; older builds are not supported). Loaded by
-[MonkeyLoader](https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite) with its ResoniteModLoader
-compatibility pack, which provides ResoniteModLoader **5.0.1.2**. Older loader versions are not supported. MIT licensed.
+Targets Resonite **2026.11.6.1136** (the current release; older builds are not supported). A
+[ResoniteModLoader](https://github.com/resonite-modding-group/ResoniteModLoader) (RML) mod: it needs RML **5.0.1.2** or
+newer and does not depend on MonkeyLoader. Older loader versions are not supported. MIT licensed.
 
 ## How it differs from the stock Worlds tab
 
@@ -48,9 +48,10 @@ Resonite has no "trending" data to ask for, so for now the mod builds it **on yo
 
 ## Install
 
-1. Make sure you are on Resonite 2026.11.6.1136 or newer, and install MonkeyLoader with its ResoniteModLoader
-   compatibility pack (see the link above). The mod needs ResoniteModLoader 5.0.1.2 or newer; plain ResoniteModLoader
-   5.0.1 (assembly 5.0.1.0) is too old and the mod will not load.
+1. Make sure you are on Resonite 2026.11.6.1136 or newer and have ResoniteModLoader 5.0.1.2 or newer installed (see the
+   link above). Plain ResoniteModLoader 5.0.1 (assembly 5.0.1.0) is too old and the mod will not load. If you use
+   [MonkeyLoader](https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite), its ResoniteModLoader
+   compatibility pack provides a suitable version; the mod itself does not need MonkeyLoader.
 2. Download `Discover.Resonite.dll` from the [latest release](../../releases/latest) and put it in
    `<Resonite>\rml_mods\` (for Steam: `...\steamapps\common\Resonite\rml_mods`).
 3. Restart Resonite. The dash's **Worlds** tab is now this one.
