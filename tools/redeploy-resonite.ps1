@@ -11,14 +11,15 @@
   Unsaved world changes can still be lost if the game cannot save in time, so save first.
 
 .PARAMETER NoLaunch   Build and install only; do not start the game afterwards.
-.PARAMETER LaunchArgs Arguments for Resonite.exe; the default -Screen starts desktop mode.
+.PARAMETER LaunchArgs Arguments for Resonite.exe; the default is -Screen (desktop mode) plus -LoadAssembly Libraries/ResoniteModLoader.dll.
 .PARAMETER NoClose    Do not close the game (the build fails if it is still running).
 #>
 param(
     [switch]$NoLaunch,
     [switch]$NoClose,
     [int]$CloseTimeoutSeconds = 90,
-    [string]$LaunchArgs = '-Screen'       # desktop mode; use '' for the default or '-StartInVR' etc.
+    # -Screen starts desktop mode (use '-StartInVR' etc. instead); -LoadAssembly makes the game load ResoniteModLoader.
+    [string]$LaunchArgs = '-Screen -LoadAssembly Libraries/ResoniteModLoader.dll'
 )
 
 $ErrorActionPreference = 'Stop'

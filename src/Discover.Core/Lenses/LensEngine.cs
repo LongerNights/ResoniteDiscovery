@@ -59,10 +59,10 @@ public static class LensEngine
         _ => LensSource.Local,
     };
 
-    /// <summary>Visible sessions with 1 or more active users. Sorted by LiveUsers, ties by FriendsPresent, then name.</summary>
+    /// <summary>Public sessions, and contacts-only ones with a contact present, with 1 or more active users. Sorted by LiveUsers, ties by FriendsPresent, then name.</summary>
     public static IReadOnlyList<DiscoveryEntry> LiveNow(IEnumerable<DiscoveryEntry> entries, bool includeEmpty = false) => entries
-        .Where(e => e.PublicSessions.Any(s => includeEmpty || s.ActiveUsers >= 1))
-        .OrderByDescending(e => e.LiveUsers)
+        .Where(e => e.LiveSessions.Any(s => includeEmpty || s.ActiveUsers >= 1))
+        .OrderByDescending(e => e.LiveNowUsers)
         .ThenByDescending(e => e.FriendsPresent)
         .ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase)
         .ThenBy(e => e.Key, StringComparer.Ordinal)

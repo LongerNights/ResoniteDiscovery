@@ -68,6 +68,15 @@ public sealed record DiscoveryEntry
         }
     }
 
+    /// <summary>
+    /// Sessions the Live Now lens considers: the public ones, plus contacts-only sessions with a contact in them (so a
+    /// world listed under Friends is not missing from Live Now).
+    /// </summary>
+    public IEnumerable<SessionSnapshot> LiveSessions => Sessions.Where(s => PublicSessions.Contains(s) || s.PresentContacts > 0);
+
+    /// <summary>Sum of ActiveUsers over <see cref="LiveSessions"/>.</summary>
+    public int LiveNowUsers => LiveSessions.Sum(s => s.ActiveUsers);
+
     /// <summary>Sum of ActiveUsers over public sessions.</summary>
     public int LiveUsers => PublicSessions.Sum(s => s.ActiveUsers);
 

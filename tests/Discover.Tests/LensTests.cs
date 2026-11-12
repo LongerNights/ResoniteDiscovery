@@ -22,11 +22,13 @@ public class LensTests
     }
 
     [Fact]
-    public void LiveNowIgnoresContactsOnlySessions()
+    public void LiveNowIncludesContactsOnlySessionsWithAContactPresent()
     {
-        var index = TestData.IndexOf(TestData.Session("a", world: "W", access: AccessLevel.Contacts, contacts: 1, active: 4));
+        var index = TestData.IndexOf(
+            TestData.Session("a", world: "W", access: AccessLevel.Contacts, contacts: 1, active: 4),
+            TestData.Session("b", world: "W2", access: AccessLevel.Contacts, contacts: 0, active: 4));
 
-        Assert.Empty(LensEngine.LiveNow(index.Entries));
+        Assert.Equal(["W"], LensEngine.LiveNow(index.Entries).Select(e => e.Key));
     }
 
     [Fact]

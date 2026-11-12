@@ -260,7 +260,7 @@ internal sealed partial class DiscoverUi
             Fix(import.Slot.GetComponentInChildren<Text>(), TypeScale.Label);
             import.LocalPressed += (_, _) => _actions.ImportLibrary();
             ui.NestOut();
-            ui.Style.MinHeight = 90f;
+            ui.Style.MinHeight = 260f;
             var note = ui.Text((LocaleString)UiStrings.Get("settings.note"), bestFit: true, alignment: Alignment.TopLeft);
             Fix(note, TypeScale.Caption);
             note.Color.Value = Theme.TextSecondary;

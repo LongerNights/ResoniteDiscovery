@@ -199,7 +199,7 @@ public sealed record BrowseFilters
     /// is on (<paramref name="emptyApplies"/> false for lenses that do not, like Friends), then the session filters apply.
     /// </summary>
     public bool IsListedLive(DiscoveryEntry entry, DateTime now, bool emptyApplies = true) =>
-        (!emptyApplies || IncludeEmpty || entry.PublicSessions.Any(s => s.ActiveUsers >= 1)) && MatchesLive(entry, now);
+        (!emptyApplies || IncludeEmpty || entry.LiveSessions.Any(s => s.ActiveUsers >= 1)) && MatchesLive(entry, now);
 
     /// <summary>
     /// The filters with only what is needed to list <paramref name="hidden"/> lifted: each session filter that one of them
@@ -211,7 +211,7 @@ public sealed record BrowseFilters
         var result = this;
         foreach (var entry in hidden)
         {
-            if (emptyApplies && !IncludeEmpty && !entry.PublicSessions.Any(s => s.ActiveUsers >= 1))
+            if (emptyApplies && !IncludeEmpty && !entry.LiveSessions.Any(s => s.ActiveUsers >= 1))
             {
                 result = result with { IncludeEmpty = true };
             }

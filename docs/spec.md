@@ -577,7 +577,7 @@ Add each to `verification.md` as it is worked on; mark code that depends on an o
 | Browse → Games | Games-tagged worlds, most visited first |
 | Open three worlds, Current Worlds | Three cards, focused first; Focus world and Leave work |
 | Host two public sessions of one world from two accounts | One card, session count 2 |
-| Contact hosts a contacts-only session | Appears only in Friends (and in Current Worlds for the host) |
+| Contact hosts a contacts-only session | Appears in Friends and, while a contact is in it with 1 or more active users, in Live Now (and in Current Worlds for the host) |
 | Hidden-from-listing session | Appears in no discovery lens |
 | Block a host, then Join | Engine refusal, no join |
 | Cloud offline | Live lenses and Current Worlds keep working; search shows a banner |

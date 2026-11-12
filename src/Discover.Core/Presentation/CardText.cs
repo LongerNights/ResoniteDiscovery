@@ -192,7 +192,7 @@ public static class UiStrings
         ["settings.data"] = "Your data",
         ["settings.export"] = "Export",
         ["settings.import"] = "Import",
-        ["settings.note"] = "Export writes resonite-discovery-export.json to the exports folder in your ResoniteDiscovery data folder. Import reads that file and only adds to what you have.",
+        ["settings.note"] = "What is included: your favorites, your lists (with their worlds) and your tags. Settings, hidden worlds and history are not.\n\nExport writes resonite-discovery-export.json to %APPDATA%\\ResoniteDiscovery\\<your user id>\\exports. Running it again replaces that file.\n\nTo move to another PC or account: Export here, copy the file into the same exports folder there (the folder is created on first run), then press Import in the game.\n\nImport only adds: nothing you already have is removed or overwritten, and anything already present is skipped. It is safe to press more than once.",
         ["notice.exported"] = "Exported your favorites, lists and tags.",
         ["notice.noExport"] = "No export file found in the exports folder.",
         ["notice.importFailed"] = "Could not import that file (unreadable or from a newer version).",
