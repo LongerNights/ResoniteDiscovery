@@ -103,24 +103,24 @@ internal sealed class CardView
         // translucent Button turns opaque grey when hovered (see Catcher).
         card._star = OverlayButton(ui, "★", new float2(0.82f, 0.70f), new float2(0.97f, 0.96f), out card._starLabel);
         DiscoverUi.Clamp(card._starLabel, 16f, 28f);
-        card._star.LocalPressed += (_, _) =>
+        card._star.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 actions.ToggleFavorite(card.Key);
             }
-        };
+        });
         var info = OverlayButton(ui, UiStrings.Get("card.info"), new float2(0.50f, 0.74f), new float2(0.78f, 0.96f), out var infoLabel);
         card._info = info;
         DiscoverUi.Clamp(infoLabel, 12f, 18f);
-        info.LocalPressed += (_, _) =>
+        info.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
             }
-        };
+        });
         card._organize = OverlayButton(ui, UiStrings.Get("card.organize"), new float2(0.66f, 0.04f), new float2(0.97f, 0.28f), out var organizeLabel);
         DiscoverUi.Clamp(organizeLabel, 12f, 18f);
         card._gridOverlayAnchors =
@@ -129,13 +129,13 @@ internal sealed class CardView
             (card._info.Slot.GetComponent<RectTransform>().AnchorMin.Value, card._info.Slot.GetComponent<RectTransform>().AnchorMax.Value),
             (card._organize.Slot.GetComponent<RectTransform>().AnchorMin.Value, card._organize.Slot.GetComponent<RectTransform>().AnchorMax.Value),
         ];
-        card._organize.LocalPressed += (_, _) =>
+        card._organize.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 actions.OpenOrganize(card.Key);
             }
-        };
+        });
         ui.NestOut();
 
         card._title = DiscoverUi.TextIn(ui, parts[2], Alignment.MiddleLeft, Theme.Text, 18f, 26f);
@@ -152,13 +152,13 @@ internal sealed class CardView
             var label = tag.Slot.GetComponentInChildren<Text>();
             DiscoverUi.Clamp(label, 12f, 16f);
             var index = i;
-            tag.LocalPressed += (_, _) =>
+            tag.OnTap((_, _) =>
             {
                 if (card._tags[index].Label.Content.Value is { Length: > 0 } text)
                 {
                     actions.CardTagPressed(text, card._tagPersonal[index]);
                 }
-            };
+            });
             card._tags.Add((tag, label));
         }
 
@@ -174,27 +174,27 @@ internal sealed class CardView
         card._button = ui.Button((LocaleString)UiStrings.Get("card.join"), Theme.ButtonSelected);
         card._buttonLabel = card._button.Slot.GetComponentInChildren<Text>();
         DiscoverUi.Clamp(card._buttonLabel, 13f, 17f);
-        card._button.LocalPressed += (_, _) =>
+        card._button.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 actions.CardPressed(card.Key);
             }
-        };
+        });
         ui.NestOut();
         ui.NestOut();
         ui.NestOut();
 
         // The press target over the whole card (grid mode). Direct colours, all the same: no hover tint and no opaque grey (see Catcher).
         var (catcher, press) = Theme.Catcher(ui, "Open");
-        press.LocalPressed += (_, _) =>
+        press.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 DiscoverUi.PendingOrigin = card._root;
                 actions.OpenDetails(card.Key);
             }
-        };
+        });
         card._catcher = catcher.Slot;
 
         // Quick leave for Current Worlds (a red x, top right), made after the catcher so it sits above it.
@@ -214,13 +214,13 @@ internal sealed class CardView
         }
 
         card._leave.Slot.ActiveSelf = false;
-        card._leave.LocalPressed += (_, _) =>
+        card._leave.OnTap((_, _) =>
         {
             if (card.Key is not null && !card.Stale)
             {
                 actions.LeaveWorld(card.Key);
             }
-        };
+        });
 
         // Hovering pans the 360 preview, exactly as on the stock card: its panner reads hover events from this button.
         var panner = catcher.Slot.AttachComponent<Perspective360Panner>();

@@ -623,9 +623,10 @@ internal sealed partial class DiscoverUi
 
         ui.NestInto(_bodyRect);
         var viewport = ui.Next("Results");
-        ScrollRect.CreateScrollRect(viewport, out var content);
+        _scroll = ScrollRect.CreateScrollRect(viewport, out var content);
         _viewport = viewport.GetComponent<RectTransform>();
         _viewport.AddFixedPadding(8f);
+        _viewport.OffsetMax.Value = new float2(-ScrollbarGutter, _viewport.OffsetMax.Value.y); // room for the scrollbar
         _viewportMin = _viewport.OffsetMin.Value;
         _viewportMax = _viewport.OffsetMax.Value;
 
@@ -640,6 +641,7 @@ internal sealed partial class DiscoverUi
         fitter.VerticalFit.Value = SizeFit.PreferredSize;
         fitter.HorizontalFit.Value = SizeFit.Disabled;
         _content = content;
+        BuildScrollbar(_bodyRect);
 
         // Empty state, centred over the grid; hidden while there are cards.
         var area = ui.Empty("EmptyState");
@@ -836,6 +838,7 @@ internal sealed partial class DiscoverUi
     public void PumpCards()
     {
         UpdateColumns();
+        UpdateScrollbar();
         for (var i = 0; i < _cards.Count; i++)
         {
             if (i >= _pendingIndex && i < _pendingShown)
@@ -1214,6 +1217,8 @@ internal sealed partial class DiscoverUi
         _viewport.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve, onDoneLocal: () => done());
         _scanLineRect.AnchorMin.TweenFromTo(new float2(0f, from), new float2(0f, to), seconds, curve);
         _scanLineRect.AnchorMax.TweenFromTo(new float2(1f, from), new float2(1f, to), seconds, curve);
+        // The scrollbar's bottom edge travels with the viewport's, so it is scanned away and back in with the cards.
+        _barRect.AnchorMin.TweenFromTo(new float2(1f, from), new float2(1f, to), seconds, curve);
     }
 
     /// <summary>
@@ -1252,7 +1257,9 @@ internal sealed partial class DiscoverUi
         _viewport.AnchorMin.ClearTweens();
         _scanLineRect.AnchorMin.ClearTweens();
         _scanLineRect.AnchorMax.ClearTweens();
+        _barRect.AnchorMin.ClearTweens();
         _viewport.AnchorMin.Value = float2.Zero;
+        _barRect.AnchorMin.Value = new float2(1f, 0f);
         _scanLine.ActiveSelf = false;
     }
 

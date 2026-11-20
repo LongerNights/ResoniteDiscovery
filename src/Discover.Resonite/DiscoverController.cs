@@ -582,6 +582,7 @@ internal sealed partial class DiscoverController : IBrowseActions
         _lastRefreshUtc = DateTime.MinValue;
         if (_ui is null || !_settings.AnimateTransitions)
         {
+            _ui?.ScrollToTop();
             return;
         }
 
@@ -601,6 +602,7 @@ internal sealed partial class DiscoverController : IBrowseActions
             _transitioning = false;
             try
             {
+                ui.ScrollToTop(); // the new tab starts at the top; the old cards are covered, so nothing visibly jumps
                 // This runs inside the engine's tween update, outside the tick's try/catch.
                 var now = DateTime.UtcNow;
                 _lastRefreshUtc = now;
